@@ -15,8 +15,9 @@ extension Hosting {
     /// in base 4; a capture counts only when it shows exactly that number, so no other frame is
     /// ever taken for this one. Captures take turns: one that starts while another is drawing
     /// waits for it, and `forget()` takes effect once the capture in progress is done. The window measures whole points and is captured at its own
-    /// pixel size, so the picture is never resampled. Hit testing is off, so a pointer moving
-    /// over that corner of the screen cannot hover a view in the picture.
+    /// pixel size, so the picture is never resampled. Hit testing is off, and the window drops
+    /// pointer events and reports the pointer far away, so a pointer in that corner of the screen
+    /// can hardly hover a view in the picture.
     ///
     /// It needs Screen Recording permission, and one process at a time: with several processes
     /// capturing at once, ScreenCaptureKit's calls stop returning.
@@ -92,7 +93,7 @@ extension Hosting.Window {
         if let window, let filter, window.frame.size == size { return (window, filter) }
         close()
         _ = NSApplication.shared
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = Sealed(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
         opened += 1
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: .aqua)
