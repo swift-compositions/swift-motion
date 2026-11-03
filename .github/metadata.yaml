@@ -1,0 +1,11 @@
+# .github/metadata.yaml
+description: "Render real app views to video: exact frame time, rasters, state-first scenes and a render contract, with AVFoundation, AppKit and ScreenCaptureKit adapters."
+topics:
+  - compositions
+  - video
+  - motion
+  - rendering
+homepage: "https://swift-institute.org"
+readme:
+  family: E
+platforms: apple
