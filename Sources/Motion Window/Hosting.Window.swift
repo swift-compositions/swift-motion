@@ -11,9 +11,10 @@ extension Hosting {
     /// A borderless window one level below the desktop holds a fresh hosting view each frame, so
     /// it is never seen and no state carries over. Its layer clock is frozen, so live animations
     /// such as a spinning progress view cannot tick between frames. Below the picture a one-point
-    /// fence band in pure red, green or blue encodes the frame number modulo 3; a capture counts
-    /// only when it shows this frame's fence, so a frame the window server has not yet drawn is
-    /// never taken for this one. The window measures whole points and is captured at its own
+    /// fence band of sixteen cells, each black, red, green or blue, spells the capture's own number
+    /// in base 4; a capture counts only when it shows exactly that number, so no other frame is
+    /// ever taken for this one. Captures take turns: one that starts while another is drawing
+    /// waits for it, and `forget()` takes effect once the capture in progress is done. The window measures whole points and is captured at its own
     /// pixel size, so the picture is never resampled. Hit testing is off, so a pointer moving
     /// over that corner of the screen cannot hover a view in the picture.
     ///
@@ -23,15 +24,59 @@ extension Hosting {
         static var window: NSWindow?
         static var filter: SCContentFilter?
         static var count = 0
+        static var drawing = false
+        static var waiting: [CheckedContinuation<Void, Never>] = []
+        static var forgetting = false
     }
 }
 
 extension Hosting.Window {
-    /// Closes the window, so the next frame starts from a new one.
+    /// Closes the window, so the next frame starts from a new one; during a capture, once it is done.
     public static func forget() {
+        guard !drawing else {
+            forgetting = true
+            return
+        }
         window?.close()
         window = nil
         filter = nil
+    }
+
+    static func turn() async {
+        guard drawing else {
+            drawing = true
+            return
+        }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    static func done() {
+        drawing = false
+        if forgetting {
+            forgetting = false
+            forget()
+        }
+        guard !waiting.isEmpty else { return }
+        drawing = true
+        waiting.removeFirst().resume()
+    }
+
+    /// The fence's sixteen base-4 digits for capture `number`, least significant first.
+    static func digits(_ number: Int) -> [Int] { (0..<16).map { number >> (2 * $0) & 3 } }
+
+    /// The digit a fence cell shows: black 0, red 1, green 2, blue 3, or nil for anything else.
+    static func digit(red: UInt8, green: UInt8, blue: UInt8) -> Int? {
+        switch (red > 200, green > 200, blue > 200, red < 50, green < 50, blue < 50) {
+        case (false, false, false, true, true, true): 0
+        case (true, false, false, false, true, true): 1
+        case (false, true, false, true, false, true): 2
+        case (false, false, true, true, true, false): 3
+        default: nil
+        }
+    }
+
+    static func colour(_ digit: Int) -> Color {
+        Color(.sRGB, red: digit == 1 ? 1 : 0, green: digit == 2 ? 1 : 0, blue: digit == 3 ? 1 : 0)
     }
 
     /// Pixels per point on the main screen.
@@ -68,14 +113,20 @@ extension Hosting.Window {
     /// Both sizes must be whole points on the main screen: even numbers on a Retina display.
     public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) async -> Raster? {
         let scale = scale
-        guard width % scale == 0, height % scale == 0, let (window, filter) = await ready(width: width, height: height) else { return nil }
+        guard width % scale == 0, height % scale == 0, width >= 16 * scale else { return nil }
+        await turn()
+        defer { done() }
+        guard let (window, filter) = await ready(width: width, height: height) else { return nil }
         count += 1
-        let fence = count % 3
+        let fence = digits(count)
+        let cell = Double(width) / 16
         let host = NSHostingView(
             rootView: VStack(spacing: 0) {
                 view.frame(width: Double(width), height: Double(height))
-                Color(.sRGB, red: fence == 0 ? 1 : 0, green: fence == 1 ? 1 : 0, blue: fence == 2 ? 1 : 0)
-                    .frame(width: Double(width), height: Double(scale))
+                HStack(spacing: 0) {
+                    ForEach(0..<16, id: \.self) { index in colour(fence[index]).frame(width: cell, height: Double(scale)) }
+                }
+                .frame(width: Double(width), height: Double(scale))
             }
             .allowsHitTesting(false)
             .scaleEffect(1 / Double(scale), anchor: .topLeading)
@@ -100,9 +151,12 @@ extension Hosting.Window {
             guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config),
                 let fenced = Raster(image: image)
             else { return nil }
-            let probe = ((height + scale / 2) * width + width / 2) * 4
-            let channel = [fenced.bytes[probe + 2], fenced.bytes[probe + 1], fenced.bytes[probe]]
-            if channel[fence] > 200 && channel.enumerated().allSatisfy({ $0.offset == fence || $0.element < 50 }) {
+            let row = (height + scale / 2) * width
+            let shown = (0..<16).map { index -> Int? in
+                let probe = (row + Int((Double(index) + 0.5) * cell)) * 4
+                return digit(red: fenced.bytes[probe + 2], green: fenced.bytes[probe + 1], blue: fenced.bytes[probe])
+            }
+            if shown == fence.map(Optional.some) {
                 return fenced.top(height)
             }
             // swift-linter:disable:next try optional

@@ -35,6 +35,16 @@ struct `Window Tests` {
         }
     }
 
+    @Test func `overlapping captures each get their own picture`() async throws {
+        let shades = [0.0, 1.0, 0.5, 0.2, 0.8, 0.4]
+        let captures = shades.map { shade in Task { @MainActor in await Hosting.Window.raster(Color(white: shade), width: 64, height: 36) } }
+        for (shade, capture) in zip(shades, captures) {
+            let raster = await capture.value
+            let expected = Int((shade * 255).rounded())
+            #expect(raster.map { abs(Int($0.bytes[0]) - expected) <= 1 } == true, "shade \(shade) captured as \(raster.map { "\($0.bytes[0])" } ?? "nothing")")
+        }
+    }
+
     @Test func `the picture is captured pixel for pixel: alternate one-pixel rows come back exact, to the last row`() async throws {
         let rows = VStack(spacing: 0) {
             ForEach(0..<90, id: \.self) { row in Color(white: row % 2 == 0 ? 0 : 1).frame(height: 1) }
