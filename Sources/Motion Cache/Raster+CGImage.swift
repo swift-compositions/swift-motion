@@ -1,4 +1,5 @@
 public import CoreGraphics
+import Foundation
 public import Motion
 
 extension Raster {
@@ -29,5 +30,28 @@ extension Raster {
         } catch {
             return nil
         }
+    }
+}
+
+extension Raster {
+    /// The pixels as an sRGB image, BGRA8 premultiplied.
+    public var image: CGImage? {
+        guard
+            let space = CGColorSpace(name: CGColorSpace.sRGB),
+            let provider = CGDataProvider(data: Data(packed) as CFData)
+        else { return nil }
+        return unsafe CGImage(
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: width * 4,
+            space: space,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+        )
     }
 }
