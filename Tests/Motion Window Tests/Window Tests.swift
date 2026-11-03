@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Motion
 import Motion_Window
@@ -43,8 +44,10 @@ struct `Window Tests` {
         #expect(wrong.isEmpty, "rows not exact: \(wrong)")
     }
 
-    @Test func `a size that is not whole points is refused`() async {
-        #expect(await Hosting.Window.raster(Color.white, width: 161, height: 90) == nil)
+    @Test func `a size that is not whole points is refused, and at one pixel per point every size is whole`() async {
+        let scale = Int(NSScreen.main?.backingScaleFactor ?? 1)
+        let odd = await Hosting.Window.raster(Color.white, width: 161, height: 90)
+        #expect((odd == nil) == (scale > 1), "at \(scale)x")
     }
 
     @Test func `a live animation is frozen, so it captures the same raster every time`() async throws {
