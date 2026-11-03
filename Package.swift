@@ -26,7 +26,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Rational", package: "swift-rational"),
                 .product(name: "ISO 9899", package: "swift-iso-9899"),
-                .product(name: "ITU-T H.273", package: "swift-itu-t-h-273"),
+                .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
                 .product(name: "SMPTE ST 12", package: "swift-smpte-st-12"),
                 .product(name: "Cardinal", package: "swift-cardinal"),
             ]
@@ -35,7 +35,7 @@ let package = Package(
             name: "Motion Encoding",
             dependencies: [
                 .target(name: "Motion"),
-                .product(name: "ITU-T H.273", package: "swift-itu-t-h-273"),
+                .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
             ]
         ),
         .target(
@@ -65,7 +65,7 @@ let package = Package(
                 .target(name: "Motion"),
                 .target(name: "Motion Encoding"),
                 .target(name: "Motion Cache"),
-                .product(name: "ITU-T H.273", package: "swift-itu-t-h-273"),
+                .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
             ]
         ),
         .testTarget(
