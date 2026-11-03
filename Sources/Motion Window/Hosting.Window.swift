@@ -101,11 +101,7 @@ extension Hosting.Window {
             let probe = ((height + scale / 2) * width + width / 2) * 4
             let channel = [fenced.bytes[probe + 2], fenced.bytes[probe + 1], fenced.bytes[probe]]
             if channel[fence] > 200 && channel.enumerated().allSatisfy({ $0.offset == fence || $0.element < 50 }) {
-                do throws(Raster.Error) {
-                    return try Raster(width: width, height: height, bytes: Array(fenced.bytes[0..<width * height * 4]))
-                } catch {
-                    return nil
-                }
+                return fenced.top(height)
             }
             // swift-linter:disable:next try optional
             // REASON: Task.sleep throws only on cancellation; the next capture then fails.

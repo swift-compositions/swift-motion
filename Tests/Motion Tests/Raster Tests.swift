@@ -12,8 +12,17 @@ import Testing
 
     @Test func `a raster refuses a colour brighter than its alpha, or the wrong size`() {
         #expect(throws: Raster.Error.premultiplied(x: 0, y: 0)) { try Raster(width: 1, height: 1, bytes: [200, 0, 0, 100]) }
+        #expect(throws: Raster.Error.premultiplied(x: 1, y: 1)) {
+            try Raster(width: 2, height: 2, stride: 12, bytes: [0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9] + [0, 0, 0, 0, 0, 0, 90, 80, 9, 9, 9, 9])
+        }
         #expect(throws: Raster.Error.size(3, needed: 4)) { try Raster(width: 1, height: 1, bytes: [0, 0, 0]) }
         #expect(throws: Raster.Error.stride(3, needed: 4)) { try Raster(width: 1, height: 1, stride: 3, bytes: [0, 0, 0]) }
+    }
+
+    @Test func `the top rows of a raster are its first rows, padding kept`() throws {
+        let raster = try Raster(width: 1, height: 3, stride: 8, bytes: [1, 1, 1, 255, 7, 7, 7, 7, 2, 2, 2, 255, 7, 7, 7, 7, 3, 3, 3, 255, 7, 7, 7, 7])
+        #expect(raster.top(2) == (try Raster(width: 1, height: 2, bytes: [1, 1, 1, 255, 2, 2, 2, 255])))
+        #expect(raster.top(2).stride == 8)
     }
 
     @Test func `PSNR of one channel off by one in 1920x1080 is 116.07 dB, alpha aside`() throws {

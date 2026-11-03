@@ -14,10 +14,8 @@ extension Raster {
         let stride = stride ?? width * 4
         guard stride >= width * 4 else { throw .stride(stride, needed: width * 4) }
         guard bytes.count == stride * height else { throw .size(bytes.count, needed: stride * height) }
-        for y in 0..<height {
-            for x in 0..<width where Self.over(bytes, at: y * stride + x * 4) {
-                throw .premultiplied(x: x, y: y)
-            }
+        if let offset = Self.firstOver(bytes, width: width, height: height, stride: stride) {
+            throw .premultiplied(x: offset % stride / 4, y: offset / stride)
         }
         self.width = width
         self.height = height
@@ -25,9 +23,31 @@ extension Raster {
         self.bytes = bytes
     }
 
-    static func over(_ bytes: [UInt8], at offset: Int) -> Bool {
-        let alpha = bytes[offset + 3]
-        return bytes[offset] > alpha || bytes[offset + 1] > alpha || bytes[offset + 2] > alpha
+    /// The offset of the first pixel with a colour channel above its alpha.
+    static func firstOver(_ bytes: [UInt8], width: Int, height: Int, stride: Int) -> Int? {
+        bytes.withUnsafeBufferPointer { buffer in
+            for y in 0..<height {
+                let row = y * stride
+                for offset in Swift.stride(from: row, to: row + width * 4, by: 4) {
+                    let alpha = unsafe buffer[offset + 3]
+                    if unsafe buffer[offset] > alpha || buffer[offset + 1] > alpha || buffer[offset + 2] > alpha { return offset }
+                }
+            }
+            return nil
+        }
+    }
+
+    /// The top `rows` rows. A part of a valid raster is valid, so it is not checked again.
+    public func top(_ rows: Int) -> Raster {
+        precondition(rows >= 0 && rows <= height, "a raster's top rows are within it")
+        return Raster(width: width, height: rows, stride: stride, valid: Array(bytes[0..<rows * stride]))
+    }
+
+    init(width: Int, height: Int, stride: Int, valid bytes: [UInt8]) {
+        self.width = width
+        self.height = height
+        self.stride = stride
+        self.bytes = bytes
     }
 
     /// Row `y`'s pixels, without its padding.
