@@ -27,6 +27,7 @@ extension Hosting {
         static var drawing = false
         static var waiting: [CheckedContinuation<Void, Never>] = []
         static var forgetting = false
+        static var opened = 0
     }
 }
 
@@ -37,6 +38,10 @@ extension Hosting.Window {
             forgetting = true
             return
         }
+        close()
+    }
+
+    static func close() {
         window?.close()
         window = nil
         filter = nil
@@ -54,7 +59,7 @@ extension Hosting.Window {
         drawing = false
         if forgetting {
             forgetting = false
-            forget()
+            close()
         }
         guard !waiting.isEmpty else { return }
         drawing = true
@@ -85,9 +90,10 @@ extension Hosting.Window {
     static func ready(width: Int, height: Int) async -> (NSWindow, SCContentFilter)? {
         let size = NSSize(width: width / scale, height: height / scale + 1)
         if let window, let filter, window.frame.size == size { return (window, filter) }
-        forget()
+        close()
         _ = NSApplication.shared
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        opened += 1
         window.isReleasedWhenClosed = false
         window.appearance = NSAppearance(named: .aqua)
         window.colorSpace = .sRGB

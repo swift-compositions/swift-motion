@@ -1,9 +1,10 @@
 import AppKit
 import CoreGraphics
 import Motion
-import Motion_Window
 import SwiftUI
 import Testing
+
+@testable import Motion_Window
 
 /// These tests capture the screen, so they run only where Screen Recording is granted.
 @MainActor @Suite(.enabled(if: CGPreflightScreenCaptureAccess(), "needs Screen Recording permission"), .serialized)
@@ -43,6 +44,13 @@ struct `Window Tests` {
             let expected = Int((shade * 255).rounded())
             #expect(raster.map { abs(Int($0.bytes[0]) - expected) <= 1 } == true, "shade \(shade) captured as \(raster.map { "\($0.bytes[0])" } ?? "nothing")")
         }
+    }
+
+    @Test func `captures of one size reuse one window`() async throws {
+        Hosting.Window.forget()
+        let before = Hosting.Window.opened
+        for shade in [0.2, 0.5, 0.8] { _ = try #require(await Hosting.Window.raster(Color(white: shade), width: 64, height: 36)) }
+        #expect(Hosting.Window.opened - before == 1)
     }
 
     @Test func `the picture is captured pixel for pixel: alternate one-pixel rows come back exact, to the last row`() async throws {
