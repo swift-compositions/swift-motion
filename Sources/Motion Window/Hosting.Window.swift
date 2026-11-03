@@ -14,7 +14,8 @@ extension Hosting {
     /// fence band in pure red, green or blue encodes the frame number modulo 3; a capture counts
     /// only when it shows this frame's fence, so a frame the window server has not yet drawn is
     /// never taken for this one. The window measures whole points and is captured at its own
-    /// pixel size, so the picture is never resampled.
+    /// pixel size, so the picture is never resampled. Hit testing is off, so a pointer moving
+    /// over that corner of the screen cannot hover a view in the picture.
     ///
     /// It needs Screen Recording permission, and one process at a time: with several processes
     /// capturing at once, ScreenCaptureKit's calls stop returning.
@@ -76,6 +77,7 @@ extension Hosting.Window {
                 Color(.sRGB, red: fence == 0 ? 1 : 0, green: fence == 1 ? 1 : 0, blue: fence == 2 ? 1 : 0)
                     .frame(width: Double(width), height: Double(scale))
             }
+            .allowsHitTesting(false)
             .scaleEffect(1 / Double(scale), anchor: .topLeading)
             .frame(width: Double(width / scale), height: Double(height / scale + 1), alignment: .topLeading)
         )
