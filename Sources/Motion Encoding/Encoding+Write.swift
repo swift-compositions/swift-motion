@@ -132,6 +132,7 @@ extension Encoding {
             let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
             let sound = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
         else { throw Encoding.Error.writer("\(silent.lastPathComponent) or \(sound.lastPathComponent) has no track") }
+        video.naturalTimeScale = try await frames.load(.naturalTimeScale)
         try video.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: frames, at: .zero)
         let length = min(duration, try await audio.load(.duration))
         try sound.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: samples, at: .zero)

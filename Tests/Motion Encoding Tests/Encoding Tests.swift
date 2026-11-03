@@ -66,8 +66,9 @@ import Testing
         }
     }
 
-    @Test func `muxing a sound keeps the picture's colour tag and timescale`() async throws {
-        let picture = try await Self.written(rate: .ntsc, frames: 30)
+    @Test(arguments: [(Frame.Rate.ntsc, 30000, 1001), (Frame.Rate.thirty, 30, 1)])
+    func `muxing a sound keeps the picture's colour tag, timescale and frame durations`(rate: Frame.Rate, timescale: Int, ticks: Int) async throws {
+        let picture = try await Self.written(rate: rate, frames: 30)
         let sound = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).m4a")
         let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2))
         let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48_000))
@@ -81,6 +82,7 @@ import Testing
         try await Encoding.mux(picture, sound, to: joined)
         let box = try Box(joined)
         #expect(box.colour?.codes == "1-13-1")
-        #expect(box.timescale("mdhd") == 30000)
+        #expect(box.timescale("mdhd") == timescale)
+        #expect(box.durations?.ticks == ticks)
     }
 }
