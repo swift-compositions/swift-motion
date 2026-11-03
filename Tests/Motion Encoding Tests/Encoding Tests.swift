@@ -84,5 +84,6 @@ import Testing
         #expect(box.colour?.codes == "1-13-1")
         #expect(box.timescale("mdhd") == timescale)
         #expect(box.durations?.ticks == ticks)
+        #expect(try await AVURLAsset(url: joined).load(.duration) == CMTime(value: CMTimeValue(30 * ticks), timescale: CMTimeScale(timescale)))
     }
 }
