@@ -22,8 +22,10 @@ struct `Pointer Tests` {
             let point = CGPoint(x: 40 + step * 10, y: Int(height) - 40 - step * 10)
             CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
             try await Task.sleep(for: .milliseconds(60))
-            let raster = try #require(await Hosting.Window.raster(Hovering(), width: 320, height: 180))
-            #expect(raster.bytes[0] == 255, "step \(step): the pointer hovered the view")
+            let plain = try #require(await Hosting.Window.raster(Hovering(), width: 320, height: 180))
+            let scrolled = try #require(await Hosting.Window.raster(ScrollView { Hovering().frame(width: 320, height: 180) }, width: 320, height: 180))
+            #expect(plain.bytes[0] == 255, "step \(step): the pointer hovered the view")
+            #expect(scrolled.bytes[0] == 255, "step \(step): the pointer hovered the view in a scroll view")
         }
     }
 }
