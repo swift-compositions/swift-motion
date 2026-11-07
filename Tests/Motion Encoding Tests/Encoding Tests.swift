@@ -9,7 +9,7 @@ import Testing
 @Suite struct `Encoding Tests` {
     static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster {
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
-        for y in 0..<height {
+        (0..<height).forEach { y in
             for x in 0..<width {
                 let at = (y * width + x) * 4
                 bytes[at] = UInt8(x * 255 / width)

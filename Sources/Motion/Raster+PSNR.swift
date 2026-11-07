@@ -5,7 +5,7 @@ extension Raster {
     public static func psnr(_ a: Self, _ b: Self) -> Double {
         precondition(a.width == b.width && a.height == b.height, "PSNR compares pictures of one size")
         var sum = 0.0
-        for y in 0..<a.height {
+        (0..<a.height).forEach { y in
             for (k, (p, q)) in zip(a.row(y), b.row(y)).enumerated() where k % 4 != 3 {
                 let d = Double(Int(p) - Int(q))
                 sum += d * d
