@@ -22,23 +22,14 @@ extension Hosting {
     /// It needs Screen Recording permission, and one process at a time: with several processes
     /// capturing at once, ScreenCaptureKit's calls stop returning.
     @MainActor public enum Window {
+        static var window: NSWindow?
+        static var filter: SCContentFilter?
+        static var count = 0
+        static var drawing = false
+        static var waiting: [CheckedContinuation<Void, Never>] = []
+        static var forgetting = false
+        static var opened = 0
     }
-}
-
-extension Hosting.Window {
-    static var window: NSWindow?
-
-    static var filter: SCContentFilter?
-
-    static var count = 0
-
-    static var drawing = false
-
-    static var waiting: [CheckedContinuation<Void, Never>] = []
-
-    static var forgetting = false
-
-    static var opened = 0
 }
 
 extension Hosting.Window {

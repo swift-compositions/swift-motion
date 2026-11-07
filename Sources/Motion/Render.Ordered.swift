@@ -6,17 +6,15 @@ extension Render {
         var waiting: [Int: Value] = [:]
 
         public init() {}
-    }
-}
 
-extension Render.Ordered {
-    public mutating func arrive(_ index: Int, _ value: Value) -> [Value] {
-        waiting[index] = value
-        var ready: [Value] = []
-        while let value = waiting.removeValue(forKey: next) {
-            ready.append(value)
-            next += 1
+        public mutating func arrive(_ index: Int, _ value: Value) -> [Value] {
+            waiting[index] = value
+            var ready: [Value] = []
+            while let value = waiting.removeValue(forKey: next) {
+                ready.append(value)
+                next += 1
+            }
+            return ready
         }
-        return ready
     }
 }

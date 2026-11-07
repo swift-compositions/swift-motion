@@ -9,11 +9,8 @@ extension Hosting {
     /// It needs no permission, so it serves machines without Screen Recording access. Its blur
     /// and shadows are CoreGraphics' software versions, a little different from the screen's.
     @MainActor public enum Cache {
+        static var window: NSWindow?
     }
-}
-
-extension Hosting.Cache {
-    static var window: NSWindow?
 }
 
 extension Hosting.Cache {
