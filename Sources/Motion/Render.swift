@@ -3,7 +3,7 @@ public enum Render {}
 
 extension Render {
     /// Renders each frame twice and reports the first that differs, with its PSNR.
-    public static func check(_ frames: some Sequence<Int>, render: (Int) -> Raster) -> Verdict {
+    public static func check(_ frames: some Swift.Sequence<Int>, render: (Int) -> Raster) -> Verdict {
         for frame in frames {
             let (first, second) = (render(frame), render(frame))
             if first != second { return .varies(frame: frame, psnr: Raster.psnr(first, second)) }
