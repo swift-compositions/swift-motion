@@ -2,6 +2,8 @@
 ///
 /// No colour channel exceeds its alpha, and two rasters are equal when their pixels are,
 /// whatever padding their rows carry.
+import ISO_9899
+
 public struct Raster: Sendable {
     public let width: Int
     public let height: Int
@@ -60,5 +62,22 @@ extension Raster {
 extension Raster: Equatable {
     public static func == (a: Self, b: Self) -> Bool {
         a.width == b.width && a.height == b.height && (0..<a.height).allSatisfy { a.row($0) == b.row($0) }
+    }
+}
+
+extension Raster {
+    /// Peak signal-to-noise ratio in dB over the colour channels, alpha aside; equal pictures give +∞.
+    public static func psnr(_ a: Self, _ b: Self) -> Double {
+        precondition(a.width == b.width && a.height == b.height, "PSNR compares pictures of one size")
+        var sum = 0.0
+        for y in 0..<a.height {
+            for (k, (p, q)) in zip(a.row(y), b.row(y)).enumerated() where k % 4 != 3 {
+                let d = Double(Int(p) - Int(q))
+                sum += d * d
+            }
+        }
+        guard sum > 0 else { return .infinity }
+        let mse = sum / Double(a.width * a.height * 3)
+        return 10 * ISO_9899.Math.log10(255 * 255 / mse)
     }
 }
