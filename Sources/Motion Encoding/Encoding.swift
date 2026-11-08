@@ -1,5 +1,5 @@
-public import Motion
 public import AVFoundation
+public import Motion
 
 /// How frames become an H.264 MP4: size, exact rate, colour signal and bit rate.
 ///
