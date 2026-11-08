@@ -10,7 +10,7 @@ import Testing
     static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster {
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         (0..<height).forEach { y in
-            for x in 0..<width {
+            (0..<width).forEach { x in
                 let at = (y * width + x) * 4
                 bytes[at] = UInt8(x * 255 / width)
                 bytes[at + 1] = UInt8((y * 200 / height + index * 8) % 256)

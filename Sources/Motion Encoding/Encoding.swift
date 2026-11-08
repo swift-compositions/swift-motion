@@ -122,7 +122,7 @@ extension Encoding {
             let row = raster.width * 4
             let stride = unsafe plane.properties.bytesPerRow
             raster.bytes.withUnsafeBytes { source in
-                for line in 0..<raster.height {
+                (0..<raster.height).forEach { line in
                     let start = line * raster.stride
                     unsafe UnsafeMutableRawBufferPointer(rebasing: plane.bytes[(line * stride)..<(line * stride + row)])
                         .copyMemory(from: UnsafeRawBufferPointer(rebasing: source[start..<(start + row)]))
