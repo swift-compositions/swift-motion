@@ -7,7 +7,7 @@ import Testing
         let padded = try Raster(width: 1, height: 2, stride: 8, bytes: [10, 20, 30, 255, 9, 9, 9, 9, 0, 0, 0, 0, 7, 7, 7, 7])
         #expect(tight == padded)
         #expect(padded.packed == tight.bytes)
-        #expect(Raster.psnr(tight, padded) == .infinity)
+        #expect(Raster.psnr(tight, padded) == Double.infinity)
     }
 
     @Test func `a raster refuses a colour brighter than its alpha, or the wrong size`() {
@@ -30,6 +30,14 @@ import Testing
         let a = try Raster(width: 1920, height: 1080, bytes: bytes)
         bytes[0] = 254
         let b = try Raster(width: 1920, height: 1080, bytes: bytes)
-        #expect(abs(Raster.psnr(a, b) - 116.07) < 0.01, "\(Raster.psnr(a, b))")
+        let psnr = try #require(Raster.psnr(a, b))
+        #expect(abs(psnr - 116.07) < 0.01, "\(psnr)")
+    }
+
+    @Test func `PSNR of rasters of different sizes is nil, not a trap`() throws {
+        let one = try Raster(width: 1, height: 1, bytes: [0, 0, 0, 255])
+        let two = try Raster(width: 2, height: 1, bytes: [0, 0, 0, 255, 0, 0, 0, 255])
+        #expect(Raster.psnr(one, two) == nil)
+        #expect(Raster.psnr(one, one.top(0)) == nil)
     }
 }

@@ -66,9 +66,10 @@ extension Raster: Equatable {
 }
 
 extension Raster {
-    /// Peak signal-to-noise ratio in dB over the colour channels, alpha aside; equal pictures give +∞.
-    public static func psnr(_ a: Self, _ b: Self) -> Double {
-        precondition(a.width == b.width && a.height == b.height, "PSNR compares pictures of one size")
+    /// Peak signal-to-noise ratio in dB over the colour channels, alpha aside; equal pictures give +∞,
+    /// and pictures of different sizes, which PSNR cannot compare, give `nil`.
+    public static func psnr(_ a: Self, _ b: Self) -> Double? {
+        guard a.width == b.width && a.height == b.height else { return nil }
         var sum = 0.0
         (0..<a.height).forEach { y in
             for (k, (p, q)) in zip(a.row(y), b.row(y)).enumerated() where k % 4 != 3 {
