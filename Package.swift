@@ -18,6 +18,7 @@ let package = Package(
         .library(name: "Motion Window", targets: ["Motion Window"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/swift-atoms/swift-rate.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-rational.git", branch: "main"),
         .package(url: "https://github.com/swift-iso/swift-iso-9899.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-itu-t-h-273.git", branch: "main"),
@@ -29,6 +30,7 @@ let package = Package(
         .target(
             name: "Motion",
             dependencies: [
+                .product(name: "Rate", package: "swift-rate"),
                 .product(name: "Rational", package: "swift-rational"),
                 .product(name: "ISO 9899", package: "swift-iso-9899"),
                 .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),

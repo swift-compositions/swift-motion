@@ -7,7 +7,7 @@ import Motion_Encoding
 import Testing
 
 @Suite struct `Encoding Tests` {
-    static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster<Frame.Pixel> {
+    static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster<Motion.Pixel> {
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         (0..<height).forEach { y in
             (0..<width).forEach { x in
@@ -19,12 +19,12 @@ import Testing
         }
         // swift-linter:disable:next try optional
         // REASON: an opaque gradient is always a valid raster.
-        return try! Raster<Frame.Pixel>(width: width, height: height, bytes: bytes)
+        return try! Raster<Motion.Pixel>(width: width, height: height, bytes: bytes)
     }
 
-    static func written(rate: Frame.Rate, frames: Int = 6) async throws -> URL {
+    static func written(rate: Rate, frames: Int = 6) async throws -> URL {
         let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-        try await Encoding(width: 320, height: 180, rate: rate).write(frames: frames, to: url) { gradient($0) }
+        try await Motion.Encoding(width: 320, height: 180, rate: rate).write(frames: frames, to: url) { gradient($0) }
         return url
     }
 
@@ -52,8 +52,8 @@ import Testing
         generator.requestedTimeToleranceAfter = .zero
         for index in 0..<6 {
             let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * index + 1), timescale: 60)).image
-            let decoded = try #require(Raster<Frame.Pixel>(image: image))
-            let psnr = try #require(Raster<Frame.Pixel>.psnr(decoded, Self.gradient(index)))
+            let decoded = try #require(Raster<Motion.Pixel>(image: image))
+            let psnr = try #require(decoded.psnr(against: Self.gradient(index)))
             #expect(psnr > 38, "frame \(index): \(psnr) dB")
         }
     }
@@ -61,13 +61,13 @@ import Testing
     @Test func `a signal AVFoundation cannot name is refused, not written untagged`() async {
         let signal = ITU_T_H_273.Signal(primaries: .ebu3213, transfer: .sRGB, matrix: .bt709, range: .limited)
         let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-        await #expect(throws: Encoding.Error.signal(signal)) {
-            try await Encoding(width: 320, height: 180, rate: .thirty, signal: signal).write(frames: 1, to: url) { Self.gradient($0) }
+        await #expect(throws: Motion.Encoding.Error.signal(signal)) {
+            try await Motion.Encoding(width: 320, height: 180, rate: .thirty, signal: signal).write(frames: 1, to: url) { Self.gradient($0) }
         }
     }
 
-    @Test(arguments: [(Frame.Rate.ntsc, 30000, 1001), (Frame.Rate.thirty, 30, 1)])
-    func `muxing a sound keeps the picture's colour tag, timescale and frame durations`(rate: Frame.Rate, timescale: Int, ticks: Int) async throws {
+    @Test(arguments: [(Rate.ntsc, 30000, 1001), (Rate.thirty, 30, 1)])
+    func `muxing a sound keeps the picture's colour tag, timescale and frame durations`(rate: Rate, timescale: Int, ticks: Int) async throws {
         let picture = try await Self.written(rate: rate, frames: 30)
         let sound = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).m4a")
         let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2))
@@ -79,7 +79,7 @@ import Testing
             file.close()
         }
         let joined = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-        try await Encoding.mux(picture, sound, to: joined)
+        try await Motion.Encoding.mux(picture, sound, to: joined)
         let box = try Box(joined)
         #expect(box.colour?.codes == "1-13-1")
         #expect(box.timescale("mdhd") == timescale)

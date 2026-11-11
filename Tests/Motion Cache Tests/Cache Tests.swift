@@ -13,25 +13,25 @@ import Testing
     }
 
     @Test func `the same view always renders the same raster, at the size asked`() throws {
-        let first = try #require(Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
-        let second = try #require(Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
+        let first = try #require(Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
+        let second = try #require(Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
         #expect(first.width == 320 && first.height == 180)
         #expect(first == second)
-        #expect(Render.check(0..<3) { _ in Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180) ?? second } == .deterministic)
+        #expect(Motion.Render.check(0..<3) { _ in Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180) ?? second } == .deterministic)
     }
 
     @Test func `a view's own state starts fresh in every frame`() throws {
-        let first = try #require(Hosting.Cache.raster(Remembering(shade: 0.1), width: 320, height: 180))
-        let later = try #require(Hosting.Cache.raster(Remembering(shade: 0.9), width: 320, height: 180))
-        Hosting.Cache.forget()
-        let alone = try #require(Hosting.Cache.raster(Remembering(shade: 0.9), width: 320, height: 180))
+        let first = try #require(Motion.Hosting.Cache.raster(Remembering(shade: 0.1), width: 320, height: 180))
+        let later = try #require(Motion.Hosting.Cache.raster(Remembering(shade: 0.9), width: 320, height: 180))
+        Motion.Hosting.Cache.forget()
+        let alone = try #require(Motion.Hosting.Cache.raster(Remembering(shade: 0.9), width: 320, height: 180))
         #expect(first != later)
         #expect(later == alone)
     }
 
     @Test func `a raster made into an image and back is the same raster`() throws {
-        let raster = try #require(Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
+        let raster = try #require(Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
         let image = try #require(raster.image)
-        #expect(Raster<Frame.Pixel>(image: image) == raster)
+        #expect(Raster<Motion.Pixel>(image: image) == raster)
     }
 }

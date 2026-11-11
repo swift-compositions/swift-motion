@@ -2,7 +2,7 @@ public import AppKit
 public import Motion
 public import SwiftUI
 
-extension Hosting {
+extension Motion.Hosting {
     /// Draws a view on the CPU with `cacheDisplay`, in an off-screen window, with a fresh hosting
     /// view each frame so no state or animation carries over from the previous one.
     ///
@@ -12,11 +12,11 @@ extension Hosting {
     }
 }
 
-extension Hosting.Cache {
+extension Motion.Hosting.Cache {
     static var window: NSWindow?
 }
 
-extension Hosting.Cache {
+extension Motion.Hosting.Cache {
     /// Closes the window, so the next frame starts from a new one.
     public static func forget() {
         window?.close()
@@ -70,7 +70,7 @@ extension Hosting.Cache {
         }
     }
 
-    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) -> Raster<Frame.Pixel>? {
-        image(view, width: width, height: height).flatMap(Raster<Frame.Pixel>.init(image:))
+    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) -> Raster<Motion.Pixel>? {
+        image(view, width: width, height: height).flatMap(Raster<Motion.Pixel>.init(image:))
     }
 }

@@ -4,7 +4,7 @@ import Motion_Cache
 import ScreenCaptureKit
 public import SwiftUI
 
-extension Hosting {
+extension Motion.Hosting {
     /// Draws a view the way the screen does, on the GPU through the window server, and captures it
     /// with ScreenCaptureKit.
     ///
@@ -25,7 +25,7 @@ extension Hosting {
     }
 }
 
-extension Hosting.Window {
+extension Motion.Hosting.Window {
     static var window: NSWindow?
 
     static var filter: SCContentFilter?
@@ -41,7 +41,7 @@ extension Hosting.Window {
     static var opened = 0
 }
 
-extension Hosting.Window {
+extension Motion.Hosting.Window {
     /// Closes the window, so the next frame starts from a new one; during a capture, once it is done.
     public static func forget() {
         guard !drawing else {
@@ -127,7 +127,7 @@ extension Hosting.Window {
     /// The view drawn at `width` by `height` pixels, or nil when it cannot be captured.
     ///
     /// Both sizes must be whole points on the main screen: even numbers on a Retina display.
-    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) async -> Raster<Frame.Pixel>? {
+    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) async -> Raster<Motion.Pixel>? {
         let scale = scale
         guard width % scale == 0, height % scale == 0, width >= 16 * scale else { return nil }
         await turn()
@@ -165,7 +165,7 @@ extension Hosting.Window {
             // swift-linter:disable:next try optional
             // REASON: captureImage throws untyped; a frame that cannot be captured fails as nil.
             guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config),
-                let fenced = Raster<Frame.Pixel>(image: image)
+                let fenced = Raster<Motion.Pixel>(image: image)
             else { return nil }
             let bytes = fenced.bytes
             let row = (height + scale / 2) * width
@@ -174,12 +174,24 @@ extension Hosting.Window {
                 return digit(red: bytes[probe + 2], green: bytes[probe + 1], blue: bytes[probe])
             }
             if shown == fence.map(Optional.some) {
-                return fenced.top(height)
+                return Self.picture(fenced, rows: height)
             }
             // swift-linter:disable:next try optional
             // REASON: Task.sleep throws only on cancellation; the next capture then fails.
             try? await Task.sleep(for: .milliseconds(2))
         }
         return nil
+    }
+}
+
+extension Motion.Hosting.Window {
+    /// The top `rows` rows of a capture: the picture without the fence band below it.
+    static func picture(_ fenced: Raster<Motion.Pixel>, rows: Int) -> Raster<Motion.Pixel>? {
+        guard rows >= 0 else { return nil }
+        do throws(Raster<Motion.Pixel>.Error) {
+            return try fenced.cropped(to: .init(x: 0, y: 0, width: fenced.width, height: Cardinal(UInt(rows))))
+        } catch {
+            return nil
+        }
     }
 }

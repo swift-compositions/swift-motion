@@ -1,34 +1,36 @@
 public import AVFoundation
 public import Motion
 
-/// How frames become an H.264 MP4: size, exact rate, colour signal and bit rate.
-///
-/// The movie's timescale is the rate's own numerator, so each frame lasts exactly
-/// `denominator` ticks (1001 at 30000/1001), and the `colr` box carries the H.273 signal.
-public struct Encoding: Sendable, Hashable {
-    public var width: Int
-    public var height: Int
-    public var rate: Frame.Rate
-    public var signal: ITU_T_H_273.Signal
-    public var bitRate: Int
+extension Motion {
+    /// How frames become an H.264 MP4: size, exact rate, colour signal and bit rate.
+    ///
+    /// The movie's timescale is the rate's own numerator, so each frame lasts exactly
+    /// `denominator` ticks (1001 at 30000/1001), and the `colr` box carries the H.273 signal.
+    public struct Encoding: Sendable, Hashable {
+        public var width: Int
+        public var height: Int
+        public var rate: Rate
+        public var signal: ITU_T_H_273.Signal
+        public var bitRate: Int
 
-    /// Frames rendered in sRGB, carried through the BT.709 matrix, are tagged 1-13-1 at limited range.
-    public init(
-        width: Int,
-        height: Int,
-        rate: Frame.Rate,
-        signal: ITU_T_H_273.Signal = ITU_T_H_273.Signal.sRGB.carried(by: .bt709),
-        bitRate: Int? = nil
-    ) {
-        self.width = width
-        self.height = height
-        self.rate = rate
-        self.signal = signal
-        self.bitRate = bitRate ?? width * height * 4
+        /// Frames rendered in sRGB, carried through the BT.709 matrix, are tagged 1-13-1 at limited range.
+        public init(
+            width: Int,
+            height: Int,
+            rate: Rate,
+            signal: ITU_T_H_273.Signal = ITU_T_H_273.Signal.sRGB.carried(by: .bt709),
+            bitRate: Int? = nil
+        ) {
+            self.width = width
+            self.height = height
+            self.rate = rate
+            self.signal = signal
+            self.bitRate = bitRate ?? width * height * 4
+        }
     }
 }
 
-extension Encoding {
+extension Motion.Encoding {
     /// AVFoundation's colour properties for the signal, or nil where it has no name for a code point.
     var properties: [String: String]? {
         let primaries: String? =
@@ -59,13 +61,13 @@ extension Encoding {
     }
 
     /// Encodes `count` frames, asking `raster` for each in order.
-    public func write(frames count: Int, to url: URL, raster: (Int) async -> Raster<Frame.Pixel>?) async throws(Encoding.Error) {
+    public func write(frames count: Int, to url: URL, raster: (Int) async -> Raster<Motion.Pixel>?) async throws(Motion.Encoding.Error) {
         guard let properties else { throw .signal(signal) }
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer throw untyped; their errors become Error.writer.
         do {
             try await encode(frames: count, to: url, properties: properties, raster: raster)
-        } catch let failure as Encoding.Error {
+        } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
             throw .writer("\(error)")
@@ -74,9 +76,9 @@ extension Encoding {
 
     // swift-linter:disable:next untyped throws
     // REASON: it calls AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer, which throw untyped; write(frames:to:raster:) types them.
-    func encode(frames count: Int, to url: URL, properties: [String: String], raster: (Int) async -> Raster<Frame.Pixel>?) async throws {
+    func encode(frames count: Int, to url: URL, properties: [String: String], raster: (Int) async -> Raster<Motion.Pixel>?) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
-        writer.movieTimeScale = CMTimeScale(rate.numerator)
+        writer.movieTimeScale = try timescale()
         let input = AVAssetWriterInput(
             mediaType: .video,
             outputSettings: [
@@ -90,7 +92,7 @@ extension Encoding {
                 ],
             ]
         )
-        input.mediaTimeScale = CMTimeScale(rate.numerator)
+        input.mediaTimeScale = try timescale()
         let attributes = CVPixelBufferCreationAttributes(
             pixelFormatType: CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA),
             size: CVImageSize(width: width, height: height),
@@ -100,23 +102,30 @@ extension Encoding {
         try writer.start()
         writer.startSession(atSourceTime: .zero)
         for index in 0..<count {
-            guard let frame = await raster(index), Int(bitPattern: frame.width) == width, Int(bitPattern: frame.height) == height else { throw Encoding.Error.frame(index) }
+            guard let frame = await raster(index), Int(bitPattern: frame.width) == width, Int(bitPattern: frame.height) == height else { throw Motion.Encoding.Error.frame(index) }
             var buffer = if let pool = receiver.pixelBufferPool { try pool.makeMutablePixelBuffer() } else { try CVMutablePixelBuffer(attributes) }
             Self.copy(frame, into: &buffer)
-            try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: time(of: index))
+            try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: try time(of: index))
         }
         receiver.finish()
-        writer.endSession(atSourceTime: time(of: count))
+        writer.endSession(atSourceTime: try time(of: count))
         await writer.finishWriting()
-        guard writer.status == .completed else { throw Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+        guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+    }
+
+    /// The movie's timescale: the rate's numerator in lowest terms, so a frame lasts its denominator in ticks.
+    func timescale() throws(Motion.Encoding.Error) -> CMTimeScale {
+        guard let scale = rate.perUnit.numerator.exactly(CMTimeScale.self) else { throw .rate(rate) }
+        return scale
     }
 
     /// When frame `index` starts, exactly, in the movie's timescale.
-    func time(of index: Int) -> CMTime {
-        CMTime(value: CMTimeValue(index * rate.denominator), timescale: CMTimeScale(rate.numerator))
+    func time(of index: Int) throws(Motion.Encoding.Error) -> CMTime {
+        guard let ticks = rate.perUnit.denominator.exactly(CMTimeValue.self) else { throw .rate(rate) }
+        return CMTime(value: CMTimeValue(index) * ticks, timescale: try timescale())
     }
 
-    static func copy(_ raster: Raster<Frame.Pixel>, into buffer: inout CVMutablePixelBuffer) {
+    static func copy(_ raster: Raster<Motion.Pixel>, into buffer: inout CVMutablePixelBuffer) {
         unsafe buffer.accessUnsafeMutableRawPlaneBytes { planes in
             guard let plane = unsafe planes.first else { return }
             let row = Int(bitPattern: raster.width) * 4
@@ -133,14 +142,14 @@ extension Encoding {
     }
 }
 
-extension Encoding {
+extension Motion.Encoding {
     /// Joins a silent picture and a sound into one MP4 without re-encoding either.
-    public static func mux(_ silent: URL, _ sound: URL, to url: URL) async throws(Encoding.Error) {
+    public static func mux(_ silent: URL, _ sound: URL, to url: URL) async throws(Motion.Encoding.Error) {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVMutableComposition and AVAssetExportSession throw untyped; their errors become Error.writer.
         do {
             try await join(silent, sound, to: url)
-        } catch let failure as Encoding.Error {
+        } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
             throw .writer("\(error)")
@@ -159,13 +168,13 @@ extension Encoding {
             let samples = try await audio.loadTracks(withMediaType: .audio).first,
             let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
             let sound = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-        else { throw Encoding.Error.writer("\(silent.lastPathComponent) or \(sound.lastPathComponent) has no track") }
+        else { throw Motion.Encoding.Error.writer("\(silent.lastPathComponent) or \(sound.lastPathComponent) has no track") }
         video.naturalTimeScale = try await frames.load(.naturalTimeScale)
         try video.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: frames, at: .zero)
         let length = min(duration, try await audio.load(.duration))
         try sound.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: samples, at: .zero)
         guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
-            throw Encoding.Error.writer("no passthrough export session")
+            throw Motion.Encoding.Error.writer("no passthrough export session")
         }
         session.shouldOptimizeForNetworkUse = true
         try await session.export(to: url, as: .mp4)

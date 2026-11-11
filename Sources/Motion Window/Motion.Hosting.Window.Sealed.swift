@@ -1,6 +1,6 @@
 import AppKit
 
-extension Hosting.Window {
+extension Motion.Hosting.Window {
     /// A window that drops every pointer event and reports the pointer far outside it, so no
     /// view it hosts ever learns where the pointer is.
     final class Sealed: NSWindow {

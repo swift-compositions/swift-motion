@@ -1,4 +1,4 @@
-extension Frame {
+extension Motion {
     /// One pixel of a frame: blue, green, red and alpha, eight bits each, sRGB-encoded, colour already multiplied by alpha.
     public struct Pixel: Hashable, Sendable {
         public let blue: UInt8
