@@ -8,7 +8,7 @@ import Testing
 
 @Suite struct `Encoding Tests` {
     static func gradient(_ index: Ordinal, width: Int = 320, height: Int = 180) -> Raster<Motion.Pixel>? {
-        let shift = Int(index.rawValue) * 8
+        let shift = (Int(exactly: index) ?? 0) * 8
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         (0..<height).forEach { y in
             (0..<width).forEach { x in
@@ -54,7 +54,7 @@ import Testing
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
         for index in [0, 1, 2, 3, 4, 5] as [Ordinal] {
-            let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * index.rawValue + 1), timescale: 60)).image
+            let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * (Int(exactly: index) ?? 0) + 1), timescale: 60)).image
             let decoded = try #require(Raster<Motion.Pixel>(image: image))
             let expected = try #require(Self.gradient(index))
             let psnr = try #require(decoded.psnr(against: expected))

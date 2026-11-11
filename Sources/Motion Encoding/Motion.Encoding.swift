@@ -35,14 +35,15 @@ extension Motion {
 extension Motion.Encoding {
     /// Four bits per pixel per second, stopping at the largest count.
     static func bits(width: Cardinal, height: Cardinal) -> Cardinal {
-        let (pixels, wide) = width.rawValue.multipliedReportingOverflow(by: height.rawValue)
+        guard let columns = Int(exactly: width), let rows = Int(exactly: height) else { return .max }
+        let (pixels, wide) = columns.multipliedReportingOverflow(by: rows)
         let (bits, long) = pixels.multipliedReportingOverflow(by: 4)
-        return wide || long ? .max : Cardinal(bits)
+        return wide || long ? .max : Cardinal(UInt(bits))
     }
 
     /// The width, height and bit rate as AVFoundation takes them.
     func sizes() throws(Motion.Encoding.Error) -> (width: Int, height: Int, bits: Int) {
-        guard let wide = Int(exactly: width.rawValue), let tall = Int(exactly: height.rawValue), let bits = Int(exactly: bitRate.rawValue) else {
+        guard let wide = Int(exactly: width), let tall = Int(exactly: height), let bits = Int(exactly: bitRate) else {
             throw .size(width: width, height: height, bits: bitRate)
         }
         return (wide, tall, bits)
@@ -127,7 +128,7 @@ extension Motion.Encoding {
             var buffer = if let pool = receiver.pixelBufferPool { try pool.makeMutablePixelBuffer() } else { try CVMutablePixelBuffer(attributes) }
             Self.copy(frame, into: &buffer)
             try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: try time(of: index))
-            index = index + .one
+            index += Cardinal.one
         }
         receiver.finish()
         writer.endSession(atSourceTime: try end(of: count))
@@ -143,20 +144,20 @@ extension Motion.Encoding {
 
     /// When the frame at `index` starts, exactly, in the movie's timescale.
     func time(of index: Ordinal) throws(Motion.Encoding.Error) -> CMTime {
-        try end(of: Cardinal(index.rawValue))
+        try end(of: Cardinal(index))
     }
 
     /// When `count` frames end, exactly, in the movie's timescale: `count` times the rate's denominator in ticks.
     func end(of count: Cardinal) throws(Motion.Encoding.Error) -> CMTime {
         let scale = try timescale()
-        guard let ticks = (Integer(count.rawValue) * rate.frequency.denominator).exactly(CMTimeValue.self) else { throw .length(count) }
+        guard let frames = Int(exactly: count), let ticks = (Integer(frames) * rate.frequency.denominator).exactly(CMTimeValue.self) else { throw .length(count) }
         return CMTime(value: ticks, timescale: scale)
     }
 
     static func copy(_ raster: Raster<Motion.Pixel>, into buffer: inout CVMutablePixelBuffer) {
         unsafe buffer.accessUnsafeMutableRawPlaneBytes { planes in
             guard let plane = unsafe planes.first else { return }
-            guard let columns = Int(exactly: raster.width.rawValue), let rows = Int(exactly: raster.height.rawValue) else { return }
+            guard let columns = Int(exactly: raster.width), let rows = Int(exactly: raster.height) else { return }
             let row = columns * 4
             let stride = unsafe plane.properties.bytesPerRow
             raster.bytes.withUnsafeBytes { source in

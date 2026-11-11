@@ -16,7 +16,7 @@ import Testing
     @Test func `the render contract catches a renderer that remembers the previous frame`() throws {
         let shades = try Self.shades()
         let memory = Memory()
-        let honest = Motion.Render.check(first: 3) { frame in shades[Int(frame.rawValue)] }
+        let honest = Motion.Render.check(first: 3) { frame in shades[Int(bitPattern: frame)] }
         let remembering = Motion.Render.check(first: 3) { _ in
             memory.count += 1
             return shades[memory.count]
@@ -49,10 +49,11 @@ import Testing
         let psnr = try #require(shades[1].psnr(against: shades[2]))
         #expect(verdict == .varies(frame: 7, psnr: psnr))
         var counted: [Ordinal] = []
-        #expect(Motion.Render.check(first: 3) { frame in
+        let steady = Motion.Render.check(first: 3) { frame in
             counted.append(frame)
             return shades[0]
-        } == .deterministic)
+        }
+        #expect(steady == .deterministic)
         #expect(counted == [0, 0, 1, 1, 2, 2])
     }
 }

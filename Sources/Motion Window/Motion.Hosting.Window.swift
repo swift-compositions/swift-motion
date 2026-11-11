@@ -129,7 +129,7 @@ extension Motion.Hosting.Window {
     /// Both sizes must be whole points on the main screen: even numbers on a Retina display. A size
     /// beyond 32 bits, more than the window server can be told, is nil too.
     public static func raster(_ view: some SwiftUI.View, width: Cardinal, height: Cardinal) async -> Raster<Motion.Pixel>? {
-        guard let width = Int32(exactly: width.rawValue).map(Int.init), let height = Int32(exactly: height.rawValue).map(Int.init) else { return nil }
+        guard let width = Int(exactly: width), let height = Int(exactly: height), width <= Int(Int32.max), height <= Int(Int32.max) else { return nil }
         let scale = scale
         guard width % scale == 0, height % scale == 0, width >= 16 * scale else { return nil }
         await turn()

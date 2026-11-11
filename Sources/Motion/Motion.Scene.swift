@@ -17,11 +17,12 @@ extension Motion {
 }
 
 extension Motion.Scene {
-    /// The distinct states in first-shown order, and which of them each frame shows.
+    /// The distinct states in first-shown order, and which of them each frame shows. No plan holds more
+    /// frames than an array can.
     public var plan: Plan {
         var index: [State: Ordinal] = [:]
         var states: [State] = []
-        let shows = (0..<frames.rawValue).map { frame in
+        let shows = (0..<Int(clamping: frames)).map { frame in
             let state = state(rate.centre(of: Integer(frame)))
             if let known = index[state] { return known }
             let position = Ordinal(UInt(states.count))

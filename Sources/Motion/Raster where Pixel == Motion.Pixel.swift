@@ -6,10 +6,10 @@ extension Raster where Pixel == Motion.Pixel {
     /// Reads `height` rows of `width` pixels from bytes in blue, green, red, alpha order, rows `stride` bytes apart.
     /// Row padding is dropped. Without a `stride` the rows are packed, `width × 4` bytes apart.
     public init(width: Cardinal, height: Cardinal, stride: Cardinal? = nil, bytes: [UInt8]) throws(Motion.Pixel.Error) {
-        guard let columns = Int(exactly: width.rawValue), let rows = Int(exactly: height.rawValue) else { throw .overflow }
+        guard let columns = Int(exactly: width), let rows = Int(exactly: height) else { throw .overflow }
         let (row, wide) = columns.multipliedReportingOverflow(by: 4)
         guard !wide else { throw .overflow }
-        guard let step = stride.map({ Int(exactly: $0.rawValue) }) ?? row else { throw .overflow }
+        guard let step = stride.map({ Int(exactly: $0) }) ?? row else { throw .overflow }
         guard step >= row else { throw .stride(Cardinal(UInt(step)), needed: Cardinal(UInt(row))) }
         let (needed, long) = step.multipliedReportingOverflow(by: rows)
         guard !long else { throw .overflow }

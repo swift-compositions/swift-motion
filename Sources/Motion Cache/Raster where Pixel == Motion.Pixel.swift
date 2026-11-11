@@ -38,8 +38,8 @@ extension Raster where Pixel == Motion.Pixel {
     /// The pixels as an sRGB image, BGRA8 premultiplied.
     public var image: CGImage? {
         guard
-            let wide = Int(exactly: width.rawValue),
-            let tall = Int(exactly: height.rawValue),
+            let wide = Int(exactly: width),
+            let tall = Int(exactly: height),
             let space = CGColorSpace(name: CGColorSpace.sRGB),
             let provider = CGDataProvider(data: Data(bytes) as CFData)
         else { return nil }
