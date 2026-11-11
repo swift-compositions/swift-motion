@@ -53,7 +53,7 @@ import Testing
         for index in 0..<6 {
             let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * index + 1), timescale: 60)).image
             let decoded = try #require(Raster(image: image))
-            let psnr = Raster.psnr(decoded, Self.gradient(index))
+            let psnr = try #require(Raster.psnr(decoded, Self.gradient(index)))
             #expect(psnr > 38, "frame \(index): \(psnr) dB")
         }
     }
