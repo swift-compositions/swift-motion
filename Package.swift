@@ -20,7 +20,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/swift-atoms/swift-rate.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-rational.git", branch: "main"),
-        .package(url: "https://github.com/swift-iso/swift-iso-9899.git", branch: "main"),
+        .package(url: "https://github.com/swift-atoms/swift-numeric.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-itu-t-h-273.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-smpte-st-12.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-cardinal.git", branch: "main"),
@@ -32,7 +32,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Rate", package: "swift-rate"),
                 .product(name: "Rational", package: "swift-rational"),
-                .product(name: "ISO 9899", package: "swift-iso-9899"),
+                .product(name: "Numeric", package: "swift-numeric"),
                 .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
                 .product(name: "SMPTE ST 12", package: "swift-smpte-st-12"),
                 .product(name: "Cardinal", package: "swift-cardinal"),

@@ -1,4 +1,4 @@
-import ISO_9899
+import Numeric
 public import Raster
 
 /// A frame's picture is a `Raster<Motion.Pixel>`: BGRA8 pixels, premultiplied, in sRGB, stored packed.
@@ -33,12 +33,9 @@ extension Raster where Pixel == Motion.Pixel {
     /// Peak signal-to-noise ratio in dB over the colour channels, alpha aside; equal pictures give +∞,
     /// and pictures of different sizes, which PSNR cannot compare, give `nil`.
     public func psnr(against other: Self) -> Double? {
-        guard width == other.width, height == other.height else { return nil }
-        let mean = mean(against: other) { p, q -> Double in
+        psnr(against: other, peak: 255) { p, q in
             let (blue, green, red) = (Int(p.blue) - Int(q.blue), Int(p.green) - Int(q.green), Int(p.red) - Int(q.red))
             return Double(blue * blue + green * green + red * red) / 3
         }
-        guard let mean, mean > 0 else { return .infinity }
-        return 10 * ISO_9899.Math.log10(255 * 255 / mean)
     }
 }
