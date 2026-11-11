@@ -23,6 +23,7 @@ let package = Package(
         .package(url: "https://github.com/swift-standards/swift-itu-t-h-273.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-smpte-st-12.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-cardinal.git", branch: "main"),
+        .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -33,6 +34,7 @@ let package = Package(
                 .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
                 .product(name: "SMPTE ST 12", package: "swift-smpte-st-12"),
                 .product(name: "Cardinal", package: "swift-cardinal"),
+                .product(name: "Raster", package: "swift-raster"),
             ]
         ),
         .target(

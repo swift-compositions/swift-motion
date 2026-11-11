@@ -7,7 +7,7 @@ import Motion_Encoding
 import Testing
 
 @Suite struct `Encoding Tests` {
-    static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster {
+    static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster<Frame.Pixel> {
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         (0..<height).forEach { y in
             (0..<width).forEach { x in
@@ -19,7 +19,7 @@ import Testing
         }
         // swift-linter:disable:next try optional
         // REASON: an opaque gradient is always a valid raster.
-        return try! Raster(width: width, height: height, bytes: bytes)
+        return try! Raster<Frame.Pixel>(width: width, height: height, bytes: bytes)
     }
 
     static func written(rate: Frame.Rate, frames: Int = 6) async throws -> URL {
@@ -52,8 +52,8 @@ import Testing
         generator.requestedTimeToleranceAfter = .zero
         for index in 0..<6 {
             let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * index + 1), timescale: 60)).image
-            let decoded = try #require(Raster(image: image))
-            let psnr = try #require(Raster.psnr(decoded, Self.gradient(index)))
+            let decoded = try #require(Raster<Frame.Pixel>(image: image))
+            let psnr = try #require(Raster<Frame.Pixel>.psnr(decoded, Self.gradient(index)))
             #expect(psnr > 38, "frame \(index): \(psnr) dB")
         }
     }

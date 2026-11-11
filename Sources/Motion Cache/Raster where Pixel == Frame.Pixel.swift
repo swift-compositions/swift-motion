@@ -2,7 +2,7 @@ public import CoreGraphics
 import Foundation
 public import Motion
 
-extension Raster {
+extension Raster where Pixel == Frame.Pixel {
     /// The image's pixels in sRGB, BGRA8 premultiplied, packed.
     public init?(image: CGImage) {
         var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
@@ -25,7 +25,7 @@ extension Raster {
             return true
         }
         guard drawn else { return nil }
-        do throws(Raster.Error) {
+        do throws(Frame.Pixel.Error) {
             try self.init(width: image.width, height: image.height, bytes: bytes)
         } catch {
             return nil
@@ -33,19 +33,19 @@ extension Raster {
     }
 }
 
-extension Raster {
+extension Raster where Pixel == Frame.Pixel {
     /// The pixels as an sRGB image, BGRA8 premultiplied.
     public var image: CGImage? {
         guard
             let space = CGColorSpace(name: CGColorSpace.sRGB),
-            let provider = CGDataProvider(data: Data(packed) as CFData)
+            let provider = CGDataProvider(data: Data(bytes) as CFData)
         else { return nil }
         return unsafe CGImage(
-            width: width,
-            height: height,
+            width: Int(bitPattern: width),
+            height: Int(bitPattern: height),
             bitsPerComponent: 8,
             bitsPerPixel: 32,
-            bytesPerRow: width * 4,
+            bytesPerRow: Int(bitPattern: width) * 4,
             space: space,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
             provider: provider,

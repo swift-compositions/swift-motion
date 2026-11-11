@@ -59,7 +59,7 @@ extension Encoding {
     }
 
     /// Encodes `count` frames, asking `raster` for each in order.
-    public func write(frames count: Int, to url: URL, raster: (Int) async -> Raster?) async throws(Encoding.Error) {
+    public func write(frames count: Int, to url: URL, raster: (Int) async -> Raster<Frame.Pixel>?) async throws(Encoding.Error) {
         guard let properties else { throw .signal(signal) }
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer throw untyped; their errors become Error.writer.
@@ -74,7 +74,7 @@ extension Encoding {
 
     // swift-linter:disable:next untyped throws
     // REASON: it calls AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer, which throw untyped; write(frames:to:raster:) types them.
-    func encode(frames count: Int, to url: URL, properties: [String: String], raster: (Int) async -> Raster?) async throws {
+    func encode(frames count: Int, to url: URL, properties: [String: String], raster: (Int) async -> Raster<Frame.Pixel>?) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.movieTimeScale = CMTimeScale(rate.numerator)
         let input = AVAssetWriterInput(
@@ -100,7 +100,7 @@ extension Encoding {
         try writer.start()
         writer.startSession(atSourceTime: .zero)
         for index in 0..<count {
-            guard let frame = await raster(index), frame.width == width, frame.height == height else { throw Encoding.Error.frame(index) }
+            guard let frame = await raster(index), Int(bitPattern: frame.width) == width, Int(bitPattern: frame.height) == height else { throw Encoding.Error.frame(index) }
             var buffer = if let pool = receiver.pixelBufferPool { try pool.makeMutablePixelBuffer() } else { try CVMutablePixelBuffer(attributes) }
             Self.copy(frame, into: &buffer)
             try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: time(of: index))
@@ -116,14 +116,15 @@ extension Encoding {
         CMTime(value: CMTimeValue(index * rate.denominator), timescale: CMTimeScale(rate.numerator))
     }
 
-    static func copy(_ raster: Raster, into buffer: inout CVMutablePixelBuffer) {
+    static func copy(_ raster: Raster<Frame.Pixel>, into buffer: inout CVMutablePixelBuffer) {
         unsafe buffer.accessUnsafeMutableRawPlaneBytes { planes in
             guard let plane = unsafe planes.first else { return }
-            let row = raster.width * 4
+            let row = Int(bitPattern: raster.width) * 4
+            let rows = Int(bitPattern: raster.height)
             let stride = unsafe plane.properties.bytesPerRow
             raster.bytes.withUnsafeBytes { source in
-                (0..<raster.height).forEach { line in
-                    let start = line * raster.stride
+                (0..<rows).forEach { line in
+                    let start = line * row
                     unsafe UnsafeMutableRawBufferPointer(rebasing: plane.bytes[(line * stride)..<(line * stride + row)])
                         .copyMemory(from: UnsafeRawBufferPointer(rebasing: source[start..<(start + row)]))
                 }

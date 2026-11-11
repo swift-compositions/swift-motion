@@ -26,7 +26,7 @@ struct `Window Tests` {
 
     @Test func `each capture shows its own frame, never the one before`() async throws {
         let shades = [0.0, 1.0, 0.2, 0.8, 0.5, 0.0, 1.0, 0.3]
-        var captured: [Raster] = []
+        var captured: [Raster<Frame.Pixel>] = []
         for shade in shades {
             captured.append(try #require(await Hosting.Window.raster(Color(white: shade), width: 64, height: 36)))
         }
@@ -58,7 +58,8 @@ struct `Window Tests` {
             ForEach(0..<90, id: \.self) { row in Color(white: row % 2 == 0 ? 0 : 1).frame(height: 1) }
         }
         let raster = try #require(await Hosting.Window.raster(rows, width: 160, height: 90))
-        let wrong = (0..<90).filter { row in raster.row(row).enumerated().contains { $0.offset % 4 != 3 && $0.element != (row % 2 == 0 ? 0 : 255) } }
+        let bytes = raster.bytes
+        let wrong = (0..<90).filter { row in bytes[(row * 640)..<((row + 1) * 640)].enumerated().contains { $0.offset % 4 != 3 && $0.element != (row % 2 == 0 ? 0 : 255) } }
         #expect(wrong.isEmpty, "rows not exact: \(wrong)")
     }
 

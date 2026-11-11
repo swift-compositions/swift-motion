@@ -127,7 +127,7 @@ extension Hosting.Window {
     /// The view drawn at `width` by `height` pixels, or nil when it cannot be captured.
     ///
     /// Both sizes must be whole points on the main screen: even numbers on a Retina display.
-    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) async -> Raster? {
+    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) async -> Raster<Frame.Pixel>? {
         let scale = scale
         guard width % scale == 0, height % scale == 0, width >= 16 * scale else { return nil }
         await turn()
@@ -165,12 +165,13 @@ extension Hosting.Window {
             // swift-linter:disable:next try optional
             // REASON: captureImage throws untyped; a frame that cannot be captured fails as nil.
             guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config),
-                let fenced = Raster(image: image)
+                let fenced = Raster<Frame.Pixel>(image: image)
             else { return nil }
+            let bytes = fenced.bytes
             let row = (height + scale / 2) * width
             let shown = (0..<16).map { index -> Int? in
                 let probe = (row + Int((Double(index) + 0.5) * cell)) * 4
-                return digit(red: fenced.bytes[probe + 2], green: fenced.bytes[probe + 1], blue: fenced.bytes[probe])
+                return digit(red: bytes[probe + 2], green: bytes[probe + 1], blue: bytes[probe])
             }
             if shown == fence.map(Optional.some) {
                 return fenced.top(height)

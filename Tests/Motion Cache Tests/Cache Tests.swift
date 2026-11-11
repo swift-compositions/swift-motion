@@ -32,6 +32,6 @@ import Testing
     @Test func `a raster made into an image and back is the same raster`() throws {
         let raster = try #require(Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
         let image = try #require(raster.image)
-        #expect(Raster(image: image) == raster)
+        #expect(Raster<Frame.Pixel>(image: image) == raster)
     }
 }

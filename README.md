@@ -1,6 +1,6 @@
 # swift-motion
 
-Use this package when you render a video frame by frame from SwiftUI views on macOS and need exact timing and a correctly tagged MP4. Describe the animation as a `Scene` at a `Frame.Rate`, draw each state with `Hosting.Cache` or `Hosting.Window` into a `Raster`, and write the frames with `Encoding`. For timecodes alone use swift-smpte-st-12, and for colour signal code points use swift-itu-t-h-273.
+Use this package when you render a video frame by frame from SwiftUI views on macOS and need exact timing and a correctly tagged MP4. Describe the animation as a `Scene` at a `Frame.Rate`, draw each state with `Hosting.Cache` or `Hosting.Window` into a `Raster<Frame.Pixel>`, and write the frames with `Encoding`. For timecodes alone use swift-smpte-st-12, and for colour signal code points use swift-itu-t-h-273.
 
 ## Laws
 
@@ -9,7 +9,7 @@ Use this package when you render a video frame by frame from SwiftUI views on ma
 - `Frame.Rate.timecode(of:)` is drop-frame at 30000/1001 and 60000/1001, non-drop at whole rates, and nil at a rate SMPTE ST 12 has no nominal rate for, such as 15.
 - `Scene.plan` samples the state at the centre of each frame. It lists each distinct state once, in the order first shown, so each is drawn only once.
 - `Render.check(_:render:)` renders every frame twice and reports the first that differs, with the PSNR between the two. `Render.Ordered` hands on frames that finish out of order in order, each as soon as all frames before it have arrived.
-- A `Raster` is BGRA8, premultiplied, in sRGB. One with a colour channel above its alpha is refused. Two rasters are equal when their pixels are, whatever padding their rows carry, and `Raster.top(_:)` keeps the padding.
+- A frame's picture is a `Raster<Frame.Pixel>`: the `Raster` of swift-raster, which this package re-exports, over `Frame.Pixel`, the BGRA8, premultiplied, sRGB pixel. The pixel type says what the numbers mean, and the molecule's cropping, sampling, resampling, warping, convolution, `map`, `zip` and `reduce` apply. This package declares no `Raster` of its own. A `Frame.Pixel` with a colour channel above its alpha cannot be made. `Raster(width:height:stride:bytes:)` reads bytes in blue, green, red, alpha order at any row stride, drops the padding, and refuses a wrong stride or size or a pixel brighter than its alpha with a `Frame.Pixel.Error`. `bytes` gives the pixels back packed, `width × 4` bytes a row, and `top(_:)` is the first rows. Two rasters are equal when their sizes and pixels are.
 - `Raster.psnr(_:_:)` compares colour channels only and leaves alpha aside. Equal pictures give infinity.
 - `Encoding` writes H.264 into MP4. The movie's timescale is the rate's numerator, so every frame lasts exactly the denominator in ticks: 1001 of 30000 at 29.97. By default frames are tagged 1-13-1 at limited range, sRGB carried through the BT.709 matrix, at a bit rate of four bits per pixel per second.
 - A signal AVFoundation has no name for, or one at full range, is refused before anything is written, rather than written untagged. A frame that is missing or of another size stops the write.

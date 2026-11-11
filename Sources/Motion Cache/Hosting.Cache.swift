@@ -70,7 +70,7 @@ extension Hosting.Cache {
         }
     }
 
-    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) -> Raster? {
-        image(view, width: width, height: height).flatMap(Raster.init(image:))
+    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) -> Raster<Frame.Pixel>? {
+        image(view, width: width, height: height).flatMap(Raster<Frame.Pixel>.init(image:))
     }
 }
