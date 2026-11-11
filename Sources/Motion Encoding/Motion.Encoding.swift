@@ -115,13 +115,13 @@ extension Motion.Encoding {
 
     /// The movie's timescale: the rate's numerator in lowest terms, so a frame lasts its denominator in ticks.
     func timescale() throws(Motion.Encoding.Error) -> CMTimeScale {
-        guard let scale = rate.perUnit.numerator.exactly(CMTimeScale.self) else { throw .rate(rate) }
+        guard let scale = rate.frequency.numerator.exactly(CMTimeScale.self) else { throw .rate(rate) }
         return scale
     }
 
     /// When frame `index` starts, exactly, in the movie's timescale.
     func time(of index: Int) throws(Motion.Encoding.Error) -> CMTime {
-        guard let ticks = rate.perUnit.denominator.exactly(CMTimeValue.self) else { throw .rate(rate) }
+        guard let ticks = rate.frequency.denominator.exactly(CMTimeValue.self) else { throw .rate(rate) }
         return CMTime(value: CMTimeValue(index) * ticks, timescale: try timescale())
     }
 

@@ -3,8 +3,8 @@ import Testing
 
 @Suite struct `Rate Tests` {
     @Test func `the video rates are exact fractions in lowest terms`() throws {
-        #expect(Rate.ntsc.perUnit == (try Rational(numerator: 30000, denominator: 1001)))
-        #expect(Rate.film.perUnit == (try Rational(numerator: 24000, denominator: 1001)))
+        #expect(Rate.ntsc.frequency == (try Rational(numerator: 30000, denominator: 1001)))
+        #expect(Rate.film.frequency == (try Rational(numerator: 24000, denominator: 1001)))
         #expect(Rate.thirty == (try Rate(60, per: 2)))
     }
 
