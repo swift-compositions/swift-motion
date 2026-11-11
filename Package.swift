@@ -16,6 +16,8 @@ let package = Package(
         .library(name: "Motion Encoding", targets: ["Motion Encoding"]),
         .library(name: "Motion Cache", targets: ["Motion Cache"]),
         .library(name: "Motion Window", targets: ["Motion Window"]),
+        .library(name: "Motion Clock", targets: ["Motion Clock"]),
+        .library(name: "Motion Clock Shims", type: .dynamic, targets: ["Motion Clock Shims"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swift-atoms/swift-rate.git", branch: "main"),
@@ -57,6 +59,36 @@ let package = Package(
             dependencies: [
                 .target(name: "Motion"),
                 .target(name: "Motion Cache"),
+                .target(name: "Motion Clock"),
+            ]
+        ),
+        .target(
+            name: "Motion Clock Shims",
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("QuartzCore")]
+        ),
+        .target(
+            name: "Motion Clock",
+            dependencies: [
+                .target(name: "Motion")
+            ]
+        ),
+        .executableTarget(
+            name: "Motion Fixture",
+            dependencies: [
+                .target(name: "Motion"),
+                .target(name: "Motion Clock"),
+                .target(name: "Motion Window"),
+            ],
+            path: "Tests/Motion Fixture"
+        ),
+        .testTarget(
+            name: "Motion Clock Tests",
+            dependencies: [
+                .target(name: "Motion"),
+                .target(name: "Motion Clock"),
+                .target(name: "Motion Window"),
+                .target(name: "Motion Fixture"),
             ]
         ),
         .testTarget(

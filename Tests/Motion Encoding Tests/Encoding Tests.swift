@@ -62,6 +62,58 @@ import Testing
         }
     }
 
+    @Test func `a movie reads back as what was written: codec, size, frames, exact length, colour tag and sound`() async throws {
+        let silent = try await Self.written(rate: .ntsc)
+        let inspection = try await Motion.Encoding.Inspection(of: silent)
+        #expect(inspection.codec == "avc1")
+        #expect(inspection.width == 320 && inspection.height == 180)
+        #expect(inspection.frames == 6)
+        let length = try Rational(numerator: 6006, denominator: 30000)
+        #expect(inspection.duration == length)
+        #expect(inspection.signal == ITU_T_H_273.Signal.sRGB.carried(by: .bt709))
+        #expect(inspection.sounds == 0)
+        let longer = try await Motion.Encoding.Inspection(of: try await Self.written(rate: .thirty, frames: 9))
+        let tenths = try Rational(numerator: 3, denominator: 10)
+        #expect(longer.frames == 9 && longer.duration == tenths)
+    }
+
+    @Test func `a file that is no movie fails to read back with a typed failure`() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+        try Data("not a movie".utf8).write(to: url)
+        do throws(Motion.Encoding.Error) {
+            _ = try await Motion.Encoding.Inspection(of: url)
+            Issue.record("a file that is no movie was inspected")
+        } catch {
+            guard case .reader = error else {
+                Issue.record("\(error)")
+                return
+            }
+        }
+        do throws(Motion.Encoding.Error) {
+            try await Motion.Encoding.read(url) { _, _ in }
+            Issue.record("a file that is no movie was decoded")
+        } catch {
+            guard case .reader = error else {
+                Issue.record("\(error)")
+                return
+            }
+        }
+    }
+
+    @Test func `reading a movie hands back every frame in order, each within encoder noise of its raster`() async throws {
+        let url = try await Self.written(rate: .ntsc)
+        var seen: [Ordinal] = []
+        var lowest = Double.infinity
+        let count = try await Motion.Encoding.read(url) { frame, raster in
+            seen.append(frame)
+            let psnr = Self.gradient(frame).flatMap { raster.psnr(against: $0) } ?? 0
+            lowest = min(lowest, psnr)
+        }
+        #expect(count == 6)
+        #expect(seen == [0, 1, 2, 3, 4, 5])
+        #expect(lowest > 38, "\(lowest) dB")
+    }
+
     @Test func `a signal AVFoundation cannot name is refused, not written untagged`() async {
         let signal = ITU_T_H_273.Signal(primaries: .ebu3213, transfer: .sRGB, matrix: .bt709, range: .limited)
         let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
@@ -137,6 +189,8 @@ import Testing
         #expect(box.colour?.codes == "1-13-1")
         #expect(box.timescale("mdhd") == timescale)
         #expect(box.durations?.ticks == ticks)
+        let sounds = try await Motion.Encoding.Inspection(of: joined).sounds
+        #expect(sounds == 1)
         #expect(try await AVURLAsset(url: joined).load(.duration) == CMTime(value: CMTimeValue(30 * ticks), timescale: CMTimeScale(timescale)))
     }
 }

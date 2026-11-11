@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Motion
+import Motion_Cache
 import SwiftUI
 import Testing
 
@@ -92,5 +93,22 @@ struct `Window Tests` {
         let alone = try #require(await Motion.Hosting.Window.raster(Remembering(shade: 0.9), width: 320, height: 180))
         #expect(first != later)
         #expect(later == alone)
+    }
+
+    @Test func `a live capture counts only when it has the picture's size and its band spells the frame's own number`() throws {
+        let digits = Motion.Hosting.Window.digits(27)
+        let colours: [[UInt8]] = [[0, 0, 0, 255], [0, 0, 255, 255], [0, 255, 0, 255], [255, 0, 0, 255]]
+        let band = (0..<64).flatMap { x in colours[digits[x / 4]] }
+        let fenced = try Raster<Motion.Pixel>(width: 64, height: 10, bytes: [UInt8](repeating: 255, count: 64 * 8 * 4) + band + band)
+        let image = try #require(fenced.image)
+        #expect(Motion.Hosting.Live.shows(image, number: 27, width: 64, height: 8, scale: 2))
+        #expect(!Motion.Hosting.Live.shows(image, number: 26, width: 64, height: 8, scale: 2))
+        #expect(!Motion.Hosting.Live.shows(image, number: 27 + 1 << 30, width: 64, height: 8, scale: 2))
+        #expect(!Motion.Hosting.Live.shows(image, number: 27, width: 64, height: 6, scale: 2))
+        #expect(!Motion.Hosting.Live.shows(image, number: 27, width: 32, height: 8, scale: 2))
+        let taller = try Raster<Motion.Pixel>(width: 64, height: 12, bytes: fenced.bytes + band + band)
+        #expect(!Motion.Hosting.Live.shows(try #require(taller.image), number: 27, width: 64, height: 8, scale: 2))
+        let wider = try Raster<Motion.Pixel>(width: 128, height: 10, bytes: (0..<10).flatMap { row in Array(fenced.bytes[(row * 256)..<((row + 1) * 256)]) + [UInt8](repeating: 255, count: 256) })
+        #expect(!Motion.Hosting.Live.shows(try #require(wider.image), number: 27, width: 64, height: 8, scale: 2))
     }
 }

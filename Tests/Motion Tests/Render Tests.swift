@@ -56,4 +56,23 @@ import Testing
         #expect(steady == .deterministic)
         #expect(counted == [0, 0, 1, 1, 2, 2])
     }
+
+    @Test func `two renders compare frame by frame: the same pictures, the lowest PSNR and where, sizes that changed, frames left over`() throws {
+        let shades = try Self.shades()
+        let wide = Raster<Motion.Pixel>(width: 2, height: 1, repeating: shades[0].pixels[0])
+        let same = Motion.Render.Comparison(shades[0...3], shades[0...3])
+        #expect(same.frames == 4 && same.identical == 4 && same.lowest == nil && same.resized.isEmpty && same.unmatched == 0)
+        let comparison = Motion.Render.Comparison([shades[0], shades[1], shades[2], wide, shades[4], shades[5]], [shades[0], shades[2], shades[9], shades[3], shades[5]])
+        let far = try #require(shades[2].psnr(against: shades[9]))
+        let near = try #require(shades[1].psnr(against: shades[2]))
+        #expect(far < near)
+        #expect(comparison.frames == 5)
+        #expect(comparison.identical == 1)
+        #expect(comparison.lowest == Motion.Render.Comparison.Lowest(frame: 2, psnr: far))
+        #expect(comparison.resized == [3])
+        #expect(comparison.unmatched == 1)
+        let tied = Motion.Render.Comparison([shades[0], shades[1], shades[1]], [shades[0], shades[2], shades[2]])
+        #expect(tied.lowest == Motion.Render.Comparison.Lowest(frame: 1, psnr: near))
+        #expect(Motion.Render.Comparison([], shades[0...2]).unmatched == 3)
+    }
 }

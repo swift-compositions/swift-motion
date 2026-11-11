@@ -13,5 +13,7 @@ extension Motion.Encoding {
         /// This many frames end later than the movie's timescale can say.
         case length(Cardinal)
         case writer(String)
+        /// The movie could not be read back.
+        case reader(String)
     }
 }

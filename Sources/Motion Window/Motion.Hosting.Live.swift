@@ -1,0 +1,223 @@
+import AppKit
+import Dispatch
+public import Motion
+import Motion_Cache
+import Motion_Clock
+import ScreenCaptureKit
+public import SwiftUI
+
+extension Motion.Hosting {
+    /// Hosts one live view for a whole run of frames and steps its time, so the view's own animations
+    /// advance by exactly one frame per frame and never with the wall clock.
+    ///
+    /// Where `Window` gives each frame a fresh view, `Live` keeps one: state, running animations and
+    /// effects carry over, as in the app the view comes from. The view first runs on the machine's clock
+    /// for a warm-up, so what it does on appearing is over. Then the process's clock is frozen through
+    /// `Motion.Clock` and the host's layer time is stopped. Each `frame` applies the caller's change,
+    /// draws it, gives the run loop some wall time, captures the window until a capture shows this
+    /// frame's fence and the next capture is the same picture, and only then moves the clock and the
+    /// layer time to the start of the next frame.
+    ///
+    /// It needs Screen Recording permission, one capturing process at a time, and the `Motion Clock Shims`
+    /// library in the process from launch.
+    @MainActor public final class Live {
+        let window: NSWindow
+        let host: NSView
+        let filter: SCContentFilter
+        let fence: Fence
+        let clock: Motion.Clock
+        let origin: Duration
+        let width: Int
+        let height: Int
+        let scale: Int
+        let settle: Duration
+
+        /// The rate frames are stepped at.
+        public let rate: Rate
+
+        /// The frame the next call to `frame` draws.
+        public private(set) var position: Ordinal
+
+        var closed = false
+
+        /// Shows `view` at `width` by `height` pixels, lets it run for `warm` on the machine's clock, then
+        /// freezes time at the start of frame zero. `settle` is the wall time each frame is given to draw
+        /// before it is captured.
+        public init(
+            _ view: some SwiftUI.View,
+            width: Cardinal,
+            height: Cardinal,
+            rate: Rate,
+            warm: Duration = .milliseconds(800),
+            settle: Duration = .milliseconds(120)
+        ) async throws(Error) {
+            let scale = Motion.Hosting.Window.scale
+            guard let wide = Int(exactly: width), let tall = Int(exactly: height), wide <= Int(Int32.max), tall <= Int(Int32.max),
+                wide % scale == 0, tall % scale == 0, wide >= 16 * scale
+            else { throw .size(width: width, height: height) }
+            let fence = Fence()
+            let size = NSSize(width: wide / scale, height: tall / scale + 1)
+            _ = NSApplication.shared
+            let window = Motion.Hosting.Window.Sealed(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.appearance = NSAppearance(named: .aqua)
+            window.colorSpace = .sRGB
+            window.hasShadow = false
+            window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)) - 1)
+            let host = NSHostingView(
+                rootView: VStack(spacing: 0) {
+                    view.frame(width: Double(wide), height: Double(tall))
+                    Fence.Band(fence: fence, cell: Double(wide) / 16, height: Double(scale))
+                }
+                .allowsHitTesting(false)
+                .scaleEffect(1 / Double(scale), anchor: .topLeading)
+                .frame(width: size.width, height: size.height, alignment: .topLeading)
+            )
+            window.contentView = host
+            window.orderFrontRegardless()
+            await Self.pause(max(warm, .milliseconds(200)))
+            let content: SCShareableContent
+            // swift-linter:disable:next do throws for typed catch
+            // REASON: SCShareableContent throws untyped; its error becomes Error.window.
+            do {
+                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            } catch {
+                window.close()
+                throw .window("\(error)")
+            }
+            guard let shared = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
+                window.close()
+                throw .window("it is not among the windows that can be captured")
+            }
+            let clock: Motion.Clock
+            do throws(Motion.Clock.Error) {
+                clock = try Motion.Clock()
+            } catch {
+                window.close()
+                throw .clock(error)
+            }
+            host.wantsLayer = true
+            host.layer?.speed = 0
+            host.layer?.timeOffset = 0
+            CATransaction.flush()
+            self.window = window
+            self.host = host
+            self.filter = SCContentFilter(desktopIndependentWindow: shared)
+            self.fence = fence
+            self.clock = clock
+            self.origin = clock.elapsed
+            self.width = wide
+            self.height = tall
+            self.scale = scale
+            self.settle = settle
+            self.rate = rate
+            self.position = .zero
+        }
+    }
+}
+
+extension Motion.Hosting.Live {
+    /// Draws the frame at `position` and moves time on to the next.
+    ///
+    /// `change` runs first, with the frame's position: it is where the caller changes what the view
+    /// shows for this frame. The host then lays the view out and draws it at once, and gives the run
+    /// loop `settle` of wall time. The picture returned is a capture that showed this frame's fence and
+    /// was followed by an identical capture. Time moves only after that: the process's clock and the
+    /// host's layer time both go to the exact start of the next frame. A failure moves no time.
+    public func frame(_ change: (Ordinal) -> Void = { _ in }) async throws(Error) -> Raster<Motion.Pixel> {
+        guard !closed else { throw .closed }
+        await Motion.Hosting.Window.turn()
+        defer { Motion.Hosting.Window.done() }
+        let frame = position
+        Motion.Hosting.Window.count += 1
+        let number = Motion.Hosting.Window.count
+        change(frame)
+        fence.number = number
+        // Under a frozen clock a run-loop timer does not fire until the clock has passed it, so an update
+        // SwiftUI puts off, even by a moment, would not be drawn in this frame. The host draws it now.
+        host.needsLayout = true
+        host.layoutSubtreeIfNeeded()
+        host.display()
+        CATransaction.flush()
+        await Self.pause(settle)
+        let picture = try await capture(frame, number: number)
+        let next = frame + Cardinal.one
+        do throws(Motion.Clock.Error) {
+            try clock.advance(to: origin + Motion.Clock.start(of: next, at: rate))
+        } catch {
+            throw .clock(error)
+        }
+        host.layer?.timeOffset = rate.start(of: Integer(Int(clamping: Cardinal(next)))).approximation(as: Double.self)
+        CATransaction.flush()
+        position = next
+        return picture
+    }
+
+    /// Closes the window. The process's clock stays frozen where it stands.
+    public func close() {
+        closed = true
+        window.close()
+    }
+}
+
+extension Motion.Hosting.Live {
+    /// Waits `duration` of wall time on the main queue. A sleep measured on the machine's uptime would be
+    /// measured on the frozen clock, so this one is set against the wall clock.
+    static func pause(_ duration: Duration) async {
+        let (seconds, attoseconds) = duration.components
+        let nanoseconds = Int(clamping: seconds) &* 1_000_000_000 &+ Int(attoseconds / 1_000_000_000)
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.asyncAfter(wallDeadline: .now() + .nanoseconds(nanoseconds)) { continuation.resume() }
+        }
+    }
+
+    /// A capture of the window that shows capture `number` and is followed by an identical capture.
+    func capture(_ frame: Ordinal, number: Int) async throws(Error) -> Raster<Motion.Pixel> {
+        let config = SCStreamConfiguration()
+        config.width = width
+        config.height = height + scale
+        config.showsCursor = false
+        config.ignoreShadowsSingleWindow = true
+        config.pixelFormat = kCVPixelFormatType_32BGRA
+        unsafe config.colorSpaceName = CGColorSpace.sRGB
+        var fenced = false
+        var refused = "it never showed its fence"
+        var attempt = 0
+        while attempt < 40 {
+            attempt += 1
+            // swift-linter:disable:next do throws for typed catch
+            // REASON: SCScreenshotManager.captureImage throws untyped; its error becomes Error.capture.
+            do {
+                let first = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                if Self.shows(first, number: number, width: width, height: height, scale: scale) {
+                    fenced = true
+                    let second = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                    if Self.shows(second, number: number, width: width, height: height, scale: scale), Self.bytes(first) == Self.bytes(second), let raster = Raster<Motion.Pixel>(image: first),
+                        let picture = Motion.Hosting.Window.picture(raster, rows: Cardinal(UInt(height)))
+                    {
+                        return picture
+                    }
+                }
+            } catch {
+                refused = "\(error)"
+            }
+            await Self.pause(.milliseconds(50))
+        }
+        throw fenced ? .unsettled(frame: frame) : .capture(frame: frame, refused)
+    }
+
+    static func bytes(_ image: CGImage) -> CFData? { image.dataProvider?.data }
+
+    /// Whether `image` is a capture of a `width` by `height` picture whose band below it spells `number`.
+    static func shows(_ image: CGImage, number: Int, width: Int, height: Int, scale: Int) -> Bool {
+        guard image.bitsPerPixel == 32, image.width == width, image.height == height + scale, let data = Self.bytes(image) else { return false }
+        let row = (height + scale / 2) * image.bytesPerRow
+        let cell = Double(width) / 16
+        let digits = Motion.Hosting.Window.digits(number)
+        guard CFDataGetLength(data) >= row + width * 4, let base = unsafe CFDataGetBytePtr(data) else { return false }
+        return (0..<16).allSatisfy { index in
+            let probe = row + Int((Double(index) + 0.5) * cell) * 4
+            return unsafe Motion.Hosting.Window.digit(red: base[probe + 2], green: base[probe + 1], blue: base[probe]) == digits[index]
+        }
+    }
+}

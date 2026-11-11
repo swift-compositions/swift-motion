@@ -1,5 +1,5 @@
 # .github/metadata.yaml
-description: "Render real app views to video: exact frame time, rasters, state-first scenes and a render contract, with AVFoundation, AppKit and ScreenCaptureKit adapters."
+description: "Render real app views to video: exact frame time, rasters, state-first scenes, a render contract and a virtual clock for live views, with AVFoundation, AppKit and ScreenCaptureKit adapters."
 topics:
   - compositions
   - video

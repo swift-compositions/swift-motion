@@ -209,3 +209,52 @@ extension Motion.Encoding {
         try await session.export(to: url, as: .mp4)
     }
 }
+
+extension Motion.Encoding {
+    /// Decodes every frame of the movie at `url`, in order, and hands each to `each` with its position.
+    /// Returns the number of frames decoded. A file that is no movie, or has no picture, fails with `.reader`.
+    @discardableResult
+    public static func read(_ url: URL, each: (Ordinal, Raster<Motion.Pixel>) async -> Void) async throws(Motion.Encoding.Error) -> Cardinal {
+        // swift-linter:disable:next do throws for typed catch
+        // REASON: AVURLAsset's loaders and AVAssetReader throw untyped; their errors become Error.reader.
+        do {
+            let asset = AVURLAsset(url: url)
+            guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has no picture")
+            }
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+            let provider = reader.outputProvider(for: output)
+            try reader.start()
+            var frame = Ordinal.zero
+            while let buffer = try await provider.next() {
+                guard let raster = buffer.withUnsafeSampleBuffer({ sample in sample.imageBuffer.flatMap(Self.raster) }) else { continue }
+                await each(frame, raster)
+                frame += Cardinal.one
+            }
+            guard reader.status == .completed else { throw Motion.Encoding.Error.reader(reader.error?.localizedDescription ?? "not read to the end") }
+            return Cardinal(frame)
+        } catch let failure as Motion.Encoding.Error {
+            throw failure
+        } catch {
+            throw .reader("\(error)")
+        }
+    }
+
+    /// The pixels of a decoded BGRA frame.
+    static func raster(_ buffer: CVPixelBuffer) -> Raster<Motion.Pixel>? {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = unsafe CVPixelBufferGetBaseAddress(buffer),
+            let width = UInt(exactly: CVPixelBufferGetWidth(buffer)),
+            let height = UInt(exactly: CVPixelBufferGetHeight(buffer)),
+            let stride = UInt(exactly: CVPixelBufferGetBytesPerRow(buffer))
+        else { return nil }
+        let bytes = unsafe [UInt8](UnsafeRawBufferPointer(start: base, count: CVPixelBufferGetBytesPerRow(buffer) * CVPixelBufferGetHeight(buffer)))
+        do throws(Motion.Pixel.Error) {
+            return try Raster<Motion.Pixel>(width: Cardinal(width), height: Cardinal(height), stride: Cardinal(stride), bytes: bytes)
+        } catch {
+            return nil
+        }
+    }
+}
