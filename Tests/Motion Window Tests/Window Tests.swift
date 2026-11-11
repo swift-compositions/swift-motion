@@ -69,6 +69,11 @@ struct `Window Tests` {
         #expect((odd == nil) == (scale > 1), "at \(scale)x")
     }
 
+    @Test func `a size the window server cannot be told is nil, not a trap`() async {
+        #expect(await Motion.Hosting.Window.raster(Color.white, width: .max, height: 90) == nil)
+        #expect(await Motion.Hosting.Window.raster(Color.white, width: 160, height: Cardinal(UInt(Int32.max) + 1)) == nil)
+    }
+
     @Test func `a live animation is frozen, so it captures the same raster every time`() async throws {
         let spinning = ZStack {
             Color.white

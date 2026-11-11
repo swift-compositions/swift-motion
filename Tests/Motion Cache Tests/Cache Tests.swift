@@ -17,7 +17,7 @@ import Testing
         let second = try #require(Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180))
         #expect(first.width == 320 && first.height == 180)
         #expect(first == second)
-        #expect(Motion.Render.check(0..<3) { _ in Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180) ?? second } == .deterministic)
+        #expect(Motion.Render.check(first: 3) { _ in Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: 180) ?? second } == .deterministic)
     }
 
     @Test func `a view's own state starts fresh in every frame`() throws {
@@ -27,6 +27,11 @@ import Testing
         let alone = try #require(Motion.Hosting.Cache.raster(Remembering(shade: 0.9), width: 320, height: 180))
         #expect(first != later)
         #expect(later == alone)
+    }
+
+    @Test func `a size AppKit cannot be told is nil, not a trap`() {
+        #expect(Motion.Hosting.Cache.raster(Self.card(0.4), width: .max, height: 180) == nil)
+        #expect(Motion.Hosting.Cache.raster(Self.card(0.4), width: 320, height: .max) == nil)
     }
 
     @Test func `a raster made into an image and back is the same raster`() throws {

@@ -41,9 +41,11 @@ extension Motion.Hosting.Cache {
         return window
     }
 
-    /// The view drawn at `width` by `height` points, one pixel per point.
-    public static func image(_ view: some SwiftUI.View, width: Int, height: Int) -> CGImage? {
-        autoreleasepool {
+    /// The view drawn at `width` by `height` points, one pixel per point, or nil when it cannot be drawn
+    /// or a size is more than AppKit can be told.
+    public static func image(_ view: some SwiftUI.View, width: Cardinal, height: Cardinal) -> CGImage? {
+        guard let width = Int(exactly: width.rawValue), let height = Int(exactly: height.rawValue) else { return nil }
+        return autoreleasepool {
             let window = ready(width: width, height: height)
             let host = NSHostingView(rootView: view)
             host.frame = NSRect(origin: .zero, size: NSSize(width: width, height: height))
@@ -70,7 +72,7 @@ extension Motion.Hosting.Cache {
         }
     }
 
-    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) -> Raster<Motion.Pixel>? {
+    public static func raster(_ view: some SwiftUI.View, width: Cardinal, height: Cardinal) -> Raster<Motion.Pixel>? {
         image(view, width: width, height: height).flatMap(Raster<Motion.Pixel>.init(image:))
     }
 }

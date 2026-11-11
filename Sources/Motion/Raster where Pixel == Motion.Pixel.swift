@@ -4,27 +4,39 @@ public import Raster
 /// A frame's picture is a `Raster<Motion.Pixel>`: BGRA8 pixels, premultiplied, in sRGB, stored packed.
 extension Raster where Pixel == Motion.Pixel {
     /// Reads `height` rows of `width` pixels from bytes in blue, green, red, alpha order, rows `stride` bytes apart.
-    /// Row padding is dropped.
-    public init(width: Int, height: Int, stride: Int? = nil, bytes: [UInt8]) throws(Motion.Pixel.Error) {
-        let stride = stride ?? width * 4
-        guard width >= 0, height >= 0 else { throw .size(bytes.count, needed: 0) }
-        guard stride >= width * 4 else { throw .stride(stride, needed: width * 4) }
-        guard bytes.count == stride * height else { throw .size(bytes.count, needed: stride * height) }
+    /// Row padding is dropped. Without a `stride` the rows are packed, `width × 4` bytes apart.
+    public init(width: Cardinal, height: Cardinal, stride: Cardinal? = nil, bytes: [UInt8]) throws(Motion.Pixel.Error) {
+        guard let columns = Int(exactly: width.rawValue), let rows = Int(exactly: height.rawValue) else { throw .overflow }
+        let (row, wide) = columns.multipliedReportingOverflow(by: 4)
+        guard !wide else { throw .overflow }
+        guard let step = stride.map({ Int(exactly: $0.rawValue) }) ?? row else { throw .overflow }
+        guard step >= row else { throw .stride(Cardinal(UInt(step)), needed: Cardinal(UInt(row))) }
+        let (needed, long) = step.multipliedReportingOverflow(by: rows)
+        guard !long else { throw .overflow }
+        guard bytes.count == needed else { throw .size(Cardinal(UInt(bytes.count)), needed: Cardinal(UInt(needed))) }
+        let pixels = try Self.pixels(columns: columns, rows: rows, step: step, bytes: bytes)
+        do throws(Raster<Motion.Pixel>.Error) {
+            try self.init(width: width, height: height, pixels: pixels)
+        } catch {
+            throw .overflow
+        }
+    }
+
+    /// The pixels of `rows` rows of `columns` pixels, rows `step` bytes apart; the sizes are already checked.
+    static func pixels(columns: Int, rows: Int, step: Int, bytes: [UInt8]) throws(Motion.Pixel.Error) -> [Motion.Pixel] {
         var pixels: [Motion.Pixel] = []
-        pixels.reserveCapacity(width * height)
-        for index in 0..<(width * height) {
-            let (x, y) = (index % width, index / width)
-            let offset = y * stride + x * 4
+        pixels.reserveCapacity(columns * rows)
+        var (x, y) = (0, 0)
+        while y < rows {
+            let offset = y * step + x * 4
             guard let pixel = Motion.Pixel(blue: bytes[offset], green: bytes[offset + 1], red: bytes[offset + 2], alpha: bytes[offset + 3]) else {
-                throw .premultiplied(x: x, y: y)
+                throw .premultiplied(x: Ordinal(UInt(x)), y: Ordinal(UInt(y)))
             }
             pixels.append(pixel)
+            x += 1
+            if x == columns { (x, y) = (0, y + 1) }
         }
-        do throws(Raster<Motion.Pixel>.Error) {
-            try self.init(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), pixels: pixels)
-        } catch {
-            throw .size(bytes.count, needed: stride * height)
-        }
+        return pixels
     }
 
     /// The pixels as bytes, blue, green, red, alpha, `width * 4` bytes a row, no padding.

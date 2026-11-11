@@ -21,7 +21,15 @@ import Testing
         }
         #expect(throws: Motion.Pixel.Error.size(3, needed: 4)) { try Raster<Motion.Pixel>(width: 1, height: 1, bytes: [0, 0, 0]) }
         #expect(throws: Motion.Pixel.Error.stride(3, needed: 4)) { try Raster<Motion.Pixel>(width: 1, height: 1, stride: 3, bytes: [0, 0, 0]) }
-        #expect(throws: Motion.Pixel.Error.size(0, needed: 0)) { try Raster<Motion.Pixel>(width: -1, height: 1, bytes: []) }
+        #expect(throws: Motion.Pixel.Error.size(4, needed: 16)) { try Raster<Motion.Pixel>(width: 1, height: 2, stride: 8, bytes: [0, 0, 0, 0]) }
+    }
+
+    @Test func `a size or stride whose bytes cannot be counted is refused, not a trap`() {
+        #expect(throws: Motion.Pixel.Error.overflow) { try Raster<Motion.Pixel>(width: .max, height: 1, bytes: []) }
+        #expect(throws: Motion.Pixel.Error.overflow) { try Raster<Motion.Pixel>(width: Cardinal(UInt(Int.max)), height: 1, bytes: []) }
+        #expect(throws: Motion.Pixel.Error.overflow) { try Raster<Motion.Pixel>(width: 1, height: 1, stride: .max, bytes: []) }
+        #expect(throws: Motion.Pixel.Error.overflow) { try Raster<Motion.Pixel>(width: 1, height: Cardinal(UInt(Int.max)), bytes: []) }
+        #expect(throws: Motion.Pixel.Error.overflow) { try Raster<Motion.Pixel>(width: 0, height: .max, bytes: []) }
     }
 
     @Test func `PSNR of one channel off by one in 1920x1080 is 116.07 dB, alpha aside`() throws {

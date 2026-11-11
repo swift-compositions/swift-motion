@@ -25,8 +25,9 @@ extension Raster where Pixel == Motion.Pixel {
             return true
         }
         guard drawn else { return nil }
+        guard let width = UInt(exactly: image.width), let height = UInt(exactly: image.height) else { return nil }
         do throws(Motion.Pixel.Error) {
-            try self.init(width: image.width, height: image.height, bytes: bytes)
+            try self.init(width: Cardinal(width), height: Cardinal(height), bytes: bytes)
         } catch {
             return nil
         }
@@ -37,15 +38,17 @@ extension Raster where Pixel == Motion.Pixel {
     /// The pixels as an sRGB image, BGRA8 premultiplied.
     public var image: CGImage? {
         guard
+            let wide = Int(exactly: width.rawValue),
+            let tall = Int(exactly: height.rawValue),
             let space = CGColorSpace(name: CGColorSpace.sRGB),
             let provider = CGDataProvider(data: Data(bytes) as CFData)
         else { return nil }
         return unsafe CGImage(
-            width: Int(bitPattern: width),
-            height: Int(bitPattern: height),
+            width: wide,
+            height: tall,
             bitsPerComponent: 8,
             bitsPerPixel: 32,
-            bytesPerRow: Int(bitPattern: width) * 4,
+            bytesPerRow: wide * 4,
             space: space,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
             provider: provider,

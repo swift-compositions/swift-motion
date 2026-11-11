@@ -7,22 +7,25 @@ import Motion_Encoding
 import Testing
 
 @Suite struct `Encoding Tests` {
-    static func gradient(_ index: Int, width: Int = 320, height: Int = 180) -> Raster<Motion.Pixel> {
+    static func gradient(_ index: Ordinal, width: Int = 320, height: Int = 180) -> Raster<Motion.Pixel>? {
+        let shift = Int(index.rawValue) * 8
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
         (0..<height).forEach { y in
             (0..<width).forEach { x in
                 let at = (y * width + x) * 4
                 bytes[at] = UInt8(x * 255 / width)
-                bytes[at + 1] = UInt8((y * 200 / height + index * 8) % 256)
+                bytes[at + 1] = UInt8((y * 200 / height + shift) % 256)
                 bytes[at + 2] = UInt8(255 - (x + y) * 255 / (width + height))
             }
         }
-        // swift-linter:disable:next try optional
-        // REASON: an opaque gradient is always a valid raster.
-        return try! Raster<Motion.Pixel>(width: width, height: height, bytes: bytes)
+        do throws(Motion.Pixel.Error) {
+            return try Raster<Motion.Pixel>(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), bytes: bytes)
+        } catch {
+            return nil
+        }
     }
 
-    static func written(rate: Rate, frames: Int = 6) async throws -> URL {
+    static func written(rate: Rate, frames: Cardinal = 6) async throws -> URL {
         let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
         try await Motion.Encoding(width: 320, height: 180, rate: rate).write(frames: frames, to: url) { gradient($0) }
         return url
@@ -50,10 +53,11 @@ import Testing
         let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
-        for index in 0..<6 {
-            let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * index + 1), timescale: 60)).image
+        for index in [0, 1, 2, 3, 4, 5] as [Ordinal] {
+            let image = try await generator.image(at: CMTime(value: CMTimeValue(2 * index.rawValue + 1), timescale: 60)).image
             let decoded = try #require(Raster<Motion.Pixel>(image: image))
-            let psnr = try #require(decoded.psnr(against: Self.gradient(index)))
+            let expected = try #require(Self.gradient(index))
+            let psnr = try #require(decoded.psnr(against: expected))
             #expect(psnr > 38, "frame \(index): \(psnr) dB")
         }
     }
@@ -64,6 +68,55 @@ import Testing
         await #expect(throws: Motion.Encoding.Error.signal(signal)) {
             try await Motion.Encoding(width: 320, height: 180, rate: .thirty, signal: signal).write(frames: 1, to: url) { Self.gradient($0) }
         }
+    }
+
+    @Test func `a frame that is missing or of another size stops the write and is named by its position`() async {
+        let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+        let encoding = Motion.Encoding(width: 320, height: 180, rate: .thirty)
+        var asked: [Ordinal] = []
+        await #expect(throws: Motion.Encoding.Error.frame(2)) {
+            try await encoding.write(frames: 4, to: url) { index in
+                asked.append(index)
+                return index == 2 ? nil : Self.gradient(index)
+            }
+        }
+        #expect(asked == [0, 1, 2])
+        let other = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+        await #expect(throws: Motion.Encoding.Error.frame(1)) {
+            try await encoding.write(frames: 4, to: other) { index in Self.gradient(index, width: index == 1 ? 318 : 320) }
+        }
+    }
+
+    @Test func `the bit rate is four bits per pixel per second unless given, and stops at the largest count`() {
+        #expect(Motion.Encoding(width: 320, height: 180, rate: .thirty).bitRate == 230_400)
+        #expect(Motion.Encoding(width: 320, height: 180, rate: .thirty, bitRate: 1000).bitRate == 1000)
+        #expect(Motion.Encoding(width: .max, height: 2, rate: .thirty).bitRate == .max)
+        #expect(Motion.Encoding(width: Cardinal(UInt.max / 4), height: 2, rate: .thirty).bitRate == .max)
+    }
+
+    @Test func `a size, bit rate or length AVFoundation cannot be told is refused before a frame is asked for`() async {
+        let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+        var asked = 0
+        await #expect(throws: Motion.Encoding.Error.size(width: .max, height: 180, bits: 1000)) {
+            try await Motion.Encoding(width: .max, height: 180, rate: .thirty, bitRate: 1000).write(frames: 1, to: url) { _ in
+                asked += 1
+                return nil
+            }
+        }
+        await #expect(throws: Motion.Encoding.Error.size(width: 320, height: 180, bits: .max)) {
+            try await Motion.Encoding(width: 320, height: 180, rate: .thirty, bitRate: .max).write(frames: 1, to: url) { _ in
+                asked += 1
+                return nil
+            }
+        }
+        await #expect(throws: Motion.Encoding.Error.length(.max)) {
+            try await Motion.Encoding(width: 320, height: 180, rate: .thirty).write(frames: .max, to: url) { _ in
+                asked += 1
+                return nil
+            }
+        }
+        #expect(asked == 0)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
     }
 
     @Test(arguments: [(Rate.ntsc, 30000, 1001), (Rate.thirty, 30, 1)])

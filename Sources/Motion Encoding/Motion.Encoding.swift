@@ -7,30 +7,47 @@ extension Motion {
     /// The movie's timescale is the rate's own numerator, so each frame lasts exactly
     /// `denominator` ticks (1001 at 30000/1001), and the `colr` box carries the H.273 signal.
     public struct Encoding: Sendable, Hashable {
-        public var width: Int
-        public var height: Int
+        public var width: Cardinal
+        public var height: Cardinal
         public var rate: Rate
         public var signal: ITU_T_H_273.Signal
-        public var bitRate: Int
+        /// Bits per second.
+        public var bitRate: Cardinal
 
         /// Frames rendered in sRGB, carried through the BT.709 matrix, are tagged 1-13-1 at limited range.
+        /// Without a bit rate it is four bits per pixel per second, stopping at the largest count.
         public init(
-            width: Int,
-            height: Int,
+            width: Cardinal,
+            height: Cardinal,
             rate: Rate,
             signal: ITU_T_H_273.Signal = ITU_T_H_273.Signal.sRGB.carried(by: .bt709),
-            bitRate: Int? = nil
+            bitRate: Cardinal? = nil
         ) {
             self.width = width
             self.height = height
             self.rate = rate
             self.signal = signal
-            self.bitRate = bitRate ?? width * height * 4
+            self.bitRate = bitRate ?? Self.bits(width: width, height: height)
         }
     }
 }
 
 extension Motion.Encoding {
+    /// Four bits per pixel per second, stopping at the largest count.
+    static func bits(width: Cardinal, height: Cardinal) -> Cardinal {
+        let (pixels, wide) = width.rawValue.multipliedReportingOverflow(by: height.rawValue)
+        let (bits, long) = pixels.multipliedReportingOverflow(by: 4)
+        return wide || long ? .max : Cardinal(bits)
+    }
+
+    /// The width, height and bit rate as AVFoundation takes them.
+    func sizes() throws(Motion.Encoding.Error) -> (width: Int, height: Int, bits: Int) {
+        guard let wide = Int(exactly: width.rawValue), let tall = Int(exactly: height.rawValue), let bits = Int(exactly: bitRate.rawValue) else {
+            throw .size(width: width, height: height, bits: bitRate)
+        }
+        return (wide, tall, bits)
+    }
+
     /// AVFoundation's colour properties for the signal, or nil where it has no name for a code point.
     var properties: [String: String]? {
         let primaries: String? =
@@ -60,9 +77,11 @@ extension Motion.Encoding {
         return [AVVideoColorPrimariesKey: primaries, AVVideoTransferFunctionKey: transfer, AVVideoYCbCrMatrixKey: matrix]
     }
 
-    /// Encodes `count` frames, asking `raster` for each in order.
-    public func write(frames count: Int, to url: URL, raster: (Int) async -> Raster<Motion.Pixel>?) async throws(Motion.Encoding.Error) {
+    /// Encodes `count` frames, asking `raster` for each position in order, from zero.
+    public func write(frames count: Cardinal, to url: URL, raster: (Ordinal) async -> Raster<Motion.Pixel>?) async throws(Motion.Encoding.Error) {
         guard let properties else { throw .signal(signal) }
+        _ = try sizes()
+        _ = try end(of: count)
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer throw untyped; their errors become Error.writer.
         do {
@@ -76,18 +95,19 @@ extension Motion.Encoding {
 
     // swift-linter:disable:next untyped throws
     // REASON: it calls AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer, which throw untyped; write(frames:to:raster:) types them.
-    func encode(frames count: Int, to url: URL, properties: [String: String], raster: (Int) async -> Raster<Motion.Pixel>?) async throws {
+    func encode(frames count: Cardinal, to url: URL, properties: [String: String], raster: (Ordinal) async -> Raster<Motion.Pixel>?) async throws {
+        let sizes = try sizes()
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.movieTimeScale = try timescale()
         let input = AVAssetWriterInput(
             mediaType: .video,
             outputSettings: [
                 AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: width,
-                AVVideoHeightKey: height,
+                AVVideoWidthKey: sizes.width,
+                AVVideoHeightKey: sizes.height,
                 AVVideoColorPropertiesKey: properties,
                 AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: bitRate,
+                    AVVideoAverageBitRateKey: sizes.bits,
                     AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
                 ],
             ]
@@ -95,20 +115,22 @@ extension Motion.Encoding {
         input.mediaTimeScale = try timescale()
         let attributes = CVPixelBufferCreationAttributes(
             pixelFormatType: CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA),
-            size: CVImageSize(width: width, height: height),
+            size: CVImageSize(width: sizes.width, height: sizes.height),
             compatibility: [.cgBitmapContext, .cgImage]
         )
         let receiver = writer.inputPixelBufferReceiver(for: input, pixelBufferAttributes: attributes)
         try writer.start()
         writer.startSession(atSourceTime: .zero)
-        for index in 0..<count {
-            guard let frame = await raster(index), Int(bitPattern: frame.width) == width, Int(bitPattern: frame.height) == height else { throw Motion.Encoding.Error.frame(index) }
+        var index = Ordinal.zero
+        while index < Ordinal(count) {
+            guard let frame = await raster(index), frame.width == width, frame.height == height else { throw Motion.Encoding.Error.frame(index) }
             var buffer = if let pool = receiver.pixelBufferPool { try pool.makeMutablePixelBuffer() } else { try CVMutablePixelBuffer(attributes) }
             Self.copy(frame, into: &buffer)
             try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: try time(of: index))
+            index = index + .one
         }
         receiver.finish()
-        writer.endSession(atSourceTime: try time(of: count))
+        writer.endSession(atSourceTime: try end(of: count))
         await writer.finishWriting()
         guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
     }
@@ -119,17 +141,23 @@ extension Motion.Encoding {
         return scale
     }
 
-    /// When frame `index` starts, exactly, in the movie's timescale.
-    func time(of index: Int) throws(Motion.Encoding.Error) -> CMTime {
-        guard let ticks = rate.frequency.denominator.exactly(CMTimeValue.self) else { throw .rate(rate) }
-        return CMTime(value: CMTimeValue(index) * ticks, timescale: try timescale())
+    /// When the frame at `index` starts, exactly, in the movie's timescale.
+    func time(of index: Ordinal) throws(Motion.Encoding.Error) -> CMTime {
+        try end(of: Cardinal(index.rawValue))
+    }
+
+    /// When `count` frames end, exactly, in the movie's timescale: `count` times the rate's denominator in ticks.
+    func end(of count: Cardinal) throws(Motion.Encoding.Error) -> CMTime {
+        let scale = try timescale()
+        guard let ticks = (Integer(count.rawValue) * rate.frequency.denominator).exactly(CMTimeValue.self) else { throw .length(count) }
+        return CMTime(value: ticks, timescale: scale)
     }
 
     static func copy(_ raster: Raster<Motion.Pixel>, into buffer: inout CVMutablePixelBuffer) {
         unsafe buffer.accessUnsafeMutableRawPlaneBytes { planes in
             guard let plane = unsafe planes.first else { return }
-            let row = Int(bitPattern: raster.width) * 4
-            let rows = Int(bitPattern: raster.height)
+            guard let columns = Int(exactly: raster.width.rawValue), let rows = Int(exactly: raster.height.rawValue) else { return }
+            let row = columns * 4
             let stride = unsafe plane.properties.bytesPerRow
             raster.bytes.withUnsafeBytes { source in
                 (0..<rows).forEach { line in

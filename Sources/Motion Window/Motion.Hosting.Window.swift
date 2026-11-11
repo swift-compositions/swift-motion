@@ -126,8 +126,10 @@ extension Motion.Hosting.Window {
 
     /// The view drawn at `width` by `height` pixels, or nil when it cannot be captured.
     ///
-    /// Both sizes must be whole points on the main screen: even numbers on a Retina display.
-    public static func raster(_ view: some SwiftUI.View, width: Int, height: Int) async -> Raster<Motion.Pixel>? {
+    /// Both sizes must be whole points on the main screen: even numbers on a Retina display. A size
+    /// beyond 32 bits, more than the window server can be told, is nil too.
+    public static func raster(_ view: some SwiftUI.View, width: Cardinal, height: Cardinal) async -> Raster<Motion.Pixel>? {
+        guard let width = Int32(exactly: width.rawValue).map(Int.init), let height = Int32(exactly: height.rawValue).map(Int.init) else { return nil }
         let scale = scale
         guard width % scale == 0, height % scale == 0, width >= 16 * scale else { return nil }
         await turn()
@@ -174,7 +176,7 @@ extension Motion.Hosting.Window {
                 return digit(red: bytes[probe + 2], green: bytes[probe + 1], blue: bytes[probe])
             }
             if shown == fence.map(Optional.some) {
-                return Self.picture(fenced, rows: height)
+                return Self.picture(fenced, rows: Cardinal(UInt(height)))
             }
             // swift-linter:disable:next try optional
             // REASON: Task.sleep throws only on cancellation; the next capture then fails.
@@ -186,10 +188,9 @@ extension Motion.Hosting.Window {
 
 extension Motion.Hosting.Window {
     /// The top `rows` rows of a capture: the picture without the fence band below it.
-    static func picture(_ fenced: Raster<Motion.Pixel>, rows: Int) -> Raster<Motion.Pixel>? {
-        guard rows >= 0 else { return nil }
+    static func picture(_ fenced: Raster<Motion.Pixel>, rows: Cardinal) -> Raster<Motion.Pixel>? {
         do throws(Raster<Motion.Pixel>.Error) {
-            return try fenced.cropped(to: .init(x: 0, y: 0, width: fenced.width, height: Cardinal(UInt(rows))))
+            return try fenced.cropped(to: .init(x: 0, y: 0, width: fenced.width, height: rows))
         } catch {
             return nil
         }
