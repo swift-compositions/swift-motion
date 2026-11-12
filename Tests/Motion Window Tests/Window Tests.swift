@@ -12,7 +12,6 @@ import Testing
 /// These tests capture the screen, so they run only where Screen Recording is granted.
 @MainActor @Suite(
     .enabled(if: CGPreflightScreenCaptureAccess(), "needs Screen Recording permission"),
-    .enabled(if: ProcessInfo.processInfo.environment["CI"] == nil, "off in CI until a hang there can be seen: swift-institute/.github#660"),
     .serialized,
     .timeLimit(.minutes(4)),
     .deadline(.seconds(300))

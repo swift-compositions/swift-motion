@@ -4,7 +4,7 @@ import Testing
 
 /// A virtual clock is a property of a whole process, so every test here launches the fixture process and
 /// reads what it found.
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil, "off in CI until a hang there can be seen: swift-institute/.github#660"), .deadline(.seconds(120))) struct `Clock Tests` {
+@Suite(.deadline(.seconds(120))) struct `Clock Tests` {
     @Test func `until the clock is frozen the machine's clock runs through, and once frozen the four readings stand still while the wall clock runs`() {
         let found = Fixture.run(["clock"], inserting: true)
         #expect(found["status"] == ["exit 0"] && found["stderr"] == nil, "\(found["status"] ?? []) \(found["stderr"] ?? [])")
