@@ -23,17 +23,25 @@ extension Motion.Pixel {
     /// The pixel nearest to a colour in linear light whose red, green and blue are already multiplied
     /// by alpha, which is how a picture is drawn and mixed.
     ///
-    /// Alpha is held to 0…1. Each colour is divided by it, held to 0…1, put through the sRGB transfer
-    /// function and multiplied by alpha again, since a frame's colours are multiplied in their encoded
-    /// form. Each of the four is then one of 256 levels, rounded to the nearest, halves up. Light
-    /// brighter than white is white, and anything that is not a number is nothing. No colour comes out
-    /// above its alpha, so the result is always a pixel.
+    /// Alpha is held to 0…1 and becomes one of 256 levels, rounded to the nearest, halves up. Each
+    /// colour is divided by alpha, held to 0…1, put through the sRGB transfer function and becomes
+    /// one of 256 levels the same way, as if it were opaque. That level is then multiplied by alpha's
+    /// level over 255, rounded to the nearest, halves up, since a frame's colours are multiplied in
+    /// their encoded form. So an opaque colour is exactly its sRGB level, a full colour under any
+    /// alpha is exactly that alpha's level, light brighter than white is white, anything that is not
+    /// a number is nothing, and no colour comes out above its alpha: the result is always a pixel.
     public init(linear red: Float, green: Float, blue: Float, alpha: Float) {
         let alpha = Self.unit(alpha)
-        self.blue = Self.level(Self.encoded(blue, under: alpha) * alpha)
-        self.green = Self.level(Self.encoded(green, under: alpha) * alpha)
-        self.red = Self.level(Self.encoded(red, under: alpha) * alpha)
-        self.alpha = Self.level(alpha)
+        let cover = Self.level(alpha)
+        self.blue = Self.scaled(Self.level(Self.encoded(blue, under: alpha)), by: cover)
+        self.green = Self.scaled(Self.level(Self.encoded(green, under: alpha)), by: cover)
+        self.red = Self.scaled(Self.level(Self.encoded(red, under: alpha)), by: cover)
+        self.alpha = cover
+    }
+
+    /// A level multiplied by another level over 255, rounded to the nearest, halves up.
+    static func scaled(_ level: UInt8, by cover: UInt8) -> UInt8 {
+        UInt8((UInt(level) * UInt(cover) * 2 + 255) / 510)
     }
 
     /// A value held to 0…1, with anything that is not a number as 0.
