@@ -74,14 +74,26 @@ extension Motion.Hosting {
             window.contentView = host
             window.orderFrontRegardless()
             await Self.pause(max(warm, .milliseconds(200)))
+            let limit = Motion.Hosting.Window.limit
+            let asked = await Motion.Hosting.Wait.answer(within: limit) { () async -> Result<SCShareableContent, any Swift.Error>? in
+                // swift-linter:disable:next do throws for typed catch
+                // REASON: SCShareableContent throws untyped; its error becomes Error.window.
+                do {
+                    return .success(try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false))
+                } catch {
+                    return .failure(error)
+                }
+            }
             let content: SCShareableContent
-            // swift-linter:disable:next do throws for typed catch
-            // REASON: SCShareableContent throws untyped; its error becomes Error.window.
-            do {
-                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-            } catch {
+            switch asked {
+            case .success(let found):
+                content = found
+            case .failure(let error):
                 window.close()
                 throw .window("\(error)")
+            case nil:
+                window.close()
+                throw .window("the window server did not say what can be captured within \(limit)")
             }
             guard let shared = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
                 window.close()
@@ -168,13 +180,11 @@ extension Motion.Hosting.Live {
 
 extension Motion.Hosting.Live {
     /// Waits `duration` of wall time on the main queue. A sleep measured on the machine's uptime would be
-    /// measured on the frozen clock, so this one is set against the wall clock.
+    /// measured on the frozen clock, so this one is set against the wall clock. No time at all is no
+    /// wait: it returns in the same turn. A cancelled task's pause ends at once.
     static func pause(_ duration: Duration) async {
-        let (seconds, attoseconds) = duration.components
-        let nanoseconds = Int(clamping: seconds) &* 1_000_000_000 &+ Int(attoseconds / 1_000_000_000)
-        await withCheckedContinuation { continuation in
-            DispatchQueue.main.asyncAfter(wallDeadline: .now() + .nanoseconds(nanoseconds)) { continuation.resume() }
-        }
+        guard duration > .zero else { return }
+        _ = await Motion.Hosting.Wait<Never>.answer(within: duration)
     }
 
     /// A capture of the window that shows capture `number` and is followed by an identical capture.
@@ -187,14 +197,25 @@ extension Motion.Hosting.Live {
         config.pixelFormat = kCVPixelFormatType_32BGRA
         unsafe config.colorSpaceName = CGColorSpace.sRGB
         var refused = "it never showed its fence"
-        return try await Self.settled(frame, number: number, width: width, height: height, scale: scale, between: .milliseconds(50)) {
-            // swift-linter:disable:next do throws for typed catch
-            // REASON: SCScreenshotManager.captureImage throws untyped; a capture that fails counts as none and its error is the reason given.
-            do {
-                return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-            } catch {
+        let (filter, limit) = (filter, Motion.Hosting.Window.limit)
+        return try await Self.settled(frame, number: number, width: width, height: height, scale: scale, between: .milliseconds(50)) { () async throws(Error) -> CGImage? in
+            let asked = await Motion.Hosting.Wait.answer(within: limit) { () async -> Result<CGImage, any Swift.Error>? in
+                // swift-linter:disable:next do throws for typed catch
+                // REASON: SCScreenshotManager.captureImage throws untyped; a capture that fails counts as none and its error is the reason given.
+                do {
+                    return .success(try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config))
+                } catch {
+                    return .failure(error)
+                }
+            }
+            switch asked {
+            case .success(let image):
+                return image
+            case .failure(let error):
                 refused = "\(error)"
                 return nil
+            case nil:
+                throw .capture(frame: frame, "a capture did not return within \(limit)")
             }
         } reason: {
             refused
@@ -204,7 +225,7 @@ extension Motion.Hosting.Live {
     /// Takes captures with `shot`, up to forty pairs, until one shows `number` in its band and the capture
     /// after it is the same picture, band included; gives that picture without its band. Fails with
     /// `.unsettled` when captures showed the number but no two in a row agreed, and with `.capture` and
-    /// `reason` when none showed it.
+    /// `reason` when none showed it. A `shot` that throws ends the frame there, with what it threw.
     static func settled(
         _ frame: Ordinal,
         number: Int,
@@ -212,16 +233,16 @@ extension Motion.Hosting.Live {
         height: Int,
         scale: Int,
         between: Duration,
-        shot: () async -> CGImage?,
+        shot: () async throws(Error) -> CGImage?,
         reason: () -> String
     ) async throws(Error) -> Raster<Motion.Pixel> {
         var fenced = false
         var attempt = 0
         while attempt < 40 {
             attempt += 1
-            if let first = await shot(), shows(first, number: number, width: width, height: height, scale: scale) {
+            if let first = try await shot(), shows(first, number: number, width: width, height: height, scale: scale) {
                 fenced = true
-                if let second = await shot(), bytes(first) == bytes(second),
+                if let second = try await shot(), bytes(first) == bytes(second),
                     let raster = Raster<Motion.Pixel>(image: first), let picture = Motion.Hosting.Window.picture(raster, rows: Cardinal(UInt(height)))
                 {
                     return picture

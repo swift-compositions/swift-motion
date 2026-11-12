@@ -39,6 +39,10 @@ extension Motion.Hosting.Window {
     static var forgetting = false
 
     static var opened = 0
+
+    /// How long the hosts wait for one answer from ScreenCaptureKit before the frame fails. A capture
+    /// takes milliseconds; one that has not come back by now is not coming.
+    static var limit: Duration = .seconds(10)
 }
 
 extension Motion.Hosting.Window {
@@ -113,11 +117,15 @@ extension Motion.Hosting.Window {
         // swift-linter:disable:next try optional
         // REASON: Task.sleep throws only on cancellation, and a cancelled render fails at its next capture.
         try? await Task.sleep(for: .milliseconds(200))
-        // swift-linter:disable:next try optional
-        // REASON: SCShareableContent throws untyped; without the window's content the frame fails as nil.
-        guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false),
-            let shared = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) })
-        else { return nil }
+        let asked = await Motion.Hosting.Wait.answer(within: limit) { () async -> SCShareableContent? in
+            // swift-linter:disable:next try optional
+            // REASON: SCShareableContent throws untyped; without the window's content the frame fails as nil.
+            try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+        }
+        guard let content = asked, let shared = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
+            window.close()
+            return nil
+        }
         let filter = SCContentFilter(desktopIndependentWindow: shared)
         self.window = window
         self.filter = filter
@@ -164,11 +172,12 @@ extension Motion.Hosting.Window {
         config.pixelFormat = kCVPixelFormatType_32BGRA
         unsafe config.colorSpaceName = CGColorSpace.sRGB
         for _ in 0..<400 {
-            // swift-linter:disable:next try optional
-            // REASON: captureImage throws untyped; a frame that cannot be captured fails as nil.
-            guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config),
-                let fenced = Raster<Motion.Pixel>(image: image)
-            else { return nil }
+            let asked = await Motion.Hosting.Wait.answer(within: limit) { () async -> CGImage? in
+                // swift-linter:disable:next try optional
+                // REASON: captureImage throws untyped; a frame that cannot be captured fails as nil.
+                try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+            }
+            guard let image = asked, let fenced = Raster<Motion.Pixel>(image: image) else { return nil }
             let bytes = fenced.bytes
             let row = (height + scale / 2) * width
             let shown = (0..<16).map { index -> Int? in

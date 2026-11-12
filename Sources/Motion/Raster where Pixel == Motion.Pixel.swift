@@ -24,7 +24,9 @@ extension Raster where Pixel == Motion.Pixel {
 
     /// The pixels of `rows` rows of `columns` pixels, rows `step` bytes apart; the sizes are already checked.
     /// A pixel is its four bytes in the order they are read, so each row is checked and then copied whole.
+    /// Rows of no pixels hold nothing to read, however many bytes lie between them.
     static func pixels(columns: Int, rows: Int, step: Int, bytes: [UInt8]) throws(Motion.Pixel.Error) -> [Motion.Pixel] {
+        guard columns > 0 else { return [] }
         let fault = bytes.withUnsafeBufferPointer { source -> (x: Int, y: Int)? in
             var (x, y) = (0, 0)
             while y < rows {

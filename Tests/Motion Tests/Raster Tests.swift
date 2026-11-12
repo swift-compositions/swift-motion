@@ -32,6 +32,13 @@ import Testing
         #expect(throws: Motion.Pixel.Error.overflow) { try Raster<Motion.Pixel>(width: 0, height: .max, bytes: []) }
     }
 
+    @Test func `rows of no pixels are a raster of no pixels, whatever lies between them`() throws {
+        let packed = try Raster<Motion.Pixel>(width: 0, height: 3, bytes: [])
+        #expect(packed.width == 0 && packed.height == 3 && packed.pixels.isEmpty)
+        let padded = try Raster<Motion.Pixel>(width: 0, height: 2, stride: 4, bytes: [9, 0, 0, 0, 9, 0, 0, 0])
+        #expect(padded.width == 0 && padded.height == 2 && padded.pixels.isEmpty)
+    }
+
     @Test func `PSNR of one channel off by one in 1920x1080 is 116.07 dB, alpha aside`() throws {
         var bytes = [UInt8](repeating: 255, count: 1920 * 1080 * 4)
         let a = try Raster<Motion.Pixel>(width: 1920, height: 1080, bytes: bytes)
