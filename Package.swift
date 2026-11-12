@@ -68,9 +68,14 @@ let package = Package(
             linkerSettings: [.linkedFramework("QuartzCore")]
         ),
         .target(
+            name: "Motion Clock Lookup Shims",
+            publicHeadersPath: "include"
+        ),
+        .target(
             name: "Motion Clock",
             dependencies: [
-                .target(name: "Motion")
+                .target(name: "Motion"),
+                .target(name: "Motion Clock Lookup Shims"),
             ]
         ),
         .executableTarget(

@@ -9,8 +9,10 @@ let arguments = CommandLine.arguments
 switch arguments.dropFirst().first {
 case "clock":
     Fixture.clock()
+
 case "late":
     Fixture.late(library: arguments[2])
+
 case "live":
     let application = NSApplication.shared
     application.setActivationPolicy(.accessory)
@@ -19,6 +21,7 @@ case "live":
         exit(0)
     }
     application.run()
+
 case "restless":
     let application = NSApplication.shared
     application.setActivationPolicy(.accessory)
@@ -27,6 +30,7 @@ case "restless":
         exit(0)
     }
     application.run()
+
 default:
     Fixture.line("error", "no mode")
 }

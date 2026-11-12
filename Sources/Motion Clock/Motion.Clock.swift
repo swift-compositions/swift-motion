@@ -1,5 +1,5 @@
-import Darwin
 public import Motion
+import Motion_Clock_Lookup_Shims
 
 extension Motion {
     /// The process's virtual clock: once made, what this process reads as the machine's uptime stands still
@@ -8,45 +8,35 @@ extension Motion {
     /// It works through the `Motion Clock Shims` library, which must be in the process from launch: link
     /// that product into the executable. Making a second clock gives a second handle on the same one.
     public struct Clock: Sendable {
-        let move: @convention(c) (UInt64) -> Void
-        let read: @convention(c) () -> UInt64
-
         /// Freezes the process's clock. Fails with `.absent` when the shim library is not in the process,
         /// and with `.unhooked` when it is but was loaded after launch, so that time would run on unseen;
         /// in both cases nothing is frozen.
         public init() throws(Error) {
-            let process = unsafe dlopen(nil, RTLD_NOW)
-            guard
-                let freeze = unsafe dlsym(process, "motion_clock_freeze").map({ unsafe unsafeBitCast($0, to: (@convention(c) () -> Void).self) }),
-                let probe = unsafe dlsym(process, "motion_clock_probe").map({ unsafe unsafeBitCast($0, to: (@convention(c) () -> Void).self) }),
-                let move = unsafe dlsym(process, "motion_clock_advance").map({ unsafe unsafeBitCast($0, to: (@convention(c) (UInt64) -> Void).self) }),
-                let read = unsafe dlsym(process, "motion_clock_elapsed").map({ unsafe unsafeBitCast($0, to: (@convention(c) () -> UInt64).self) })
-            else { throw .absent }
-            probe()
-            guard mach_absolute_time() == UInt64.max else { throw .unhooked }
-            freeze()
-            self.move = move
-            self.read = read
+            switch motion_clock_lookup_state() {
+            case 2: motion_clock_lookup_freeze()
+            case 1: throw .unhooked
+            default: throw .absent
+            }
         }
     }
 }
 
 extension Motion.Clock {
     /// How far the clock was moved on since it was frozen, in whole nanoseconds.
-    public var elapsed: Duration { .nanoseconds(read()) }
+    public var elapsed: Duration { .nanoseconds(motion_clock_lookup_elapsed()) }
 
     /// Moves the clock forward until `elapsed` is `instant`, cut to whole nanoseconds. Fails with
     /// `.backwards` for an instant before `elapsed` and with `.beyond` for one past what the clock can
     /// count, and then moves nothing.
     public func advance(to instant: Duration) throws(Error) {
         let (seconds, attoseconds) = instant.components
-        let now = read()
+        let now = motion_clock_lookup_elapsed()
         guard seconds >= 0, attoseconds >= 0 else { throw .backwards }
         let (whole, wide) = UInt64(seconds).multipliedReportingOverflow(by: 1_000_000_000)
         let (target, long) = whole.addingReportingOverflow(UInt64(attoseconds / 1_000_000_000))
         guard !wide, !long else { throw .beyond }
         guard target >= now else { throw .backwards }
-        move(target - now)
+        motion_clock_lookup_advance(target - now)
     }
 
     /// Moves the clock forward to the start of `frame` at `rate`, counted from where it was frozen: the

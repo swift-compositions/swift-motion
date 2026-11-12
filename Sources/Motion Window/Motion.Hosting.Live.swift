@@ -13,16 +13,14 @@ extension Motion.Hosting {
     /// Where `Window` gives each frame a fresh view, `Live` keeps one: state, running animations and
     /// effects carry over, as in the app the view comes from. The view first runs on the machine's clock
     /// for a warm-up, so what it does on appearing is over. Then the process's clock is frozen through
-    /// `Motion.Clock` and the host's layer time is stopped. Each `frame` applies the caller's change,
-    /// draws it, gives the run loop some wall time, captures the window until a capture shows this
-    /// frame's fence and the next capture is the same picture, and only then moves the clock and the
-    /// layer time to the start of the next frame.
+    /// `Motion.Clock` and the host's layer time is stopped. Each `frame` moves both one frame on, applies
+    /// the caller's change and draws it in the same turn, gives the run loop some wall time, and captures
+    /// the window until a capture shows this frame's fence and the next capture is the same picture.
     ///
     /// It needs Screen Recording permission, one capturing process at a time, and the `Motion Clock Shims`
     /// library in the process from launch.
     @MainActor public final class Live {
-        let window: NSWindow
-        let host: NSView
+        let window: Motion.Hosting.Window.Sealed
         let filter: SCContentFilter
         let fence: Fence
         let clock: Motion.Clock
@@ -101,7 +99,6 @@ extension Motion.Hosting {
             host.layer?.timeOffset = 0
             CATransaction.flush()
             self.window = window
-            self.host = host
             self.filter = SCContentFilter(desktopIndependentWindow: shared)
             self.fence = fence
             self.clock = clock
@@ -117,38 +114,39 @@ extension Motion.Hosting {
 }
 
 extension Motion.Hosting.Live {
-    /// Draws the frame at `position` and moves time on to the next.
+    /// Moves time on by one frame and draws the frame at `position`.
     ///
-    /// `change` runs first, with the frame's position: it is where the caller changes what the view
-    /// shows for this frame. The host then lays the view out and draws it at once, and gives the run
-    /// loop `settle` of wall time. The picture returned is a capture that showed this frame's fence and
-    /// was followed by an identical capture. Time moves only after that: the process's clock and the
-    /// host's layer time both go to the exact start of the next frame. A failure moves no time.
+    /// Time moves first: the process's clock and the host's layer time both go one frame's duration on,
+    /// to the exact start of the frame after `position` counted from the freeze. In the same turn, before
+    /// the run loop can draw anything at the new time, `change` runs with the frame's position (it is
+    /// where the caller changes what the view shows for this frame) and the host lays the view out and
+    /// draws it. A change drawn later than the first draw at its time would have its animations begin a
+    /// frame late, now and then; and under a frozen clock an update SwiftUI puts off waits on a run-loop
+    /// timer that does not fire until the clock has passed it. Then the run loop gets `settle` of wall
+    /// time, and the picture returned is a capture that showed this frame's fence and was followed by an
+    /// identical capture. `position` goes up only when a picture is returned.
     public func frame(_ change: (Ordinal) -> Void = { _ in }) async throws(Error) -> Raster<Motion.Pixel> {
         guard !closed else { throw .closed }
         await Motion.Hosting.Window.turn()
         defer { Motion.Hosting.Window.done() }
         let frame = position
-        Motion.Hosting.Window.count += 1
-        let number = Motion.Hosting.Window.count
-        change(frame)
-        fence.number = number
-        // Under a frozen clock a run-loop timer does not fire until the clock has passed it, so an update
-        // SwiftUI puts off, even by a moment, would not be drawn in this frame. The host draws it now.
-        host.needsLayout = true
-        host.layoutSubtreeIfNeeded()
-        host.display()
-        CATransaction.flush()
-        await Self.pause(settle)
-        let picture = try await capture(frame, number: number)
         let next = frame + Cardinal.one
         do throws(Motion.Clock.Error) {
             try clock.advance(to: origin + Motion.Clock.start(of: next, at: rate))
         } catch {
             throw .clock(error)
         }
-        host.layer?.timeOffset = rate.start(of: Integer(Int(clamping: Cardinal(next)))).approximation(as: Double.self)
+        window.contentView?.layer?.timeOffset = rate.start(of: Integer(Int(clamping: Cardinal(next)))).approximation(as: Double.self)
+        Motion.Hosting.Window.count += 1
+        let number = Motion.Hosting.Window.count
+        change(frame)
+        fence.number = number
+        window.contentView?.needsLayout = true
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.contentView?.display()
         CATransaction.flush()
+        await Self.pause(settle)
+        let picture = try await capture(frame, number: number)
         position = next
         return picture
     }

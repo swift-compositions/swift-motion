@@ -23,17 +23,21 @@ enum Fixture {
         environment["DYLD_INSERT_LIBRARIES"] = inserting ? library : nil
         process.environment = environment
         let pipe = Pipe()
+        let complaints = Pipe()
         process.standardOutput = pipe
+        process.standardError = complaints
         // swift-linter:disable:next do throws for typed catch
         // REASON: Process.run throws untyped; a fixture that cannot start prints nothing and every expectation on it fails.
         do {
             try process.run()
         } catch {
-            return [:]
+            return ["status": ["not started: \(error)"]]
         }
         let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        let complaint = String(decoding: complaints.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         process.waitUntilExit()
-        var lines: [String: [String]] = [:]
+        var lines: [String: [String]] = ["status": ["\(process.terminationReason == .exit ? "exit" : "signal") \(process.terminationStatus)"]]
+        if !complaint.isEmpty { lines["stderr"] = [String(complaint.prefix(600))] }
         output.split(separator: "\n").forEach { line in
             let parts = line.split(separator: "=", maxSplits: 1)
             guard parts.count == 2 else { return }

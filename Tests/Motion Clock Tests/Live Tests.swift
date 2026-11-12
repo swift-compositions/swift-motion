@@ -41,6 +41,12 @@ struct `Live Tests` {
         #expect(quick == slow)
     }
 
+    @Test func `the same run draws the same pictures every time, an animation begun by a change included`() {
+        let runs = (0..<8).map { _ in Self.frames(Fixture.run(["live", "40", "4"], inserting: true)) }
+        #expect(runs[0].count == 4)
+        #expect(runs.allSatisfy { $0 == runs[0] }, "\(runs.map { $0.map { $0[1] } })")
+    }
+
     @Test func `a view that keeps changing with the wall clock never settles, and its frame fails rather than return a picture`() {
         let found = Fixture.run(["restless"], inserting: true)
         #expect(found["error"] == ["unsettled(frame: 0)"])

@@ -6,6 +6,7 @@ import Testing
 @Suite struct `Clock Tests` {
     @Test func `until the clock is frozen the machine's clock runs through, and once frozen the four readings stand still while the wall clock runs`() {
         let found = Fixture.run(["clock"], inserting: true)
+        #expect(found["status"] == ["exit 0"] && found["stderr"] == nil, "\(found["status"] ?? []) \(found["stderr"] ?? [])")
         #expect(found["running"] == ["true"])
         #expect(found["still"] == ["true"])
         #expect(found["wall"] == ["true"])
