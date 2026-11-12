@@ -1,12 +1,13 @@
 import CoreGraphics
 import Dispatch
 import Motion
+import Test_Apple
 import Testing
 
 @testable import Motion_Window
 
 /// The hosts' waits: none of these needs the screen.
-@MainActor @Suite(.serialized, .timeLimit(.minutes(1)))
+@MainActor @Suite(.serialized, .timeLimit(.minutes(1)), .deadline(.seconds(120)))
 struct `Wait Tests` {
     @Test func `a pause of no time returns in the same turn, before anything else on the main queue runs`() async {
         var ran = false

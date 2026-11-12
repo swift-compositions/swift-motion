@@ -1,9 +1,10 @@
 import Motion
 import Motion_Cache
 import SwiftUI
+import Test_Apple
 import Testing
 
-@MainActor @Suite struct `Cache Tests` {
+@MainActor @Suite(.deadline(.seconds(120))) struct `Cache Tests` {
     static func card(_ shade: Double) -> some View {
         ZStack {
             Color.white

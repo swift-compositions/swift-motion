@@ -27,6 +27,7 @@ let package = Package(
         .package(url: "https://github.com/swift-standards/swift-smpte-st-12.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-cardinal.git", branch: "main"),
         .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-test-apple.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -90,6 +91,7 @@ let package = Package(
         .testTarget(
             name: "Motion Clock Tests",
             dependencies: [
+                .product(name: "Test Apple", package: "swift-test-apple"),
                 .target(name: "Motion"),
                 .target(name: "Motion Clock"),
                 .target(name: "Motion Window"),
@@ -107,6 +109,7 @@ let package = Package(
         .testTarget(
             name: "Motion Encoding Tests",
             dependencies: [
+                .product(name: "Test Apple", package: "swift-test-apple"),
                 .target(name: "Motion"),
                 .target(name: "Motion Encoding"),
                 .target(name: "Motion Cache"),
@@ -116,6 +119,7 @@ let package = Package(
         .testTarget(
             name: "Motion Cache Tests",
             dependencies: [
+                .product(name: "Test Apple", package: "swift-test-apple"),
                 .target(name: "Motion"),
                 .target(name: "Motion Cache"),
             ]
@@ -123,6 +127,7 @@ let package = Package(
         .testTarget(
             name: "Motion Window Tests",
             dependencies: [
+                .product(name: "Test Apple", package: "swift-test-apple"),
                 .target(name: "Motion"),
                 .target(name: "Motion Cache"),
                 .target(name: "Motion Window"),

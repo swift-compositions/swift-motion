@@ -4,9 +4,10 @@ import ITU_T_H_273
 import Motion
 import Motion_Cache
 import Motion_Encoding
+import Test_Apple
 import Testing
 
-@Suite struct `Encoding Tests` {
+@Suite(.deadline(.seconds(180))) struct `Encoding Tests` {
     static func gradient(_ index: Ordinal, width: Int = 320, height: Int = 180) -> Raster<Motion.Pixel>? {
         let shift = (Int(exactly: index) ?? 0) * 8
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
