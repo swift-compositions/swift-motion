@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "Motion Cache", targets: ["Motion Cache"]),
         .library(name: "Motion Window", targets: ["Motion Window"]),
         .library(name: "Motion Clock", targets: ["Motion Clock"]),
+        .library(name: "Motion Picture", targets: ["Motion Picture"]),
         .library(name: "Motion Clock Shims", type: .dynamic, targets: ["Motion Clock Shims"]),
     ],
     dependencies: [
@@ -26,7 +27,10 @@ let package = Package(
         .package(url: "https://github.com/swift-standards/swift-itu-t-h-273.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-smpte-st-12.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-cardinal.git", branch: "main"),
-        .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main"),
+        .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main", traits: ["Geometry"]),
+        .package(url: "https://github.com/swift-iec/swift-iec-61966.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-picture.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-witnesses.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-test-apple.git", branch: "main"),
     ],
     targets: [
@@ -40,6 +44,16 @@ let package = Package(
                 .product(name: "SMPTE ST 12", package: "swift-smpte-st-12"),
                 .product(name: "Cardinal", package: "swift-cardinal"),
                 .product(name: "Raster", package: "swift-raster"),
+                .product(name: "IEC 61966", package: "swift-iec-61966"),
+            ]
+        ),
+        .target(
+            name: "Motion Picture",
+            dependencies: [
+                .target(name: "Motion"),
+                .product(name: "Picture", package: "swift-picture"),
+                .product(name: "Picture CPU", package: "swift-picture"),
+                .product(name: "Witnesses", package: "swift-witnesses"),
             ]
         ),
         .target(
@@ -114,6 +128,17 @@ let package = Package(
                 .target(name: "Motion Encoding"),
                 .target(name: "Motion Cache"),
                 .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
+            ]
+        ),
+        .testTarget(
+            name: "Motion Picture Tests",
+            dependencies: [
+                .target(name: "Motion"),
+                .target(name: "Motion Picture"),
+                .target(name: "Motion Encoding"),
+                .product(name: "Picture", package: "swift-picture"),
+                .product(name: "Witnesses", package: "swift-witnesses"),
+                .product(name: "Test Apple", package: "swift-test-apple"),
             ]
         ),
         .testTarget(
