@@ -23,34 +23,36 @@ extension Raster where Pixel == Motion.Pixel {
     }
 
     /// The pixels of `rows` rows of `columns` pixels, rows `step` bytes apart; the sizes are already checked.
+    /// A pixel is its four bytes in the order they are read, so each row is checked and then copied whole.
     static func pixels(columns: Int, rows: Int, step: Int, bytes: [UInt8]) throws(Motion.Pixel.Error) -> [Motion.Pixel] {
-        var pixels: [Motion.Pixel] = []
-        pixels.reserveCapacity(columns * rows)
-        var (x, y) = (0, 0)
-        while y < rows {
-            let offset = y * step + x * 4
-            guard let pixel = Motion.Pixel(blue: bytes[offset], green: bytes[offset + 1], red: bytes[offset + 2], alpha: bytes[offset + 3]) else {
-                throw .premultiplied(x: Ordinal(UInt(x)), y: Ordinal(UInt(y)))
+        let fault = bytes.withUnsafeBufferPointer { source -> (x: Int, y: Int)? in
+            var (x, y) = (0, 0)
+            while y < rows {
+                let offset = y * step + x * 4
+                let alpha = unsafe source[offset + 3]
+                if unsafe source[offset] > alpha || source[offset + 1] > alpha || source[offset + 2] > alpha { return (x, y) }
+                x += 1
+                if x == columns { (x, y) = (0, y + 1) }
             }
-            pixels.append(pixel)
-            x += 1
-            if x == columns { (x, y) = (0, y + 1) }
+            return nil
         }
-        return pixels
+        if let fault { throw .premultiplied(x: Ordinal(UInt(fault.x)), y: Ordinal(UInt(fault.y))) }
+        return unsafe [Motion.Pixel](unsafeUninitializedCapacity: columns * rows) { pixels, count in
+            bytes.withUnsafeBytes { source in
+                var y = 0
+                while y < rows {
+                    let row = unsafe UnsafeRawBufferPointer(rebasing: source[(y * step)..<(y * step + columns * 4)])
+                    let into = unsafe UnsafeMutableRawBufferPointer(rebasing: UnsafeMutableRawBufferPointer(pixels)[(y * columns * 4)..<((y + 1) * columns * 4)])
+                    unsafe into.copyMemory(from: row)
+                    y += 1
+                }
+            }
+            count = columns * rows
+        }
     }
 
     /// The pixels as bytes, blue, green, red, alpha, `width * 4` bytes a row, no padding.
-    public var bytes: [UInt8] {
-        var bytes: [UInt8] = []
-        bytes.reserveCapacity(pixels.count * 4)
-        pixels.forEach { pixel in
-            bytes.append(pixel.blue)
-            bytes.append(pixel.green)
-            bytes.append(pixel.red)
-            bytes.append(pixel.alpha)
-        }
-        return bytes
-    }
+    public var bytes: [UInt8] { pixels.withUnsafeBytes { unsafe [UInt8]($0) } }
 
     /// Peak signal-to-noise ratio in dB over the colour channels, alpha aside; equal pictures give +∞,
     /// and pictures of different sizes, which PSNR cannot compare, give `nil`.

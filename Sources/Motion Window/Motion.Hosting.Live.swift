@@ -123,8 +123,10 @@ extension Motion.Hosting.Live {
     /// draws it. A change drawn later than the first draw at its time would have its animations begin a
     /// frame late, now and then; and under a frozen clock an update SwiftUI puts off waits on a run-loop
     /// timer that does not fire until the clock has passed it. Then the run loop gets `settle` of wall
-    /// time, and the picture returned is a capture that showed this frame's fence and was followed by an
-    /// identical capture. `position` goes up only when a picture is returned.
+    /// time, in which what the change set off elsewhere (a task, a stream, an effect) reaches the view,
+    /// and the host draws once more, so that this frame shows it and not the next. The picture returned
+    /// is a capture that showed this frame's fence and was followed by an identical capture. `position`
+    /// goes up only when a picture is returned.
     public func frame(_ change: (Ordinal) -> Void = { _ in }) async throws(Error) -> Raster<Motion.Pixel> {
         guard !closed else { throw .closed }
         await Motion.Hosting.Window.turn()
@@ -141,14 +143,20 @@ extension Motion.Hosting.Live {
         let number = Motion.Hosting.Window.count
         change(frame)
         fence.number = number
+        draw()
+        await Self.pause(settle)
+        draw()
+        let picture = try await capture(frame, number: number)
+        position = next
+        return picture
+    }
+
+    /// Lays the view out and draws it now, whatever SwiftUI has put off.
+    func draw() {
         window.contentView?.needsLayout = true
         window.contentView?.layoutSubtreeIfNeeded()
         window.contentView?.display()
         CATransaction.flush()
-        await Self.pause(settle)
-        let picture = try await capture(frame, number: number)
-        position = next
-        return picture
     }
 
     /// Closes the window. The process's clock stays frozen where it stands.
