@@ -11,7 +11,7 @@ static _Atomic uint64_t elapsed = 0;
 static uint64_t origin = 0;
 static mach_timebase_info_data_t timebase;
 static pthread_mutex_t freezing = PTHREAD_MUTEX_INITIALIZER;
-static _Thread_local int probing = 0;
+static _Atomic(uintptr_t) prober = 0;
 
 void motion_clock_freeze(void) {
     pthread_mutex_lock(&freezing);
@@ -32,7 +32,7 @@ void motion_clock_advance(uint64_t nanoseconds) {
 
 uint64_t motion_clock_elapsed(void) { return atomic_load(&frozen) ? atomic_load(&elapsed) : 0; }
 
-void motion_clock_probe(void) { probing = 1; }
+void motion_clock_probe(void) { atomic_store(&prober, (uintptr_t)pthread_self()); }
 
 /// The frozen clock in the machine's ticks: where it was frozen, plus what it was moved on.
 static uint64_t ticks(void) {
@@ -40,8 +40,9 @@ static uint64_t ticks(void) {
 }
 
 static uint64_t replaced_mach_absolute_time(void) {
-    if (probing) {
-        probing = 0;
+    uintptr_t probing = atomic_load(&prober);
+    if (probing && probing == (uintptr_t)pthread_self()) {
+        atomic_store(&prober, 0);
         return UINT64_MAX;
     }
     return atomic_load(&frozen) ? ticks() : mach_absolute_time();

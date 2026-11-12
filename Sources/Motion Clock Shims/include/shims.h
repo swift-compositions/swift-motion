@@ -24,7 +24,9 @@ void motion_clock_advance(uint64_t nanoseconds);
 uint64_t motion_clock_elapsed(void);
 
 /// Makes the calling thread's next `mach_absolute_time` return `UINT64_MAX` if, and only if, that call is
-/// routed through this library. A caller uses it to learn whether its own calls are replaced.
+/// routed through this library. A caller uses it to learn whether its own calls are replaced. One thread
+/// probes at a time. The replacements keep no thread-local state, since the first reads of uptime in a
+/// process come before its threads have any.
 void motion_clock_probe(void);
 
 #endif
