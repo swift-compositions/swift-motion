@@ -8,7 +8,7 @@ extension Motion.Encoding {
         public var codec: String
         public var width: Cardinal
         public var height: Cardinal
-        /// The frames in the picture track, counted by reading every one.
+        /// The frames in the picture track, counted by stepping through every sample of its sample table.
         public var frames: Cardinal
         /// The movie's length in seconds, exactly as the file states it.
         public var duration: Rational
@@ -31,14 +31,16 @@ extension Motion.Encoding {
                 guard let width = UInt(exactly: size.width), let height = UInt(exactly: size.height), length.timescale > 0 else {
                     throw Motion.Encoding.Error.reader("\(url.lastPathComponent) states no size or length")
                 }
-                let reader = try AVAssetReader(asset: asset)
-                let provider = reader.outputProvider(for: AVAssetReaderTrackOutput(track: track, outputSettings: nil))
-                try reader.start()
-                var frames = Cardinal.zero
-                while let buffer = try await provider.next() {
-                    if buffer.withUnsafeSampleBuffer({ $0.numSamples }) > 0 { frames += Cardinal.one }
+                guard track.canProvideSampleCursors else {
+                    throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has a picture whose samples cannot be stepped through")
                 }
-                guard reader.status == .completed else { throw Motion.Encoding.Error.reader(reader.error?.localizedDescription ?? "not read to the end") }
+                // The count walks the track's sample table and reads no sample data. An AVAssetReader
+                // waits on CoreMedia's shared read queue, and three movies read at once have waited there for good.
+                var frames = Cardinal.zero
+                if let cursor = track.makeSampleCursorAtFirstSampleInDecodeOrder() {
+                    frames += Cardinal.one
+                    while cursor.stepInDecodeOrder(byCount: 1) == 1 { frames += Cardinal.one }
+                }
                 let code = format.mediaSubType.rawValue
                 self.init(
                     codec: String(decoding: [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: code >> $0) }, as: UTF8.self),
