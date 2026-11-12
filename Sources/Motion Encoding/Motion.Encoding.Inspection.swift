@@ -31,7 +31,7 @@ extension Motion.Encoding {
                 guard let width = UInt(exactly: size.width), let height = UInt(exactly: size.height), length.timescale > 0 else {
                     throw Motion.Encoding.Error.reader("\(url.lastPathComponent) states no size or length")
                 }
-                guard track.canProvideSampleCursors else {
+                guard try await track.load(.canProvideSampleCursors) else {
                     throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has a picture whose samples cannot be stepped through")
                 }
                 // The count walks the track's sample table and reads no sample data. An AVAssetReader
