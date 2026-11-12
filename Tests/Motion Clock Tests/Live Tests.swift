@@ -7,7 +7,7 @@ import SwiftUI
 import Testing
 
 /// These tests capture the screen from the fixture process, so they run only where Screen Recording is granted.
-@MainActor @Suite(.enabled(if: CGPreflightScreenCaptureAccess(), "needs Screen Recording permission"), .serialized)
+@MainActor @Suite(.enabled(if: CGPreflightScreenCaptureAccess(), "needs Screen Recording permission"), .serialized, .timeLimit(.minutes(4)))
 struct `Live Tests` {
     /// What the fixture measured for each frame: the bar's dark pixels, where the square starts, and a digest of the picture.
     static func frames(_ found: [String: [String]]) -> [[String]] {
@@ -17,7 +17,7 @@ struct `Live Tests` {
     @Test func `each frame advances the view's own animations by exactly one frame's duration, SwiftUI's and Core Animation's alike`() {
         let found = Fixture.run(["live", "120", "12"], inserting: true)
         let frames = Self.frames(found)
-        #expect(found["error"] == nil, "\(found["error"] ?? [])")
+        #expect(found["error"] == nil && found["status"] == ["exit 0"], "\(found["error"] ?? []) \(found["status"] ?? []) \(found["stderr"] ?? [])")
         #expect(frames.count == 12)
         let bars = frames.map { Int($0[1]) ?? -1 }
         let slides = frames.map { Int($0[2]) ?? -1 }

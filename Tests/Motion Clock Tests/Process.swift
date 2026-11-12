@@ -13,7 +13,8 @@ enum Fixture {
 
     static var library: String? { products?.appending(path: "libMotion Clock Shims.dylib").path }
 
-    /// Runs the fixture and gives back its `key=value` lines, the values of a repeated key in order.
+    /// Runs the fixture and gives back its `key=value` lines, the values of a repeated key in order, with how
+    /// it ended under `status`. A fixture still running after 90 seconds is ended, so a test fails and never hangs.
     static func run(_ arguments: [String], inserting: Bool) -> [String: [String]] {
         guard let products, let library else { return [:] }
         let process = Process()
@@ -33,6 +34,9 @@ enum Fixture {
         } catch {
             return ["status": ["not started: \(error)"]]
         }
+        let overdue = DispatchWorkItem { process.terminate() }
+        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(90), execute: overdue)
+        defer { overdue.cancel() }
         let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         let complaint = String(decoding: complaints.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         process.waitUntilExit()
