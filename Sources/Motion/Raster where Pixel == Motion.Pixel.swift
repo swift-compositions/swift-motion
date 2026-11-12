@@ -40,7 +40,17 @@ extension Raster where Pixel == Motion.Pixel {
     }
 
     /// The pixels as bytes, blue, green, red, alpha, `width * 4` bytes a row, no padding.
-    public var bytes: [UInt8] { pixels.flatMap { [$0.blue, $0.green, $0.red, $0.alpha] } }
+    public var bytes: [UInt8] {
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(pixels.count * 4)
+        pixels.forEach { pixel in
+            bytes.append(pixel.blue)
+            bytes.append(pixel.green)
+            bytes.append(pixel.red)
+            bytes.append(pixel.alpha)
+        }
+        return bytes
+    }
 
     /// Peak signal-to-noise ratio in dB over the colour channels, alpha aside; equal pictures give +∞,
     /// and pictures of different sizes, which PSNR cannot compare, give `nil`.

@@ -22,15 +22,6 @@ case "live":
     }
     application.run()
 
-case "restless":
-    let application = NSApplication.shared
-    application.setActivationPolicy(.accessory)
-    _ = Task { @MainActor in
-        await Fixture.restless()
-        exit(0)
-    }
-    application.run()
-
 default:
     Fixture.line("error", "no mode")
 }

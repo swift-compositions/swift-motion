@@ -111,4 +111,48 @@ struct `Window Tests` {
         let wider = try Raster<Motion.Pixel>(width: 128, height: 10, bytes: (0..<10).flatMap { row in Array(fenced.bytes[(row * 256)..<((row + 1) * 256)]) + [UInt8](repeating: 255, count: 256) })
         #expect(!Motion.Hosting.Live.shows(try #require(wider.image), number: 27, width: 64, height: 8, scale: 2))
     }
+
+    /// A capture of a 64 by 8 picture of one shade, with the band below it spelling `number`.
+    static func capture(shade: UInt8, number: Int) -> CGImage? {
+        let digits = Motion.Hosting.Window.digits(number)
+        let colours: [[UInt8]] = [[0, 0, 0, 255], [0, 0, 255, 255], [0, 255, 0, 255], [255, 0, 0, 255]]
+        let band: [UInt8] = (0..<64).flatMap { x in colours[digits[x / 4]] }
+        let picture: [UInt8] = (0..<(64 * 8)).flatMap { _ in [shade, shade, shade, 255] }
+        do throws(Motion.Pixel.Error) {
+            return try Raster<Motion.Pixel>(width: 64, height: 10, bytes: picture + band + band).image
+        } catch {
+            return nil
+        }
+    }
+
+    @Test func `a live frame is the first capture that shows its number and is followed by the same picture; captures that never agree or never show it fail`() async throws {
+        var shots = [(10, 6), (20, 7), (30, 7), (40, 7), (40, 7), (50, 7)].compactMap { Self.capture(shade: $0.0, number: $0.1) }
+        #expect(shots.count == 6)
+        let settled = try await Motion.Hosting.Live.settled(3, number: 7, width: 64, height: 8, scale: 2, between: .zero) {
+            shots.isEmpty ? nil : shots.removeFirst()
+        } reason: {
+            "none"
+        }
+        #expect(settled.width == 64 && settled.height == 8)
+        #expect(settled.pixels.allSatisfy { $0.red == 40 })
+        #expect(shots.count == 1)
+        var shade: UInt8 = 0
+        await #expect(throws: Motion.Hosting.Live.Error.unsettled(frame: 3)) {
+            _ = try await Motion.Hosting.Live.settled(3, number: 7, width: 64, height: 8, scale: 2, between: .zero) {
+                shade += 1
+                return Self.capture(shade: shade, number: 7)
+            } reason: {
+                "none"
+            }
+        }
+        #expect(shade == 80)
+        let stale = Self.capture(shade: 5, number: 6)
+        await #expect(throws: Motion.Hosting.Live.Error.capture(frame: 3, "the reason")) {
+            _ = try await Motion.Hosting.Live.settled(3, number: 7, width: 64, height: 8, scale: 2, between: .zero) {
+                stale
+            } reason: {
+                "the reason"
+            }
+        }
+    }
 }

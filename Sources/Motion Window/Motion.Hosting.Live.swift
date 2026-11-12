@@ -178,30 +178,50 @@ extension Motion.Hosting.Live {
         config.ignoreShadowsSingleWindow = true
         config.pixelFormat = kCVPixelFormatType_32BGRA
         unsafe config.colorSpaceName = CGColorSpace.sRGB
-        var fenced = false
         var refused = "it never showed its fence"
+        return try await Self.settled(frame, number: number, width: width, height: height, scale: scale, between: .milliseconds(50)) {
+            // swift-linter:disable:next do throws for typed catch
+            // REASON: SCScreenshotManager.captureImage throws untyped; a capture that fails counts as none and its error is the reason given.
+            do {
+                return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+            } catch {
+                refused = "\(error)"
+                return nil
+            }
+        } reason: {
+            refused
+        }
+    }
+
+    /// Takes captures with `shot`, up to forty pairs, until one shows `number` in its band and the capture
+    /// after it is the same picture, band included; gives that picture without its band. Fails with
+    /// `.unsettled` when captures showed the number but no two in a row agreed, and with `.capture` and
+    /// `reason` when none showed it.
+    static func settled(
+        _ frame: Ordinal,
+        number: Int,
+        width: Int,
+        height: Int,
+        scale: Int,
+        between: Duration,
+        shot: () async -> CGImage?,
+        reason: () -> String
+    ) async throws(Error) -> Raster<Motion.Pixel> {
+        var fenced = false
         var attempt = 0
         while attempt < 40 {
             attempt += 1
-            // swift-linter:disable:next do throws for typed catch
-            // REASON: SCScreenshotManager.captureImage throws untyped; its error becomes Error.capture.
-            do {
-                let first = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-                if Self.shows(first, number: number, width: width, height: height, scale: scale) {
-                    fenced = true
-                    let second = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-                    if Self.shows(second, number: number, width: width, height: height, scale: scale), Self.bytes(first) == Self.bytes(second), let raster = Raster<Motion.Pixel>(image: first),
-                        let picture = Motion.Hosting.Window.picture(raster, rows: Cardinal(UInt(height)))
-                    {
-                        return picture
-                    }
+            if let first = await shot(), shows(first, number: number, width: width, height: height, scale: scale) {
+                fenced = true
+                if let second = await shot(), bytes(first) == bytes(second),
+                    let raster = Raster<Motion.Pixel>(image: first), let picture = Motion.Hosting.Window.picture(raster, rows: Cardinal(UInt(height)))
+                {
+                    return picture
                 }
-            } catch {
-                refused = "\(error)"
             }
-            await Self.pause(.milliseconds(50))
+            await pause(between)
         }
-        throw fenced ? .unsettled(frame: frame) : .capture(frame: frame, refused)
+        throw fenced ? .unsettled(frame: frame) : .capture(frame: frame, reason())
     }
 
     static func bytes(_ image: CGImage) -> CFData? { image.dataProvider?.data }

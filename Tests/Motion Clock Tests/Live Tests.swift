@@ -47,12 +47,6 @@ struct `Live Tests` {
         #expect(runs.allSatisfy { $0 == runs[0] }, "\(runs.map { $0.map { $0[1] } })")
     }
 
-    @Test func `a view that keeps changing with the wall clock never settles, and its frame fails rather than return a picture`() {
-        let found = Fixture.run(["restless"], inserting: true)
-        #expect(found["error"] == ["unsettled(frame: 0)"])
-        #expect(found["frame"] == nil)
-    }
-
     @Test func `without the shim library in the process the host refuses to start, and a closed host draws nothing`() {
         let absent = Fixture.run(["live", "60", "1"], inserting: false)["error"] ?? []
         #expect(absent.count == 1 && absent.allSatisfy { $0.hasPrefix("clock(") && $0.hasSuffix("Error.absent)") }, "\(absent)")
