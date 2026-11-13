@@ -4,6 +4,7 @@
     import Picture_CPU
     import Synchronization
     import Thread_Pool
+    public import Picture_Store
 
     extension Motion.Hosting.Picture {
         /// The frames of a motion as pictures, drawn several at a time: each on a thread of its own, with one
@@ -20,6 +21,10 @@
             public var renderer: Picture::Picture.Renderer
             public var picture: @Sendable (Ordinal) -> Picture::Picture
 
+            /// Where what is made of each frame is kept and read back from, by a form with a name; nil to draw
+            /// every frame. Its edition must be that of `renderer`.
+            public var store: Picture::Picture.Store?
+
             /// How many frames are drawn at once.
             public let workers: Cardinal
 
@@ -33,6 +38,7 @@
                 over background: Picture::Picture.Color = .black,
                 workers: Cardinal? = nil,
                 renderer: Picture::Picture.Renderer? = nil,
+                store: Picture::Picture.Store? = nil,
                 picture: @escaping @Sendable (Ordinal) -> Picture::Picture
             ) {
                 let count = Swift.max(workers ?? Cardinal(UInt(Int(CPU.Logical.count))), 1)
@@ -41,6 +47,7 @@
                 self.background = background
                 self.renderer = renderer ?? .cpu(threads: 1)
                 self.picture = picture
+                self.store = store
                 self.workers = count
                 self.pool = Kernel.Thread.Pool(.init(workers: Kernel.Thread.Count(Int(clamping: count))))
             }
@@ -59,20 +66,40 @@
             _ positions: [Ordinal],
             as frame: @escaping @Sendable (_ position: Ordinal, _ raster: Raster<Picture::Picture.Pixel>) -> Frame
         ) async throws(Error) -> [Frame] {
+            try await drawn(positions, as: Form(frame))
+        }
+
+        /// `drawn(_:as:)` of what a form makes, which, with a store and a form with a name, is first looked for in
+        /// the store under the key of the frame's picture, the size, the background and the form's name for the
+        /// position, and when found is not drawn; what is drawn is kept there.
+        public func drawn<Frame: Sendable>(_ positions: [Ordinal], as form: Form<Frame>) async throws(Error) -> [Frame] {
             guard !positions.isEmpty else { return [] }
             let progress = Progress<Frame>(count: positions.count)
+            let ground = background.pixel
             let work: @Sendable () -> Void = {
                 while true {
                     let place = progress.next.wrappingAdd(1, ordering: .relaxed).oldValue
                     guard place < positions.count, progress.results.withLock({ $0.failure == nil }) else { return }
-                    var raster = Raster<Picture::Picture.Pixel>(width: width, height: height, repeating: background.pixel)
+                    let position = positions[place]
+                    let shown = picture(position)
+                    let key = store.flatMap { store in
+                        form.name.flatMap { name in store.key(shown, width: width, height: height, over: ground, form: name(position)) }
+                    }
+                    if let key, let bytes = store?.bytes(for: key), let kept = form.frame(bytes) {
+                        progress.results.withLock { $0.frames[place] = kept }
+                        continue
+                    }
+                    var raster = Raster<Picture::Picture.Pixel>(width: width, height: height, repeating: ground)
                     do throws(Picture::Picture.Renderer.Error) {
-                        try renderer.render(picture(positions[place]), into: &raster)
+                        try renderer.render(shown, into: &raster)
                     } catch {
-                        progress.results.withLock { if $0.failure == nil { $0.failure = .renderer(error, at: positions[place]) } }
+                        progress.results.withLock { if $0.failure == nil { $0.failure = .renderer(error, at: position) } }
                         return
                     }
-                    let made = frame(positions[place], raster)
+                    let made = form.make(position, raster)
+                    if let key, let bytes = form.bytes(made) {
+                        try? store?.keep(bytes, for: key)
+                    }
                     progress.results.withLock { $0.frames[place] = made }
                 }
             }
@@ -100,7 +127,7 @@
 
         /// The frames at some positions as a movie's frames, in the order of the positions.
         public func rasters(_ positions: [Ordinal]) async throws(Error) -> [Raster<Motion.Pixel>] {
-            try await drawn(positions) { _, raster in raster.map { pixel in Motion.Pixel(pixel) } }
+            try await drawn(positions, as: .movie)
         }
 
         /// A contact sheet: the frames at some positions, each made `columns` times as small along each side by
@@ -114,7 +141,7 @@
         ) async throws(Error) -> Raster<Picture::Picture.Pixel> {
             let across = Swift.max(columns, 1)
             let (small, short) = tile(columns: across)
-            let tiles = try await drawn(positions) { _, raster in Self.shrunk(raster, width: small, height: short) }
+            let tiles = try await drawn(positions, as: .working("tile \(small)x\(short) box") { raster in Self.shrunk(raster, width: small, height: short) })
             do throws(Raster<Picture::Picture.Pixel>.Error) {
                 return try Raster(tiling: tiles, columns: across, gap: gap, fill: fill.pixel)
             } catch {
@@ -144,13 +171,18 @@
             ahead: Cardinal? = nil,
             as frame: @escaping @Sendable (_ position: Ordinal, _ raster: Raster<Picture::Picture.Pixel>) -> Frame
         ) -> Feed<Frame> {
-            Feed(self, count: count, ahead: Swift.max(ahead ?? Cardinal(UInt(4 * Int(clamping: workers))), 1), frame)
+            feed(first: count, ahead: ahead, as: Form(frame))
+        }
+
+        /// `feed(first:ahead:as:)` of what a form makes, kept in and read from the store as `drawn(_:as:)` does.
+        public func feed<Frame: Sendable>(first count: Cardinal, ahead: Cardinal? = nil, as form: Form<Frame>) -> Feed<Frame> {
+            Feed(self, count: count, ahead: Swift.max(ahead ?? Cardinal(UInt(4 * Int(clamping: workers))), 1), form)
         }
 
         /// The first `count` frames as a movie's frames, to be asked for one after another, which is how
         /// `Motion.Encoding.write(frames:to:raster:)` asks.
         public func feed(first count: Cardinal, ahead: Cardinal? = nil) -> Feed<Raster<Motion.Pixel>> {
-            feed(first: count, ahead: ahead) { _, raster in raster.map { pixel in Motion.Pixel(pixel) } }
+            feed(first: count, ahead: ahead, as: .movie)
         }
     }
 #endif

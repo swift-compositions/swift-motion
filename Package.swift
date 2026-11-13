@@ -67,6 +67,7 @@ let package = Package(
                 .product(name: "Picture", package: "swift-picture", condition: .when(traits: ["Picture"])),
                 .product(name: "Picture CPU", package: "swift-picture", condition: .when(traits: ["Picture"])),
                 .product(name: "Picture PNG Integration", package: "swift-picture", condition: .when(traits: ["Picture"])),
+                .product(name: "Picture Store", package: "swift-picture", condition: .when(traits: ["Picture"])),
                 .product(name: "Thread Pool", package: "swift-threads", condition: .when(traits: ["Picture"])),
                 .product(name: "Witnesses", package: "swift-witnesses", condition: .when(traits: ["Picture"])),
                 .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Picture"])),
@@ -181,6 +182,8 @@ let package = Package(
                 .product(name: "Witnesses", package: "swift-witnesses"),
                 .product(name: "Picture PNG Integration", package: "swift-picture"),
                 .product(name: "Timeline", package: "swift-timeline"),
+                .product(name: "Picture Store", package: "swift-picture"),
+                .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Test Apple", package: "swift-test-apple"),
             ]
         ),

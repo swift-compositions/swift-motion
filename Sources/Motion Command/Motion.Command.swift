@@ -108,7 +108,7 @@
         /// Frames are numbered with at least five digits.
         public static func run<Key>(_ film: Film<Key>, _ request: Request) async throws(Error) -> [Swift.String] {
             let reel = try layered(film.reel, request).scaled(by: request.scale)
-            let renderer = try renderer(request)
+            let store = try store(request)
             let keys = try keys(request.parts, in: reel)
             let named = try request.proofs.map { name throws(Error) in
                 guard let proof = film.proofs[name] else { throw .proof(name) }
@@ -125,12 +125,12 @@
             case .sheet where !request.at.isEmpty || !request.stills.isEmpty:
                 let sheets = request.at.isEmpty ? [] : [Motion.Reel<Key>.Sheet("at", frames: request.at, columns: request.columns)]
                 let proof = Motion.Reel<Key>.Proof(sheets: sheets, stills: request.stills)
-                return try await prints(proof, of: keys, named: label, from: reel, through: renderer, into: request.output)
+                return try await prints(proof, of: keys, named: label, from: reel, keeping: store, into: request.output)
 
             case .sheet where !named.isEmpty:
                 var written: [Swift.String] = []
                 for (name, proof) in named {
-                    written += try await prints(proof, of: nil, named: name, from: reel, through: renderer, into: request.output)
+                    written += try await prints(proof, of: nil, named: name, from: reel, keeping: store, into: request.output)
                 }
                 return written
 
@@ -138,17 +138,17 @@
                 var written: [Swift.String] = []
                 for key in keys ?? Self.keys(of: reel) {
                     let proof = film.parts[key] ?? .overview(of: Cardinal(UInt(reel.positions(of: [key]).count)))
-                    written += try await prints(proof, of: [key], named: Swift.String(describing: key), from: reel, through: renderer, into: request.output)
+                    written += try await prints(proof, of: [key], named: Swift.String(describing: key), from: reel, keeping: store, into: request.output)
                 }
                 guard keys == nil else { return written }
                 for name in film.proofs.keys.sorted() {
                     guard let proof = film.proofs[name] else { continue }
-                    written += try await prints(proof, of: nil, named: name, from: reel, through: renderer, into: request.output)
+                    written += try await prints(proof, of: nil, named: name, from: reel, keeping: store, into: request.output)
                 }
                 return written
 
             case .frames:
-                let feed = reel.sequence(keys, renderer: renderer)
+                let feed = reel.sequence(keys, store: store)
                 var written: [Swift.String] = []
                 var position = Ordinal.zero
                 while true {
@@ -180,7 +180,7 @@
                     } catch {
                         throw .delete(error)
                     }
-                    let (count, feed) = reel.movie(keys, renderer: renderer)
+                    let (count, feed) = reel.movie(keys, store: store)
                     let encoding = Motion.Encoding(width: reel.width, height: reel.height, rate: reel.rate)
                     do throws(Motion.Encoding.Error) {
                         try await encoding.write(frames: count, to: URL(filePath: file)) { position in
@@ -210,7 +210,7 @@
                         at: { reel.instants($0, of: keys) }
                     ) { instants throws(Error) in
                         do throws(Motion.Hosting.Picture.Frames.Error) {
-                            return try await reel.frames(at: instants, of: keys, renderer: renderer)
+                            return try await reel.frames(at: instants, of: keys, store: store)
                         } catch {
                             throw .frames(error)
                         }
@@ -219,11 +219,11 @@
             }
         }
 
-        /// The renderer a request draws through: `Picture.Renderer.cpu(threads:storing:)` on one thread into its
-        /// cache directory, or nil, the frames' own, without one.
-        static func renderer(_ request: Request) throws(Error) -> Picture::Picture.Renderer? {
+        /// The store a request keeps drawn frames in: `Picture.Store.cpu(_:)` of its cache directory, for the
+        /// frames' own renderer, `Picture.Renderer.cpu(threads: 1)`; or nil without one.
+        static func store(_ request: Request) throws(Error) -> Picture::Picture.Store? {
             guard !request.cache.isEmpty else { return nil }
-            return .cpu(threads: 1, storing: File.Directory(try path(request.cache)))
+            return .cpu(File.Directory(try path(request.cache)))
         }
 
         /// The reel with only the layers the request names, by `String(describing:)` of their keys, or none when
@@ -429,12 +429,12 @@
             of keys: [Key]?,
             named name: Swift.String,
             from reel: Motion.Reel<Key>,
-            through renderer: Picture::Picture.Renderer?,
+            keeping store: Picture::Picture.Store?,
             into directory: Swift.String
         ) async throws(Error) -> [Swift.String] {
             let prints: Motion.Reel<Key>.Prints
             do throws(Motion.Reel<Key>.Error) {
-                prints = try await reel.prints(proof, of: keys, renderer: renderer)
+                prints = try await reel.prints(proof, of: keys, store: store)
             } catch {
                 throw Error(error)
             }

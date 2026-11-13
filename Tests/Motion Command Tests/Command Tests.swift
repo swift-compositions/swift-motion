@@ -71,10 +71,33 @@
                 #expect(try Self.contents(cold) == Self.contents(plain))
                 #expect(try Self.contents(warm) == Self.contents(plain))
             }
-            let reference = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/plain"))
-            let kept = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/warm", cache: cache))
-            let (plainFrames, warmFrames) = (try await Self.decoded(reference[0]), try await Self.decoded(kept[0]))
-            #expect(plainFrames == warmFrames)
+            let plain = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/plain"))
+            let again = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/again"))
+            let cold = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/cold", cache: cache))
+            let warm = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/warm", cache: cache))
+            // AVFoundation's writer does not write the same bytes twice for the same frames, so a movie is held
+            // to its frames: two uncached runs differ in bytes as a warm run does.
+            #expect(try Self.contents(again) != Self.contents(plain))
+            #expect(try await Self.decoded(again[0]) == Self.decoded(plain[0]))
+            #expect(try await Self.decoded(cold[0]) == Self.decoded(plain[0]))
+            #expect(try await Self.decoded(warm[0]) == Self.decoded(plain[0]))
+        }
+
+        @Test func `compare through a warm cache writes the sheets compare writes without one`() async throws {
+            let directory = Self.directory()
+            let cache = directory + "/cache"
+            _ = try await Motion.Command.run(Self.reel, Request(.movie, output: directory))
+            let tenth = try Rational(numerator: 1, denominator: 10)
+            func compare(_ name: Swift.String, cache: Swift.String = "") async throws -> [Swift.String] {
+                let request = Request(.compare, output: directory + "/" + name, reference: directory + "/reel.mp4", step: tenth, pairs: 2, width: 10, cache: cache)
+                return try await Motion.Command.run(Self.reel, request)
+            }
+            let plain = try await compare("plain")
+            let cold = try await compare("cold", cache: cache)
+            let warm = try await compare("warm", cache: cache)
+            #expect(!plain.isEmpty)
+            #expect(try Self.contents(cold) == Self.contents(plain))
+            #expect(try Self.contents(warm) == Self.contents(plain))
         }
 
         /// Every frame of a movie, decoded.

@@ -3,6 +3,7 @@
     public import Picture
     public import Timeline
     public import Picture_PNG_Integration
+    public import Picture_Store
 
     extension Motion {
         /// An edit of scenes: parts played one after another at one rate, each drawn from its own frames, with
@@ -192,11 +193,19 @@
         public func hosting(
             _ keys: [Key]? = nil,
             workers: Cardinal? = nil,
-            renderer: Picture::Picture.Renderer? = nil
+            renderer: Picture::Picture.Renderer? = nil,
+            store: Picture::Picture.Store? = nil
         ) -> Motion.Hosting.Picture.Frames {
             let chosen = keys.map { positions(of: $0) }
             let reel = self
-            return Motion.Hosting.Picture.Frames(width: width, height: height, over: background, workers: workers, renderer: renderer) { position in
+            return Motion.Hosting.Picture.Frames(
+                width: width,
+                height: height,
+                over: background,
+                workers: workers,
+                renderer: renderer,
+                store: store
+            ) { position in
                 guard let chosen else { return reel.picture(at: position) }
                 let place = Int(bitPattern: position)
                 return place < chosen.count ? reel.picture(at: chosen[place]) : .empty
@@ -215,12 +224,13 @@
             _ proof: Proof,
             of keys: [Key]? = nil,
             workers: Cardinal? = nil,
-            renderer: Picture::Picture.Renderer? = nil
+            renderer: Picture::Picture.Renderer? = nil,
+            store: Picture::Picture.Store? = nil
         ) async throws(Error) -> Prints {
             let count = keys.map { positions(of: $0).count } ?? Int(clamping: frames)
             let asked = proof.sheets.flatMap(\.frames) + proof.stills
             if let beyond = asked.first(where: { Int(bitPattern: $0) >= count }) { throw .outside(beyond) }
-            let drawing = hosting(keys, workers: workers, renderer: renderer)
+            let drawing = hosting(keys, workers: workers, renderer: renderer, store: store)
             var sizes: [Ordinal: Set<Cardinal>] = [:]
             for sheet in proof.sheets {
                 for frame in sheet.frames { sizes[frame, default: []].insert(Swift.max(sheet.columns, 1)) }
@@ -230,16 +240,7 @@
             let wanted = Set(asked).sorted()
             let drawn: [Tile]
             do throws(Motion.Hosting.Picture.Frames.Error) {
-                drawn = try await drawing.drawn(wanted) { position, raster in
-                    let small = (columns[position] ?? []).map { across in
-                        let size = drawing.tile(columns: across)
-                        return (across, Motion.Hosting.Picture.Frames.shrunk(raster, width: size.width, height: size.height))
-                    }
-                    return Tile(
-                        small: Dictionary(uniqueKeysWithValues: small),
-                        still: stills.contains(position) ? Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Self.png(raster) } : nil
-                    )
-                }
+                drawn = try await drawing.drawn(wanted, as: Tile.form(columns: columns, stills: stills, of: drawing))
             } catch {
                 throw .frames(error)
             }
@@ -255,7 +256,7 @@
                     throw .sheet(error)
                 }
                 do throws(W3C_PNG::W3C_PNG.Image.Error) {
-                    sheets[sheet.name] = try Self.png(raster)
+                    sheets[sheet.name] = try Motion.Hosting.Picture.Frames.png(raster)
                 } catch {
                     throw .png(error)
                 }
@@ -272,14 +273,17 @@
             let names = proof.pictures.keys.sorted()
             let pictures = proof.pictures
             let reel = self
-            let alone = Motion.Hosting.Picture.Frames(width: width, height: height, over: background, workers: workers, renderer: drawing.renderer) {
-                position in reel.scaled(pictures[names[Int(bitPattern: position)]] ?? .empty)
-            }
+            let alone = Motion.Hosting.Picture.Frames(
+                width: width,
+                height: height,
+                over: background,
+                workers: workers,
+                renderer: drawing.renderer,
+                store: store
+            ) { position in reel.scaled(pictures[names[Int(bitPattern: position)]] ?? .empty) }
             let made: [Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>]
             do throws(Motion.Hosting.Picture.Frames.Error) {
-                made = try await alone.drawn(names.indices.map { Ordinal(UInt($0)) }) { _, raster in
-                    Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Self.png(raster) }
-                }
+                made = try await alone.drawn(names.indices.map { Ordinal(UInt($0)) }, as: .png)
             } catch {
                 throw .frames(error)
             }
@@ -301,12 +305,11 @@
             _ keys: [Key]? = nil,
             ahead: Cardinal? = nil,
             workers: Cardinal? = nil,
-            renderer: Picture::Picture.Renderer? = nil
+            renderer: Picture::Picture.Renderer? = nil,
+            store: Picture::Picture.Store? = nil
         ) -> Motion.Hosting.Picture.Frames.Feed<Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>> {
             let count = Cardinal(UInt(positions(of: keys).count))
-            return hosting(keys, workers: workers, renderer: renderer).feed(first: count, ahead: ahead) { _, raster in
-                Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Self.png(raster) }
-            }
+            return hosting(keys, workers: workers, renderer: renderer, store: store).feed(first: count, ahead: ahead, as: .png)
         }
 
         /// Every frame of the parts with these keys, or of the whole reel, as a movie's frames to be asked for
@@ -316,10 +319,11 @@
             _ keys: [Key]? = nil,
             ahead: Cardinal? = nil,
             workers: Cardinal? = nil,
-            renderer: Picture::Picture.Renderer? = nil
+            renderer: Picture::Picture.Renderer? = nil,
+            store: Picture::Picture.Store? = nil
         ) -> (frames: Cardinal, feed: Motion.Hosting.Picture.Frames.Feed<Raster<Motion.Pixel>>) {
             let count = Cardinal(UInt(positions(of: keys).count))
-            return (count, hosting(keys, workers: workers, renderer: renderer).feed(first: count, ahead: ahead))
+            return (count, hosting(keys, workers: workers, renderer: renderer, store: store).feed(first: count, ahead: ahead))
         }
 
         /// The frames of the parts with these keys, or of the whole reel, shown at these instants in seconds from
@@ -330,7 +334,8 @@
             at instants: [Rational],
             of keys: [Key]? = nil,
             workers: Cardinal? = nil,
-            renderer: Picture::Picture.Renderer? = nil
+            renderer: Picture::Picture.Renderer? = nil,
+            store: Picture::Picture.Store? = nil
         ) async throws(Motion.Hosting.Picture.Frames.Error) -> [Raster<Motion.Pixel>?] {
             let count = keys.map { positions(of: $0).count } ?? Int(clamping: frames)
             let places: [Ordinal?] = instants.map { instant in
@@ -338,14 +343,10 @@
                 return Ordinal(UInt(index))
             }
             let wanted = Swift.Array(Set(places.compactMap { $0 })).sorted()
-            let drawn = try await hosting(keys, workers: workers, renderer: renderer).rasters(wanted)
+            let drawn = try await hosting(keys, workers: workers, renderer: renderer, store: store).rasters(wanted)
             let shown = Dictionary(uniqueKeysWithValues: zip(wanted, drawn))
             return places.map { place in place.flatMap { shown[$0] } }
         }
 
-        /// A raster of the picture's pixels as PNG bytes, compressed fast.
-        static func png(_ raster: Raster<Picture::Picture.Pixel>) throws(W3C_PNG::W3C_PNG.Image.Error) -> [Byte] {
-            W3C_PNG::W3C_PNG.serialize(try W3C_PNG::W3C_PNG.Image(raster), level: .fast)
-        }
     }
 #endif

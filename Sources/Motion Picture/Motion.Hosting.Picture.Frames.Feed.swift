@@ -11,7 +11,7 @@
             let frames: Motion.Hosting.Picture.Frames
             let count: Cardinal
             let ahead: Cardinal
-            let frame: @Sendable (Ordinal, Raster<Picture::Picture.Pixel>) -> Frame
+            let form: Motion.Hosting.Picture.Frames.Form<Frame>
             var first: Int = 0
             var held: [Frame] = []
 
@@ -19,12 +19,12 @@
                 _ frames: Motion.Hosting.Picture.Frames,
                 count: Cardinal,
                 ahead: Cardinal,
-                _ frame: @escaping @Sendable (Ordinal, Raster<Picture::Picture.Pixel>) -> Frame
+                _ form: Motion.Hosting.Picture.Frames.Form<Frame>
             ) {
                 self.frames = frames
                 self.count = count
                 self.ahead = ahead
-                self.frame = frame
+                self.form = form
             }
         }
     }
@@ -40,7 +40,7 @@
                 held = []
                 first = place
                 let stretch = (place..<Swift.min(place + Int(clamping: ahead), end)).map { Ordinal(UInt($0)) }
-                held = try await frames.drawn(stretch, as: frame)
+                held = try await frames.drawn(stretch, as: form)
             }
             return held[place - first]
         }

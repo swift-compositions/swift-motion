@@ -3,6 +3,8 @@
     import Motion_Picture
     import Picture
     import Picture_CPU
+    import Picture_Store
+    import File_System
     import Test_Apple
     import Testing
 
@@ -30,6 +32,26 @@
         }
 
         /// The picture at a position: something that moves, over the part that stays, shown twice.
+        @Test func `frames kept in a store are read back as drawing gives them, in the form asked for`() async throws {
+            let path = "/tmp/motion-frames-store-" + Swift.String(UInt64.random(in: 0...UInt64.max))
+            let store = Picture.Store.cpu(File.Directory(try File.Path(validating: path)))
+            let plain = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, over: Self.paper, workers: 2, picture: Self.picture)
+            var kept = plain
+            kept.store = store
+            let positions: [Ordinal] = [0, 1, 2, 3]
+            let movie = try await plain.rasters(positions)
+            #expect(try await kept.rasters(positions) == movie)
+            let never = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, over: Self.paper, workers: 2, renderer: .absent, store: store, picture: Self.picture)
+            #expect(try await never.rasters(positions) == movie)
+            let sheet = try await plain.sheet(positions, columns: 2)
+            #expect(try await kept.sheet(positions, columns: 2) == sheet)
+            #expect(try await never.sheet(positions, columns: 2) == sheet)
+            let key = try #require(store.key(Self.picture(0), width: Self.width, height: Self.height, over: Self.paper.pixel, form: "Motion.Pixel"))
+            let entry = try #require(store.bytes(for: key))
+            #expect(entry.count == 16 + 4 * Int(clamping: Self.width) * Int(clamping: Self.height))
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.self) { try await never.rasters([7]) }
+        }
+
         @Sendable static func picture(_ position: Ordinal) -> Picture {
             let step = Double(Int(bitPattern: position))
             var moved = still
