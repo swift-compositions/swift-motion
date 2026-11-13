@@ -75,6 +75,7 @@ let package = Package(
                 .target(name: "Motion"),
                 .target(name: "Motion Picture"),
                 .target(name: "Motion Encoding"),
+                .product(name: "Picture PNG Integration", package: "swift-picture", condition: .when(traits: ["Command"])),
                 .product(name: "Command", package: "swift-arguments", condition: .when(traits: ["Command"])),
                 .product(name: "File System", package: "swift-file-system", condition: .when(traits: ["Command"])),
                 .product(name: "Process", package: "swift-process", condition: .when(traits: ["Command"])),

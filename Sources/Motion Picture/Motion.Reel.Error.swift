@@ -1,7 +1,7 @@
 #if Picture
     public import Motion
     public import Picture
-    public import W3C_PNG
+    public import Picture_PNG_Integration
 
     extension Motion.Reel {
         /// Why a proof was not printed.
@@ -16,7 +16,7 @@
             case sheet(Raster<Picture::Picture.Pixel>.Error)
 
             /// A picture could not be made a PNG image.
-            case png(W3C_PNG.Image.Error)
+            case png(W3C_PNG::W3C_PNG.Image.Error)
         }
     }
 #endif

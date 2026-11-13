@@ -48,7 +48,8 @@
         }
 
         @Test func `parts are given one by one or joined by commas, in order, and frames with commas`() throws {
-            let request = try Request.parse(["sheet", "out", "--part", "ending,opening", "--part", "middle", "--at", "0,3,12", "--stills", "7", "--columns", "4"])
+            let arguments = ["sheet", "out", "--part", "ending,opening", "--part", "middle", "--at", "0,3,12", "--stills", "7", "--columns", "4"]
+            let request = try Request.parse(arguments)
             #expect(request == Request(.sheet, output: "out", parts: ["ending", "opening", "middle"], at: [0, 3, 12], stills: [7], columns: 4))
         }
 
@@ -76,13 +77,16 @@
             let directory = Self.directory()
             let proof = Reel.Proof(sheets: [Reel.Sheet("start", frames: [0, 1], columns: 2)], stills: [3])
             let written = try await Motion.Command.run(Self.reel, Request(.sheet, output: directory), proofs: ["opening": proof])
-            #expect(written == [directory + "/sheet-opening-start.png", directory + "/opening-00003.png", directory + "/sheet-ending.png", directory + "/ending-00000.png", directory + "/ending-00001.png", directory + "/ending-00002.png"])
+            let names = ["sheet-opening-start", "opening-00003", "sheet-ending", "ending-00000", "ending-00001", "ending-00002"]
+            #expect(written == names.map { directory + "/" + $0 + ".png" })
             let prints = try await Self.reel.prints(proof, of: ["opening"])
             #expect(try File(File.Path(validating: written[0])).read.bytes() == prints.sheets["start"])
             #expect(try File(File.Path(validating: written[1])).read.bytes() == prints.stills[3])
-            let chosen = try await Motion.Command.run(Self.reel, Request(.sheet, output: directory, parts: ["ending", "opening"], at: [0, 4], stills: [6]))
+            let request = Request(.sheet, output: directory, parts: ["ending", "opening"], at: [0, 4], stills: [6])
+            let chosen = try await Motion.Command.run(Self.reel, request)
             #expect(chosen == [directory + "/sheet-ending+opening-at.png", directory + "/ending+opening-00006.png"])
-            let at = try await Self.reel.prints(Reel.Proof(sheets: [Reel.Sheet("at", frames: [0, 4], columns: 5)], stills: [6]), of: ["ending", "opening"])
+            let asked = Reel.Proof(sheets: [Reel.Sheet("at", frames: [0, 4], columns: 5)], stills: [6])
+            let at = try await Self.reel.prints(asked, of: ["ending", "opening"])
             #expect(try File(File.Path(validating: chosen[0])).read.bytes() == at.sheets["at"])
         }
 

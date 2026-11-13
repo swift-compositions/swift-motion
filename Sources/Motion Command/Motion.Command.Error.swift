@@ -4,7 +4,7 @@
     public import Motion
     public import Motion_Encoding
     public import Motion_Picture
-    public import W3C_PNG
+    public import Picture_PNG_Integration
 
     extension Motion.Command {
         /// Why a command wrote nothing more.
@@ -25,7 +25,7 @@
             case sheet(Raster<Picture::Picture.Pixel>.Error)
 
             /// A picture could not be made a PNG image.
-            case png(W3C_PNG.Image.Error)
+            case png(W3C_PNG::W3C_PNG.Image.Error)
 
             /// A path written to is not a path.
             case path(Swift.String)

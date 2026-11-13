@@ -6,7 +6,7 @@
     import Motion_Encoding
     public import Motion_Picture
     import Process
-    import W3C_PNG
+    import Picture_PNG_Integration
 
     extension Motion {
         /// A film's command line: the executable a reel is written from calls `main(_:proofs:arguments:)` and
@@ -78,7 +78,8 @@
             switch request.action {
             case .sheet where !request.at.isEmpty || !request.stills.isEmpty:
                 let sheets = request.at.isEmpty ? [] : [Motion.Reel<Key>.Sheet("at", frames: request.at, columns: request.columns)]
-                return try await prints(Motion.Reel<Key>.Proof(sheets: sheets, stills: request.stills), of: keys, named: label, from: reel, into: request.output)
+                let proof = Motion.Reel<Key>.Proof(sheets: sheets, stills: request.stills)
+                return try await prints(proof, of: keys, named: label, from: reel, into: request.output)
 
             case .sheet:
                 var written: [Swift.String] = []
@@ -93,7 +94,7 @@
                 var written: [Swift.String] = []
                 var position = Ordinal.zero
                 while true {
-                    let made: Result<[Byte], W3C_PNG.Image.Error>?
+                    let made: Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>?
                     do throws(Motion.Hosting.Picture.Frames.Error) {
                         made = try await feed.frame(at: position)
                     } catch {
@@ -101,7 +102,7 @@
                     }
                     guard let made else { return written }
                     let bytes: [Byte]
-                    do throws(W3C_PNG.Image.Error) {
+                    do throws(W3C_PNG::W3C_PNG.Image.Error) {
                         bytes = try made.get()
                     } catch {
                         throw .png(error)

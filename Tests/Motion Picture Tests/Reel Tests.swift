@@ -6,7 +6,6 @@
     import Test_Apple
     import Testing
     import Timeline
-    import W3C_PNG
 
     @Suite(.deadline(.seconds(180))) struct `Reel Tests` {
         typealias Tests = `Picture Tests`
@@ -30,9 +29,11 @@
         ]
 
         /// A bar over the frames 4 up to 7 of the reel, moving with the reel's frame.
-        static func layer(at rate: Rate) -> Reel.Layer {
-            Reel.Layer(
-                { frame in [Tests.rectangle(Double(Int(bitPattern: frame.position)), 10, 3, 3, Picture.Color(red: 1, green: 1, blue: 0.2, alpha: 0.7))] },
+        static func layer(at rate: Rate) -> Timeline.Layer<@Sendable (Reel.Frame) -> Picture> {
+            Timeline.Layer(
+                { frame in
+                    [Tests.rectangle(Double(Int(bitPattern: frame.position)), 10, 3, 3, Picture.Color(red: 1, green: 1, blue: 0.2, alpha: 0.7))]
+                },
                 over: rate.start(of: 4)..<rate.start(of: 7)
             )
         }
@@ -49,7 +50,7 @@
         }
 
         static func png(_ raster: Raster<Picture.Pixel>) throws -> [Byte] {
-            W3C_PNG.serialize(try W3C_PNG.Image(raster), level: .fast)
+            W3C_PNG::W3C_PNG.serialize(try W3C_PNG::W3C_PNG.Image(raster), level: .fast)
         }
 
         @Test func `a reel lasts the sum of its parts' frames`() {
@@ -84,10 +85,8 @@
 
         @Test func `a layer is laid over the frames whose centre falls in its lifetime, and over no other`() {
             let reel = Self.reel(layered: true)
-            for position in 0..<10 {
-                let alive = (4..<7).contains(position)
-                #expect(reel.picture(at: Ordinal(UInt(position))).elements.count == (alive ? 2 : 1))
-            }
+            let counts = reel.positions().map { reel.picture(at: $0).elements.count }
+            #expect(counts == [1, 1, 1, 1, 2, 2, 2, 1, 1, 1])
             let plain = Self.reel()
             #expect(reel.picture(at: 3) == plain.picture(at: 3))
             #expect(reel.picture(at: 7) == plain.picture(at: 7))
@@ -99,11 +98,10 @@
 
         @Test func `a reel's frames are its parts' own pictures drawn one by one, and a part chosen alone keeps its layers`() async throws {
             let reel = Self.reel()
-            var expected: [Raster<Motion.Pixel>] = []
-            for part in Self.parts {
-                for local in 0..<Int(clamping: part.frames) {
+            let expected = try Self.parts.flatMap { part in
+                try (0..<Int(clamping: part.frames)).map { local in
                     let frame = Reel.Frame(position: Ordinal(UInt(local)), time: Rate.ntsc.centre(of: Integer(local)))
-                    expected.append(try Motion.Hosting.Picture.raster(part.picture(frame), width: Self.width, height: Self.height, over: reel.background))
+                    return try Motion.Hosting.Picture.raster(part.picture(frame), width: Self.width, height: Self.height, over: reel.background)
                 }
             }
             #expect(try await reel.hosting(workers: 3).rasters(reel.positions()) == expected)
@@ -111,7 +109,8 @@
             let chosen = try await layered.hosting(["b"], workers: 2).rasters([0, 1, 2, 3, 4])
             let whole = try await layered.hosting(workers: 2).rasters([3, 4, 5, 6, 7])
             #expect(chosen == whole)
-            #expect(try await layered.hosting(["b"], workers: 1).rasters([5]) == [Raster(width: Self.width, height: Self.height, repeating: Motion.Pixel(Picture.Color(gray: 0.5).pixel))])
+            let background = Raster(width: Self.width, height: Self.height, repeating: Motion.Pixel(Picture.Color(gray: 0.5).pixel))
+            #expect(try await layered.hosting(["b"], workers: 1).rasters([5]) == [background])
         }
 
         @Test func `a scene is a part drawn from its state at each frame's centre`() {
@@ -164,8 +163,8 @@
             let reel = Self.reel()
             let sequence = reel.sequence(["b"], workers: 2)
             let whole = try await reel.hosting(workers: 1).drawn([3, 4, 5, 6, 7]) { _, raster in raster }
-            for local in 0..<5 {
-                #expect(try await sequence.frame(at: Ordinal(UInt(local)))?.get() == (try Self.png(whole[local])))
+            for (local, raster) in whole.enumerated() {
+                #expect(try await sequence.frame(at: Ordinal(UInt(local)))?.get() == (try Self.png(raster)))
             }
             #expect(try await sequence.frame(at: 5) == nil)
             let movie = reel.movie(["a"], workers: 2)

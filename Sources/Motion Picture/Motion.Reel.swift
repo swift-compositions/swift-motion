@@ -2,8 +2,7 @@
     public import Motion
     public import Picture
     public import Timeline
-    import Picture_PNG_Integration
-    public import W3C_PNG
+    public import Picture_PNG_Integration
 
     extension Motion {
         /// An edit of scenes: parts played one after another at one rate, each drawn from its own frames, with
@@ -19,7 +18,7 @@
             public let rate: Rate
             public let background: Picture::Picture.Color
             public let parts: [Part]
-            public let layers: [Layer]
+            public let layers: [Timeline.Layer<@Sendable (Frame) -> Picture::Picture>]
 
             /// The parts as a sequence of `Timeline.Stack`, each layer's content the place of its part in
             /// `parts`. A part of no frames is not in it.
@@ -31,7 +30,7 @@
                 rate: Rate,
                 over background: Picture::Picture.Color = .black,
                 parts: [Part],
-                layers: [Layer] = []
+                layers: [Timeline.Layer<@Sendable (Frame) -> Picture::Picture>] = []
             ) {
                 self.width = width
                 self.height = height
@@ -128,7 +127,7 @@
         /// A proof printed of the frames of the parts with these keys, or of the whole reel: every frame on a
         /// sheet or among the stills is drawn once, through `hosting(_:workers:renderer:)`. A sheet is the
         /// raster `Motion.Hosting.Picture.Frames.sheet(_:columns:gap:fill:)` gives for its frames, and a still the
-        /// frame at full size; each is a PNG of the picture's sRGB pixels, written as `W3C_PNG.Image` of a raster
+        /// frame at full size; each is a PNG of the picture's sRGB pixels, written as `W3C_PNG::W3C_PNG.Image` of a raster
         /// says. A frame beyond the frames printed fails with `.outside` before anything is drawn.
         public func prints(
             _ proof: Proof,
@@ -156,7 +155,7 @@
                     }
                     return Tile(
                         small: Dictionary(uniqueKeysWithValues: small),
-                        still: stills.contains(position) ? Result { () throws(W3C_PNG.Image.Error) in try Self.png(raster) } : nil
+                        still: stills.contains(position) ? Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Self.png(raster) } : nil
                     )
                 }
             } catch {
@@ -173,7 +172,7 @@
                 } catch {
                     throw .sheet(error)
                 }
-                do throws(W3C_PNG.Image.Error) {
+                do throws(W3C_PNG::W3C_PNG.Image.Error) {
                     sheets[sheet.name] = try Self.png(raster)
                 } catch {
                     throw .png(error)
@@ -182,7 +181,7 @@
             var printed: [Ordinal: [Byte]] = [:]
             for still in proof.stills {
                 guard let made = tile[still]?.still else { continue }
-                do throws(W3C_PNG.Image.Error) {
+                do throws(W3C_PNG::W3C_PNG.Image.Error) {
                     printed[still] = try made.get()
                 } catch {
                     throw .png(error)
@@ -199,10 +198,10 @@
             ahead: Cardinal? = nil,
             workers: Cardinal? = nil,
             renderer: Picture::Picture.Renderer? = nil
-        ) -> Motion.Hosting.Picture.Frames.Feed<Result<[Byte], W3C_PNG.Image.Error>> {
+        ) -> Motion.Hosting.Picture.Frames.Feed<Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>> {
             let count = Cardinal(UInt(positions(of: keys).count))
             return hosting(keys, workers: workers, renderer: renderer).feed(first: count, ahead: ahead) { _, raster in
-                Result { () throws(W3C_PNG.Image.Error) in try Self.png(raster) }
+                Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Self.png(raster) }
             }
         }
 
@@ -220,8 +219,8 @@
         }
 
         /// A raster of the picture's pixels as PNG bytes, compressed fast.
-        static func png(_ raster: Raster<Picture::Picture.Pixel>) throws(W3C_PNG.Image.Error) -> [Byte] {
-            W3C_PNG.serialize(try W3C_PNG.Image(raster), level: .fast)
+        static func png(_ raster: Raster<Picture::Picture.Pixel>) throws(W3C_PNG::W3C_PNG.Image.Error) -> [Byte] {
+            W3C_PNG::W3C_PNG.serialize(try W3C_PNG::W3C_PNG.Image(raster), level: .fast)
         }
     }
 #endif
