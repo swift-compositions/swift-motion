@@ -15,7 +15,7 @@ import Testing
         let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)))
         buffer.frameLength = AVAudioFrameCount(count)
         guard let channels = unsafe buffer.floatChannelData else { throw CancellationError() }
-        (0..<count).forEach { sample in
+        for sample in 0..<count {
             let level = Float(0.5 * sin(2 * Double.pi * 440 * Double(sample) / 48_000))
             unsafe channels[0][sample] = level
             unsafe channels[1][sample] = level
@@ -38,7 +38,8 @@ import Testing
         let picture = try await `Encoding Tests`.written(rate: rate, frames: 30)
         let sound = try Self.tone(seconds: 3)
         let scored = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-        let cue = Motion.Encoding.Cue(sound, offset: 1, at: try Rational(numerator: 1, denominator: 4), gain: 0.8, fadeIn: try Rational(numerator: 1, denominator: 10), fadeOut: try Rational(numerator: 1, denominator: 5))
+        let quarter = try Rational(numerator: 1, denominator: 4)
+        let cue = Motion.Encoding.Cue(sound, offset: 1, at: quarter, gain: 0.8, rise: try Rational(numerator: 1, denominator: 10), fall: quarter)
         try await Motion.Encoding.score(picture, with: [cue], to: scored)
         let before = try await Motion.Encoding.Inspection(of: picture)
         let after = try await Motion.Encoding.Inspection(of: scored)

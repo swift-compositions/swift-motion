@@ -128,7 +128,7 @@
             #expect(compare == Movies(.compare, files: ["a.mp4", "b.mp4", "out"], step: try Rational(numerator: 3, denominator: 2), pairs: 4, font: "f.ttf"))
             let score = try Movies.parse(["score", "a.mp4", "s.mp3", "b.mp4", "--offset", "1001/30000", "--at", "1", "--gain", "0.5", "--fade-out", ".5"])
             #expect(score.offset == (try Rational(numerator: 1001, denominator: 30000)) && score.at == 1 && score.gain == 0.5)
-            #expect(score.fadeOut == Request.half)
+            #expect(score.fall == Request.half)
             #expect(try Movies.parse(["reduce", "a.mp4", "b.mp4", "--height", "540"]).preset == .height540)
             #expect(throws: Command.Error.self) { try Movies.parse(["score", "a.mp4", "b.mp4"]) }
             #expect(throws: Command.Error.self) { try Movies.parse(["reduce", "a.mp4", "b.mp4", "--height", "600"]) }

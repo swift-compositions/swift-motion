@@ -31,9 +31,9 @@
             /// For score: the level the sound plays at, as a multiple of its own.
             public var gain: Float
             /// For score: how long the sound takes to rise from silence.
-            public var fadeIn: Rational
+            public var rise: Rational
             /// For score: how long the sound takes to fall to silence at its end.
-            public var fadeOut: Rational
+            public var fall: Rational
             /// For reduce: the size the movie is made smaller to.
             public var preset: Motion.Encoding.Preset
 
@@ -47,8 +47,8 @@
                 offset: Rational = .zero,
                 at: Rational = .zero,
                 gain: Float = 1,
-                fadeIn: Rational = .zero,
-                fadeOut: Rational = .zero,
+                rise: Rational = .zero,
+                fall: Rational = .zero,
                 preset: Motion.Encoding.Preset = .height720
             ) {
                 self.action = action
@@ -60,8 +60,8 @@
                 self.offset = offset
                 self.at = at
                 self.gain = gain
-                self.fadeIn = fadeIn
-                self.fadeOut = fadeOut
+                self.rise = rise
+                self.fall = fall
                 self.preset = preset
             }
         }
@@ -130,13 +130,13 @@
                     transform: Self.gain
                 )
                 Command_Primitive::Command.Option(
-                    \.fadeIn,
+                    \.rise,
                     name: .long(.literal("fade-in")),
                     help: .init(abstract: "For score: seconds the sound takes to rise from silence.", defaults: "0"),
                     transform: Motion.Command.Request.seconds
                 )
                 Command_Primitive::Command.Option(
-                    \.fadeOut,
+                    \.fall,
                     name: .long(.literal("fade-out")),
                     help: .init(abstract: "For score: seconds the sound takes to fall to silence at its end.", defaults: "0"),
                     transform: Motion.Command.Request.seconds
@@ -154,7 +154,7 @@
         public mutating func validate() throws(Command_Primitive::Command.Error) {
             let needed = action == .reduce ? 2 : 3
             guard files.count == needed else {
-                throw .validationFailed(reason: "\(action.rawValue) takes \(needed) files, not \(files.count)")
+                throw .validationFailed(reason: "\(action) takes \(needed) files, not \(files.count)")
             }
         }
 

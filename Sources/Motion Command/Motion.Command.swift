@@ -169,42 +169,42 @@
                 }
 
             #if canImport(AVFoundation)
-            case .movie:
-                let file = request.output + "/" + label + ".mp4"
-                let movie = try path(file)
-                do throws(File.System.Delete.Error) {
-                    try File(movie).delete.ifExists()
-                } catch {
-                    throw .delete(error)
-                }
-                let (count, feed) = reel.movie(keys)
-                let encoding = Motion.Encoding(width: reel.width, height: reel.height, rate: reel.rate)
-                do throws(Motion.Encoding.Error) {
-                    try await encoding.write(frames: count, to: URL(filePath: file)) { position in
+                case .movie:
+                    let file = request.output + "/" + label + ".mp4"
+                    let movie = try path(file)
+                    do throws(File.System.Delete.Error) {
+                        try File(movie).delete.ifExists()
+                    } catch {
+                        throw .delete(error)
+                    }
+                    let (count, feed) = reel.movie(keys)
+                    let encoding = Motion.Encoding(width: reel.width, height: reel.height, rate: reel.rate)
+                    do throws(Motion.Encoding.Error) {
+                        try await encoding.write(frames: count, to: URL(filePath: file)) { position in
+                            do throws(Motion.Hosting.Picture.Frames.Error) {
+                                return try await feed.frame(at: position)
+                            } catch {
+                                return nil
+                            }
+                        }
+                    } catch {
+                        throw .movie(error)
+                    }
+                    return [file]
+
+                case .compare:
+                    let reference = try await decoding(request.reference)
+                    let pairs = try layout(width: request.width, font: request.font, of: reference)
+                    let positions = keys.map { reel.positions(of: $0).count } ?? Int(clamping: reel.frames)
+                    let length = reel.rate.start(of: Integer(positions))
+                    return try await compare(reference, length: length, step: request.step, count: request.pairs, as: pairs, into: request.output) {
+                        instants throws(Error) in
                         do throws(Motion.Hosting.Picture.Frames.Error) {
-                            return try await feed.frame(at: position)
+                            return try await reel.frames(at: instants, of: keys)
                         } catch {
-                            return nil
+                            throw .frames(error)
                         }
                     }
-                } catch {
-                    throw .movie(error)
-                }
-                return [file]
-
-            case .compare:
-                let reference = try await decoding(request.reference)
-                let pairs = try layout(width: request.width, font: request.font, of: reference)
-                let positions = keys.map { reel.positions(of: $0).count } ?? Int(clamping: reel.frames)
-                let length = reel.rate.start(of: Integer(positions))
-                return try await compare(reference, length: length, step: request.step, count: request.pairs, as: pairs, into: request.output) {
-                    instants throws(Error) in
-                    do throws(Motion.Hosting.Picture.Frames.Error) {
-                        return try await reel.frames(at: instants, of: keys)
-                    } catch {
-                        throw .frames(error)
-                    }
-                }
             #endif
             }
         }
@@ -223,164 +223,164 @@
     }
 
     #if canImport(AVFoundation)
-    extension Motion.Command {
-        /// Reads the command line over movie files, does what it asks, says how many files it wrote, and ends the
-        /// process: with 0 when it wrote them, 0 after printing the help it was asked for, the arguments' own code
-        /// when they could not be read, and 1 when writing failed.
-        public static func main(arguments: [Swift.String]? = nil) async -> Never {
-            let request: Movies
-            do throws(Command_Primitive::Command.Error) {
-                request = try Movies.parse(arguments ?? Array(CommandLine.arguments.dropFirst()))
-            } catch {
-                if case .helpRequested = error {
-                    print(Movies.help, terminator: "")
-                } else {
-                    print(Command_Primitive::Command.Diagnostic.message(for: error))
+        extension Motion.Command {
+            /// Reads the command line over movie files, does what it asks, says how many files it wrote, and ends the
+            /// process: with 0 when it wrote them, 0 after printing the help it was asked for, the arguments' own code
+            /// when they could not be read, and 1 when writing failed.
+            public static func main(arguments: [Swift.String]? = nil) async -> Never {
+                let request: Movies
+                do throws(Command_Primitive::Command.Error) {
+                    request = try Movies.parse(arguments ?? Array(CommandLine.arguments.dropFirst()))
+                } catch {
+                    if case .helpRequested = error {
+                        print(Movies.help, terminator: "")
+                    } else {
+                        print(Command_Primitive::Command.Diagnostic.message(for: error))
+                    }
+                    Process.Exit.normal(Command_Primitive::Command.Diagnostic.exitCode(for: error))
                 }
-                Process.Exit.normal(Command_Primitive::Command.Diagnostic.exitCode(for: error))
+                let clock = ContinuousClock()
+                let began = clock.now
+                do throws(Error) {
+                    let written = try await run(request)
+                    print("\(written.count) files written in \(clock.now - began)")
+                    Process.Exit.normal(0)
+                } catch {
+                    print("error: \(error)")
+                    Process.Exit.normal(1)
+                }
             }
-            let clock = ContinuousClock()
-            let began = clock.now
-            do throws(Error) {
-                let written = try await run(request)
-                print("\(written.count) files written in \(clock.now - began)")
-                Process.Exit.normal(0)
-            } catch {
-                print("error: \(error)")
-                Process.Exit.normal(1)
-            }
-        }
 
-        /// Does what a request over movie files asks and gives the paths written, in the order written.
-        ///
-        /// `compare` reads the reference and the movie through `Motion.Decoding`, sets them side by side by
-        /// `Motion.Pairs` at every step from zero until the longer one ends, the reference on the left, `pairs`
-        /// pairs to a sheet, two to a row, and writes the sheets into the directory, made if missing, as
-        /// `pairs-<sheet>.png` numbered from zero; each frame is `width` wide and as tall as keeps the
-        /// reference's shape, and the instants are written in the font given, or not at all. `score` lays the
-        /// sound under the movie as one `Motion.Encoding.Cue` and `reduce` makes the movie smaller with
-        /// `Motion.Encoding.reduced(_:to:as:)`; each replaces a file already at its output.
-        public static func run(_ request: Movies) async throws(Error) -> [Swift.String] {
-            let files = request.files
-            switch request.action {
-            case .compare:
-                let reference = try await decoding(files[0])
-                let other = try await decoding(files[1])
-                let pairs = try layout(width: request.width, font: request.font, of: reference)
-                let length = Swift.max(reference.inspection.duration, other.inspection.duration)
-                return try await compare(reference, length: length, step: request.step, count: request.pairs, as: pairs, into: files[2]) {
-                    instants throws(Error) in
+            /// Does what a request over movie files asks and gives the paths written, in the order written.
+            ///
+            /// `compare` reads the reference and the movie through `Motion.Decoding`, sets them side by side by
+            /// `Motion.Pairs` at every step from zero until the longer one ends, the reference on the left, `pairs`
+            /// pairs to a sheet, two to a row, and writes the sheets into the directory, made if missing, as
+            /// `pairs-<sheet>.png` numbered from zero; each frame is `width` wide and as tall as keeps the
+            /// reference's shape, and the instants are written in the font given, or not at all. `score` lays the
+            /// sound under the movie as one `Motion.Encoding.Cue` and `reduce` makes the movie smaller with
+            /// `Motion.Encoding.reduced(_:to:as:)`; each replaces a file already at its output.
+            public static func run(_ request: Movies) async throws(Error) -> [Swift.String] {
+                let files = request.files
+                switch request.action {
+                case .compare:
+                    let reference = try await decoding(files[0])
+                    let other = try await decoding(files[1])
+                    let pairs = try layout(width: request.width, font: request.font, of: reference)
+                    let length = Swift.max(reference.inspection.duration, other.inspection.duration)
+                    return try await compare(reference, length: length, step: request.step, count: request.pairs, as: pairs, into: files[2]) {
+                        instants throws(Error) in
+                        do throws(Motion.Encoding.Error) {
+                            return try await other.frames(at: instants)
+                        } catch {
+                            throw .movie(error)
+                        }
+                    }
+
+                case .score:
+                    try replace(files[2])
+                    let cue = Motion.Encoding.Cue(
+                        URL(filePath: files[1]),
+                        offset: request.offset,
+                        at: request.at,
+                        gain: request.gain,
+                        rise: request.rise,
+                        fall: request.fall
+                    )
                     do throws(Motion.Encoding.Error) {
-                        return try await other.frames(at: instants)
+                        try await Motion.Encoding.score(URL(filePath: files[0]), with: [cue], to: URL(filePath: files[2]))
                     } catch {
                         throw .movie(error)
                     }
-                }
+                    return [files[2]]
 
-            case .score:
-                try replace(files[2])
-                let cue = Motion.Encoding.Cue(
-                    URL(filePath: files[1]),
-                    offset: request.offset,
-                    at: request.at,
-                    gain: request.gain,
-                    fadeIn: request.fadeIn,
-                    fadeOut: request.fadeOut
-                )
+                case .reduce:
+                    try replace(files[1])
+                    do throws(Motion.Encoding.Error) {
+                        try await Motion.Encoding.reduced(URL(filePath: files[0]), to: URL(filePath: files[1]), as: request.preset)
+                    } catch {
+                        throw .movie(error)
+                    }
+                    return [files[1]]
+                }
+            }
+
+            /// A movie opened for reading frames, or `.movie`.
+            static func decoding(_ file: Swift.String) async throws(Error) -> Motion.Decoding {
                 do throws(Motion.Encoding.Error) {
-                    try await Motion.Encoding.score(URL(filePath: files[0]), with: [cue], to: URL(filePath: files[2]))
+                    return try await Motion.Decoding(URL(filePath: file))
                 } catch {
                     throw .movie(error)
                 }
-                return [files[2]]
-
-            case .reduce:
-                try replace(files[1])
-                do throws(Motion.Encoding.Error) {
-                    try await Motion.Encoding.reduced(URL(filePath: files[0]), to: URL(filePath: files[1]), as: request.preset)
-                } catch {
-                    throw .movie(error)
-                }
-                return [files[1]]
             }
-        }
 
-        /// A movie opened for reading frames, or `.movie`.
-        static func decoding(_ file: Swift.String) async throws(Error) -> Motion.Decoding {
-            do throws(Motion.Encoding.Error) {
-                return try await Motion.Decoding(URL(filePath: file))
-            } catch {
-                throw .movie(error)
-            }
-        }
-
-        /// Pairs `width` wide and as tall as keeps the reference's shape, labelled in the font at `font`, or not
-        /// labelled when it is empty.
-        static func layout(width: Cardinal, font: Swift.String, of reference: Motion.Decoding) throws(Error) -> Motion.Pairs {
-            let wide = Swift.max(Int(clamping: reference.inspection.width), 1)
-            let tall = Int(clamping: width) * Int(clamping: reference.inspection.height) / wide
-            guard !font.isEmpty else { return Motion.Pairs(width: width, height: Cardinal(UInt(tall))) }
-            let file = try path(font)
-            let bytes: [Byte]
-            do throws(File.System.Read.Full.Error) {
-                bytes = try File(file).read.bytes()
-            } catch {
-                throw .font(error)
-            }
-            return Motion.Pairs(width: width, height: Cardinal(UInt(tall)), label: Motion.Pairs.Label(font: bytes))
-        }
-
-        /// Sheets of the reference beside another film at every step from zero before `length`, `count` pairs to
-        /// a sheet, written into a directory, made if missing, as `pairs-<sheet>.png`.
-        static func compare(
-            _ reference: Motion.Decoding,
-            length: Rational,
-            step: Rational,
-            count: Cardinal,
-            as pairs: Motion.Pairs,
-            into directory: Swift.String,
-            other: ([Rational]) async throws(Error) -> [Raster<Motion.Pixel>?]
-        ) async throws(Error) -> [Swift.String] {
-            let folder = try path(directory)
-            do throws(File.System.Create.Directory.Error) {
-                try File.Directory(folder).create.recursive()
-            } catch {
-                throw .directory(error)
-            }
-            var written: [Swift.String] = []
-            for (sheet, instants) in Motion.Pairs.instants(every: step, before: length, count: count).enumerated() {
-                let left: [Raster<Motion.Pixel>?]
-                do throws(Motion.Encoding.Error) {
-                    left = try await reference.frames(at: instants)
-                } catch {
-                    throw .movie(error)
-                }
-                let right = try await other(instants)
-                let set = zip(instants, zip(left, right)).map { Motion.Pairs.Pair(time: $0, reference: $1.0, other: $1.1) }
+            /// Pairs `width` wide and as tall as keeps the reference's shape, labelled in the font at `font`, or not
+            /// labelled when it is empty.
+            static func layout(width: Cardinal, font: Swift.String, of reference: Motion.Decoding) throws(Error) -> Motion.Pairs {
+                let wide = Swift.max(Int(clamping: reference.inspection.width), 1)
+                let tall = Int(clamping: width) * Int(clamping: reference.inspection.height) / wide
+                guard !font.isEmpty else { return Motion.Pairs(width: width, height: Cardinal(UInt(tall))) }
+                let file = try path(font)
                 let bytes: [Byte]
-                do throws(Motion.Pairs.Error) {
-                    bytes = try pairs.png(set)
+                do throws(File.System.Read.Full.Error) {
+                    bytes = try File(file).read.bytes()
                 } catch {
-                    throw .pairs(error)
+                    throw .font(error)
                 }
-                let file = directory + "/pairs-" + numbered(Ordinal(UInt(sheet))) + ".png"
-                try write(bytes, to: file)
-                written.append(file)
+                return Motion.Pairs(width: width, height: Cardinal(UInt(tall)), label: Motion.Pairs.Label(font: bytes))
             }
-            return written
-        }
 
-        /// Removes a file about to be written again, if it is there.
-        static func replace(_ file: Swift.String) throws(Error) {
-            let written = try path(file)
-            do throws(File.System.Delete.Error) {
-                try File(written).delete.ifExists()
-            } catch {
-                throw .delete(error)
+            /// Sheets of the reference beside another film at every step from zero before `length`, `count` pairs to
+            /// a sheet, written into a directory, made if missing, as `pairs-<sheet>.png`.
+            static func compare(
+                _ reference: Motion.Decoding,
+                length: Rational,
+                step: Rational,
+                count: Cardinal,
+                as pairs: Motion.Pairs,
+                into directory: Swift.String,
+                other: ([Rational]) async throws(Error) -> [Raster<Motion.Pixel>?]
+            ) async throws(Error) -> [Swift.String] {
+                let folder = try path(directory)
+                do throws(File.System.Create.Directory.Error) {
+                    try File.Directory(folder).create.recursive()
+                } catch {
+                    throw .directory(error)
+                }
+                var written: [Swift.String] = []
+                for (sheet, instants) in Motion.Pairs.instants(every: step, before: length, count: count).enumerated() {
+                    let left: [Raster<Motion.Pixel>?]
+                    do throws(Motion.Encoding.Error) {
+                        left = try await reference.frames(at: instants)
+                    } catch {
+                        throw .movie(error)
+                    }
+                    let right = try await other(instants)
+                    let set = zip(instants, zip(left, right)).map { Motion.Pairs.Pair(time: $0, reference: $1.0, other: $1.1) }
+                    let bytes: [Byte]
+                    do throws(Motion.Pairs.Error) {
+                        bytes = try pairs.png(set)
+                    } catch {
+                        throw .pairs(error)
+                    }
+                    let file = directory + "/pairs-" + numbered(Ordinal(UInt(sheet))) + ".png"
+                    try write(bytes, to: file)
+                    written.append(file)
+                }
+                return written
             }
-        }
 
-    }
+            /// Removes a file about to be written again, if it is there.
+            static func replace(_ file: Swift.String) throws(Error) {
+                let written = try path(file)
+                do throws(File.System.Delete.Error) {
+                    try File(written).delete.ifExists()
+                } catch {
+                    throw .delete(error)
+                }
+            }
+
+        }
     #endif
 
     extension Motion.Command {

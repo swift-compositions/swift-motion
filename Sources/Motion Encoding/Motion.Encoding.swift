@@ -363,9 +363,9 @@ extension Motion.Encoding {
         } catch {
             preconditionFailure("a positive length halves")
         }
-        let long = cue.fadeIn + cue.fadeOut > length
-        let rise = long ? Swift.min(cue.fadeIn, half) : Swift.max(cue.fadeIn, .zero)
-        let fall = long ? Swift.min(cue.fadeOut, half) : Swift.max(cue.fadeOut, .zero)
+        let long = cue.rise + cue.fall > length
+        let rise = long ? Swift.min(cue.rise, half) : Swift.max(cue.rise, .zero)
+        let fall = long ? Swift.min(cue.fall, half) : Swift.max(cue.fall, .zero)
         let levels = AVMutableAudioMixInputParameters(track: track)
         levels.setVolume(rise > .zero ? 0 : cue.gain, at: .zero)
         if rise > .zero {
@@ -377,9 +377,9 @@ extension Motion.Encoding {
         return levels
     }
 
+    /// Every sample a reader's output gives, appended to a writer's input in order, and the input finished.
     // swift-linter:disable:next untyped throws
     // REASON: the provider's next() and the receiver's append throw untyped; score(_:with:to:) types them.
-    /// Every sample a reader's output gives, appended to a writer's input in order, and the input finished.
     static func pump(
         _ provider: sending AVAssetReaderOutput.Provider<CMReadySampleBuffer<CMSampleBuffer.DynamicContent>>,
         into receiver: sending AVAssetWriterInput.SampleBufferReceiver
