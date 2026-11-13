@@ -32,6 +32,7 @@ let package = Package(
         .package(url: "https://github.com/swift-compositions/swift-picture.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-witnesses.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-test-apple.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-threads.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -53,6 +54,7 @@ let package = Package(
                 .target(name: "Motion"),
                 .product(name: "Picture", package: "swift-picture"),
                 .product(name: "Picture CPU", package: "swift-picture"),
+                .product(name: "Thread Pool", package: "swift-threads"),
                 .product(name: "Witnesses", package: "swift-witnesses"),
             ]
         ),
@@ -137,6 +139,7 @@ let package = Package(
                 .target(name: "Motion Picture"),
                 .target(name: "Motion Encoding"),
                 .product(name: "Picture", package: "swift-picture"),
+                .product(name: "Picture CPU", package: "swift-picture"),
                 .product(name: "Witnesses", package: "swift-witnesses"),
                 .product(name: "Test Apple", package: "swift-test-apple"),
             ]
