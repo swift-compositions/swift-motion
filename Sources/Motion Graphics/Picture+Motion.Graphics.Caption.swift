@@ -10,9 +10,10 @@
                 self = .empty
                 return
             }
-            let plate = Picture.Plane.Path(try caption.plate, radius: .init(caption.style.plate.radius))
+            let style = caption.style.plate
+            let plate = style.surface.elements(try caption.plate, corners: style.corners)
             let line = try Picture(try caption.transcript, at: Motion.Graphics.Transcript.Moment([moment.line]))
-            let content = Picture([.fill(plate, .solid(caption.style.plate.color))] + line.elements)
+            let content = Picture(plate + line.elements)
             let faded: Picture = moment.shown < 1 ? [.layer(Picture.Layer(content, opacity: Float(moment.shown)))] : content
             let lowered = (1 - moment.risen) * caption.style.rise
             self = lowered == 0 ? faded : [.group(Picture.Group(faded, transform: .translation(x: 0, y: lowered)))]

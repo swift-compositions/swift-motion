@@ -3,14 +3,13 @@
     public import Picture
 
     extension Motion.Graphics.Window {
-        /// A window's look: the title's ink, the corners' radius, the bar's height, the width of the edge and of
-        /// the rule, their colours, the body's fill and the traffic lights.
+        /// A window's look: the title's ink, the frame's corners, the bar's height, the width of the edge and of
+        /// the rule, their colours, the body's surface and the traffic lights.
         public struct Style: Sendable {
             /// The title's font, size and colour.
             public var title: Motion.Graphics.Ink
 
-            /// The radius of the frame's corners.
-            public var radius: Double
+            public var corners: Motion.Graphics.Corners
 
             /// The height of the title bar, from the frame's top to the rule.
             public var bar: Double
@@ -21,28 +20,28 @@
             public var edge: Picture.Color
             public var rule: Picture.Color
 
-            /// The fill inside the edge; a clear fill draws nothing.
-            public var fill: Picture.Color
+            /// What the body inside the edge is made of; a clear fill draws nothing.
+            public var surface: Motion.Graphics.Surface
 
             public var lights: Lights
 
             public init(
                 title: Motion.Graphics.Ink,
-                radius: Double,
+                corners: Motion.Graphics.Corners,
                 bar: Double,
                 line: Double,
                 edge: Picture.Color,
                 rule: Picture.Color,
-                fill: Picture.Color,
+                surface: Motion.Graphics.Surface,
                 lights: Lights
             ) {
                 self.title = title
-                self.radius = radius
+                self.corners = corners
                 self.bar = bar
                 self.line = line
                 self.edge = edge
                 self.rule = rule
-                self.fill = fill
+                self.surface = surface
                 self.lights = lights
             }
         }

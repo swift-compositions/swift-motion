@@ -7,7 +7,7 @@
         ///
         /// The line is set once in tabular figures, so the count's digits take one advance each and the count,
         /// the word and the total stand where the line puts them whatever the count reads. The plate is the
-        /// line's width and its insets wide; over its fill go its edge and any flash in the lit accent, the label
+        /// line's width and its insets wide; over its surface go its edge and any flash in the lit accent, the label
         /// and the total in the ink, the bar's track, and the count and the filled bar in the accent, glowing.
         /// The whole grows in about the plate's middle from `1 − grow` of its size, turns by the tilt about the
         /// pivot, drops, and fades in `fade` times faster than it grows, times its light.
@@ -32,14 +32,12 @@
             let lit = style.lit(heat: moment.heat, finished: moment.finished)
             let hot = Swift.max(moment.heat, moment.finished)
             let clamp = { (value: Double) in Float(Swift.min(Swift.max(value, 0), 1)) }
-            let body = Picture.Plane.Path(
-                Picture.Plane.Rectangle(llx: .init(left), lly: .init(top), urx: .init(left + wide), ury: .init(top + plate.height)),
-                radius: .init(plate.radius)
+            let frame = Picture.Plane.Rectangle(llx: .init(left), lly: .init(top), urx: .init(left + wide), ury: .init(top + plate.height))
+            let body = plate.corners.path(frame)
+            var content = Picture(
+                plate.surface.elements(frame, corners: plate.corners)
+                    + [.stroke(body, .solid(lit.faded(by: clamp(plate.edge + plate.heat * hot))), width: plate.pen, join: .round, cap: .round)]
             )
-            var content: Picture = [
-                .fill(body, .solid(plate.color)),
-                .stroke(body, .solid(lit.faded(by: clamp(plate.edge + plate.heat * hot))), width: plate.pen, join: .round, cap: .round),
-            ]
             if moment.flash > 0 { content.elements.append(.fill(body, .solid(lit.faded(by: clamp(plate.flash * moment.flash))))) }
             let label = try Picture.Text(readout.label, font: ink.font, size: ink.size, figures: .tabular)
             let rest = try Picture.Text(readout.rest, font: ink.font, size: ink.size, figures: .tabular)

@@ -3,7 +3,7 @@
     public import Picture
 
     extension Picture {
-        /// A window at a moment: the body's fill, the edge, the rule under the bar, the traffic lights and the
+        /// A window at a moment: the body's surface, the edge, the rule under the bar, the traffic lights and the
         /// title centred on the bar at the middle of its capitals, all faded by how much of the window shows.
         public init(_ window: Motion.Graphics.Window, at moment: Motion.Graphics.Window.Moment) throws(Picture.Text.Error) {
             guard moment.shown > 0 else {
@@ -13,7 +13,7 @@
             let style = window.style
             let frame = window.frame
             let (left, top, right) = (frame.llx.underlying, frame.lly.underlying, frame.urx.underlying)
-            let edge = Picture.Plane.Path(frame, radius: .init(style.radius))
+            let edge = style.corners.path(frame)
             let bar = top + style.bar
             let rule = Picture.Plane.Path(Picture.Plane.Rectangle(llx: .init(left), lly: .init(bar), urx: .init(right), ury: .init(bar + style.line)))
             let middle = top + style.bar / 2
@@ -22,7 +22,7 @@
                 return Picture.Element.fill(Picture.Plane.Path(Picture.Plane.Circle(center: centre, radius: .init(style.lights.radius))), .solid(style.lights.color))
             }
             let title = try style.title.text(window.title)
-            let fill: [Picture.Element] = style.fill.alpha > 0 ? [.fill(edge, .solid(style.fill))] : []
+            let fill = style.surface.elements(frame, corners: style.corners)
             let content = Picture(
                 fill
                     + [

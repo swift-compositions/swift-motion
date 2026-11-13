@@ -35,7 +35,28 @@
             )
         }
 
-        static func readout(_ font: ISO_14496_22.FontFile, value: Cardinal) -> Motion.Graphics.Readout {
+        static let glass = Picture.Glass(
+            tint: Picture.Color(gray: 1, alpha: 0.1),
+            refraction: .init(index: 1.5, distance: 10),
+            frost: 4
+        )
+
+        static let glassy = Motion.Graphics.Surface.glass(glass, thickness: 12, rim: 14)
+
+        /// The first pane anywhere in a picture, inside groups and layers.
+        static func pane(in picture: Picture) -> Picture.Glass.Pane? {
+            for element in picture.elements {
+                switch element {
+                case .pane(let pane): return pane
+                case .group(let group): if let pane = pane(in: group.content) { return pane }
+                case .layer(let layer): if let pane = pane(in: layer.content) { return pane }
+                default: continue
+                }
+            }
+            return nil
+        }
+
+        static func readout(_ font: ISO_14496_22.FontFile, value: Cardinal, surface: Motion.Graphics.Surface = .fill(.black)) -> Motion.Graphics.Readout {
             Motion.Graphics.Readout(
                 "FRAME",
                 value: value,
@@ -47,7 +68,7 @@
                     ink: ink(font, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],
                     finish: Picture.Color(hex: 0x0000FF),
-                    plate: .init(color: .black, height: 60, radius: 10, inset: 16, baseline: 34, pen: 2, edge: 0.2, heat: 0.5, flash: 0.5),
+                    plate: .init(surface: surface, corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, heat: 0.5, flash: 0.5),
                     bar: .init(top: 44, height: 4, track: Picture.Color(gray: 0.3)),
                     glow: .init(deviation: 5, rest: 0.3, heat: 0.5, flash: 0.5),
                     grow: 0.4,
@@ -73,7 +94,7 @@
             )
         }
 
-        static func checklist(_ font: ISO_14496_22.FontFile) -> Motion.Graphics.Checklist {
+        static func checklist(_ font: ISO_14496_22.FontFile, surface: Motion.Graphics.Surface = .frosted(deviation: 12, coat: .clear)) -> Motion.Graphics.Checklist {
             Motion.Graphics.Checklist(
                 heading: "REQUIREMENTS",
                 statement: "A film needs:",
@@ -91,7 +112,15 @@
                     heading: .init(ink: ink(font, 14), tracking: 0.3, toned: Picture.Color(hex: 0xFF0000), slide: 20),
                     statement: .init(ink: ink(font, 36), indent: -2, rise: 40, above: 32, height: 44),
                     row: .init(box: box(), rise: 8, name: ink(font, 20), gap: 26, slide: 12, tag: ink(font, 14, Picture.Color(hex: 0xFFFF00)), drop: -1),
-                    plate: .init(radius: 16, blur: 12, top: Picture.Color(gray: 0.1, alpha: 0.4), foot: Picture.Color(gray: 0.1, alpha: 0.6), edge: .white, pen: 1.5, settle: 0.07)
+                    plate: .init(
+                        surface: surface,
+                        corners: .continuous(16, exponent: 5),
+                        top: Picture.Color(gray: 0.1, alpha: 0.4),
+                        foot: Picture.Color(gray: 0.1, alpha: 0.6),
+                        edge: .white,
+                        pen: 1.5,
+                        settle: 0.07
+                    )
                 )
             )
         }
@@ -176,7 +205,7 @@
             #expect(rows.map(\.baseline) == [170, 214, 258])
             #expect(rows.allSatisfy { $0.checkbox.centre == Picture.Plane.Point<2>([40 + 12, $0.baseline - 8]) })
             #expect(try Picture(checklist, at: .hidden) == .empty)
-            #expect(try Picture(checklist, at: .resting(3)).elements.count == 1 + 1 + 1 + 3)
+            #expect(try Picture(checklist, at: .resting(3)).elements.count == 2 + 1 + 1 + 3)
             #expect(try Picture(checklist, at: .resting(3)) != Picture(checklist, at: .resting(2)))
         }
 
@@ -218,7 +247,7 @@
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
                     transcript: Self.transcript(mono),
-                    plate: .init(color: Picture.Color(gray: 0, alpha: 0.9), ascent: 16, descent: 5, horizontal: 16, vertical: 12, radius: 8),
+                    plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8), ascent: 16, descent: 5, horizontal: 16, vertical: 12),
                     rise: 20
                 )
             )
@@ -239,18 +268,114 @@
                 title: "~/film — zsh",
                 style: .init(
                     title: Self.ink(sans, 14),
-                    radius: 12,
+                    corners: .circular(12),
                     bar: 30,
                     line: 2,
                     edge: .white,
                     rule: .white,
-                    fill: .clear,
+                    surface: .fill(.clear),
                     lights: .init(count: 3, radius: 5, inset: 20, step: 16, color: Picture.Color(hex: 0xFF0000))
                 )
             )
             #expect(window.body == Picture.Plane.Rectangle(llx: 10, lly: 42, urx: 410, ury: 310))
             #expect(try Picture(window, at: .hidden) == .empty)
             #expect(try Picture(window, at: .resting).elements.count == 2 + 3 + 1)
+        }
+
+        @Test func `corners give a plate's region and outline: circular, continuous and a capsule`() {
+            let frame = Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 200, ury: 60)
+            #expect(Motion.Graphics.Corners.circular(12).region(frame) == .rectangle(frame, radius: 12))
+            #expect(Motion.Graphics.Corners.capsule.region(frame) == .capsule(frame))
+            #expect(Motion.Graphics.Corners.continuous(20, exponent: 5).region(frame) == .superellipse(.init(frame, radius: 20, exponent: 5)))
+            #expect(Motion.Graphics.Corners.circular(12).path(frame) == Picture.Plane.Path(frame, radius: 12))
+            #expect(Motion.Graphics.Corners.capsule.path(frame) == Picture.Plane.Path(frame, radius: 30))
+            let region = Motion.Graphics.Corners.continuous(20, exponent: 5).region(frame)
+            for segment in Motion.Graphics.Corners.continuous(20, exponent: 5).path(frame).subpaths[0].segments {
+                guard let start = segment.startPoint else { continue }
+                #expect(Swift.abs(region.distance(to: start)) < 1e-9)
+            }
+        }
+
+        @Test func `a surface is a fill of the outline, or a pane over the region: frosted, a glass without a body`() {
+            let frame = Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 200, ury: 60)
+            let corners = Motion.Graphics.Corners.continuous(20, exponent: 5)
+            #expect(Motion.Graphics.Surface.fill(.white).elements(frame, corners: corners) == [.fill(corners.path(frame), .solid(.white))])
+            #expect(Motion.Graphics.Surface.fill(.clear).elements(frame, corners: corners).isEmpty)
+            let coat = Picture.Color(gray: 0, alpha: 0.3)
+            #expect(
+                Motion.Graphics.Surface.frosted(deviation: 8, coat: coat).elements(frame, corners: corners)
+                    == [.pane(Picture.Glass.Pane(corners.region(frame), glass: Picture.Glass(tint: coat, frost: 8), thickness: 0, rim: 0))]
+            )
+            #expect(
+                Self.glassy.elements(frame, corners: corners)
+                    == [.pane(Picture.Glass.Pane(corners.region(frame), glass: Self.glass, thickness: 12, rim: 14))]
+            )
+        }
+
+        @Test func `a checklist's plate of glass is a pane over the grown plate, faded with the coat as it shows`() throws {
+            guard let sans = Self.sans else { return }
+            let checklist = Self.checklist(sans, surface: Self.glassy)
+            let rest = try #require(Self.pane(in: try Picture(checklist, at: .resting(3))))
+            #expect(rest.glass == Self.glass && rest.thickness == 12 && rest.rim == 14)
+            #expect(rest.region == .superellipse(.init(Picture.Plane.Rectangle(llx: 20, lly: 20, urx: 420, ury: 320), radius: 16, exponent: 5)))
+            var showing = Motion.Graphics.Checklist.Moment.resting(3)
+            showing.shown = 0.5
+            let half = try Picture(checklist, at: showing)
+            guard case .layer(let layer) = half.elements.first else {
+                Issue.record("the plate fades in a layer")
+                return
+            }
+            #expect(layer.opacity == 0.5)
+            #expect(Self.pane(in: layer.content) == rest)
+        }
+
+        @Test func `a readout's plate of glass is a pane over the plate, inside its turn and growth`() throws {
+            guard let sans = Self.sans else { return }
+            let readout = Self.readout(sans, value: 66, surface: Self.glassy)
+            let pane = try #require(Self.pane(in: try Picture(readout, at: .resting)))
+            #expect(pane.glass == Self.glass)
+            guard case .rectangle(let frame, let radius) = pane.region else {
+                Issue.record("circular corners make a rounded rectangle")
+                return
+            }
+            #expect(radius == 10 && frame.urx.underlying == 400 && frame.lly.underlying == 20 && frame.ury.underlying == 80)
+        }
+
+        @Test func `a caption's plate of glass is a pane over its plate with its corners`() throws {
+            guard let mono = Self.mono else { return }
+            let caption = Motion.Graphics.Caption(
+                .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
+                at: Picture.Plane.Point<2>([500, 400]),
+                style: .init(
+                    transcript: Self.transcript(mono),
+                    plate: .init(surface: Self.glassy, corners: .capsule, ascent: 16, descent: 5, horizontal: 16, vertical: 12),
+                    rise: 20
+                )
+            )
+            let pane = try #require(Self.pane(in: try Picture(caption, at: .resting)))
+            #expect(pane.region == .capsule(try caption.plate))
+            #expect(pane.glass == Self.glass)
+        }
+
+        @Test func `a window's body of glass is a pane over its frame with its corners`() throws {
+            guard let sans = Self.sans else { return }
+            let frame = Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310)
+            let window = Motion.Graphics.Window(
+                frame: frame,
+                title: "~/film — zsh",
+                style: .init(
+                    title: Self.ink(sans, 14),
+                    corners: .continuous(14, exponent: 5),
+                    bar: 30,
+                    line: 2,
+                    edge: .white,
+                    rule: .white,
+                    surface: Self.glassy,
+                    lights: .init(count: 3, radius: 5, inset: 20, step: 16, color: Picture.Color(hex: 0xFF0000))
+                )
+            )
+            let pane = try #require(Self.pane(in: try Picture(window, at: .resting)))
+            #expect(pane.region == .superellipse(.init(frame, radius: 14, exponent: 5)))
         }
     }
 #endif
