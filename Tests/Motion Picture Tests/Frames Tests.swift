@@ -1,109 +1,111 @@
-import Motion
-import Motion_Picture
-import Picture
-import Picture_CPU
-import Test_Apple
-import Testing
+#if Picture
+    import Motion
+    import Motion_Picture
+    import Picture
+    import Picture_CPU
+    import Test_Apple
+    import Testing
 
-@Suite(.deadline(.seconds(180))) struct `Frames Tests` {
-    typealias Tests = `Picture Tests`
+    @Suite(.deadline(.seconds(180))) struct `Frames Tests` {
+        typealias Tests = `Picture Tests`
 
-    static let width: Cardinal = 48
-    static let height: Cardinal = 30
-    static let paper = Picture.Color(red: 0.96, green: 0.94, blue: 0.9)
+        static let width: Cardinal = 48
+        static let height: Cardinal = 30
+        static let paper = Picture.Color(red: 0.96, green: 0.94, blue: 0.9)
 
-    /// A part that is the same in every frame, as an image that names its picture.
-    static let still: Picture.Image = Picture.Image(
-        [
-            Tests.rectangle(0, 0, 12, 12, Picture.Color(red: 0.1, green: 0.2, blue: 0.5)),
-            Tests.rectangle(3, 2, 6.5, 4.25, Picture.Color(red: 0.9, green: 0.8, blue: 0.1, alpha: 0.6)),
-        ],
-        in: Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 12, ury: 12),
-        scale: 2
-    )
+        /// A part that is the same in every frame, as an image that names its picture.
+        static let still: Picture.Image = Picture.Image(
+            [
+                Tests.rectangle(0, 0, 12, 12, Picture.Color(red: 0.1, green: 0.2, blue: 0.5)),
+                Tests.rectangle(3, 2, 6.5, 4.25, Picture.Color(red: 0.9, green: 0.8, blue: 0.1, alpha: 0.6)),
+            ],
+            in: Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 12, ury: 12),
+            scale: 2
+        )
 
-    static func square(_ x: Double, _ y: Double, _ side: Double, _ paint: Picture.Paint) -> Picture.Element {
-        guard case .shape(var shape) = Tests.rectangle(x, y, side, side, .black) else { return Tests.rectangle(x, y, side, side, .black) }
-        shape.fill = .init(paint)
-        return .shape(shape)
-    }
+        static func square(_ x: Double, _ y: Double, _ side: Double, _ paint: Picture.Paint) -> Picture.Element {
+            guard case .shape(var shape) = Tests.rectangle(x, y, side, side, .black) else { return Tests.rectangle(x, y, side, side, .black) }
+            shape.fill = .init(paint)
+            return .shape(shape)
+        }
 
-    /// The picture at a position: something that moves, over the part that stays, shown twice.
-    @Sendable static func picture(_ position: Ordinal) -> Picture {
-        let step = Double(Int(bitPattern: position))
-        var moved = still
-        moved.placement = Picture.Transform(rows: [[1, 0, 30], [0, 1, 14]]).multiplied(by: moved.placement)
-        return [
-            square(2, 2, 12, .image(still)),
-            square(30, 14, 12, .image(moved)),
-            Tests.rectangle(4 + step * 2.5, 6 + step * 0.75, 9, 7, Picture.Color(red: 0.85, green: 0.35, blue: 0.2, alpha: 0.8)),
-            .layer(.init([Tests.rectangle(40 - step * 3, 3, 6, 20, Picture.Color(red: 0.2, green: 0.7, blue: 0.4))], effects: [.blur(.init(deviation: 1.5))])),
-        ]
-    }
+        /// The picture at a position: something that moves, over the part that stays, shown twice.
+        @Sendable static func picture(_ position: Ordinal) -> Picture {
+            let step = Double(Int(bitPattern: position))
+            var moved = still
+            moved.placement = Picture.Transform(rows: [[1, 0, 30], [0, 1, 14]]).multiplied(by: moved.placement)
+            return [
+                square(2, 2, 12, .image(still)),
+                square(30, 14, 12, .image(moved)),
+                Tests.rectangle(4 + step * 2.5, 6 + step * 0.75, 9, 7, Picture.Color(red: 0.85, green: 0.35, blue: 0.2, alpha: 0.8)),
+                .layer(.init([Tests.rectangle(40 - step * 3, 3, 6, 20, Picture.Color(red: 0.2, green: 0.7, blue: 0.4))], effects: [.blur(.init(deviation: 1.5))])),
+            ]
+        }
 
-    static func plain(_ position: Ordinal) throws -> Raster<Motion.Pixel> {
-        try Motion.Hosting.Picture.raster(picture(position), width: width, height: height, over: paper)
-    }
+        static func plain(_ position: Ordinal) throws -> Raster<Motion.Pixel> {
+            try Motion.Hosting.Picture.raster(picture(position), width: width, height: height, over: paper)
+        }
 
-    static func frames(workers: Cardinal?) -> Motion.Hosting.Picture.Frames {
-        Motion.Hosting.Picture.Frames(width: width, height: height, over: paper, workers: workers, picture: picture)
-    }
+        static func frames(workers: Cardinal?) -> Motion.Hosting.Picture.Frames {
+            Motion.Hosting.Picture.Frames(width: width, height: height, over: paper, workers: workers, picture: picture)
+        }
 
-    @Test func `frames drawn side by side are the frames drawn one by one, pixel for pixel, in the order asked, on any number of workers`() async throws {
-        let positions: [Ordinal] = [7, 0, 3, 3, 11, 1, 2, 9, 4, 5, 6, 8, 10, 0]
-        let expected = try positions.map(Self.plain)
-        #expect(expected[0] != expected[1])
-        for workers: Cardinal? in [1, 2, 5, 32, nil] {
-            let frames = Self.frames(workers: workers)
-            #expect(try await frames.rasters(positions) == expected)
-            #expect(try await frames.rasters(positions) == expected)
-            let places = try await frames.drawn(positions) { position, raster in
-                raster.width == Self.width && raster.height == Self.height ? position : .zero
+        @Test func `frames drawn side by side are the frames drawn one by one, pixel for pixel, in the order asked, on any number of workers`() async throws {
+            let positions: [Ordinal] = [7, 0, 3, 3, 11, 1, 2, 9, 4, 5, 6, 8, 10, 0]
+            let expected = try positions.map(Self.plain)
+            #expect(expected[0] != expected[1])
+            for workers: Cardinal? in [1, 2, 5, 32, nil] {
+                let frames = Self.frames(workers: workers)
+                #expect(try await frames.rasters(positions) == expected)
+                #expect(try await frames.rasters(positions) == expected)
+                let places = try await frames.drawn(positions) { position, raster in
+                    raster.width == Self.width && raster.height == Self.height ? position : .zero
+                }
+                #expect(places == positions)
             }
-            #expect(places == positions)
+            #expect(try await Self.frames(workers: 3).rasters([]).isEmpty)
+            #expect(Self.frames(workers: 0).workers == 1)
         }
-        #expect(try await Self.frames(workers: 3).rasters([]).isEmpty)
-        #expect(Self.frames(workers: 0).workers == 1)
-    }
 
-    @Test func `a sheet is the frames made smaller by the box filter and tiled, a row of columns at a time`() async throws {
-        let positions: [Ordinal] = [0, 2, 4, 6, 8]
-        let sheet = try await Self.frames(workers: 3).sheet(positions, columns: 3, gap: 2, fill: .white)
-        let tiles = try positions.map { position in
-            var raster = Raster<Picture.Pixel>(width: Self.width, height: Self.height, repeating: Self.paper.pixel)
-            try Picture.Renderer.cpu(threads: 1).render(Self.picture(position), into: &raster)
-            return raster.resampled(width: 16, height: 10, .box) { (from: Picture.Pixel, to: Picture.Pixel, parameter: Float) in
-                from.interpolated(to: to, at: parameter)
+        @Test func `a sheet is the frames made smaller by the box filter and tiled, a row of columns at a time`() async throws {
+            let positions: [Ordinal] = [0, 2, 4, 6, 8]
+            let sheet = try await Self.frames(workers: 3).sheet(positions, columns: 3, gap: 2, fill: .white)
+            let tiles = try positions.map { position in
+                var raster = Raster<Picture.Pixel>(width: Self.width, height: Self.height, repeating: Self.paper.pixel)
+                try Picture.Renderer.cpu(threads: 1).render(Self.picture(position), into: &raster)
+                return raster.resampled(width: 16, height: 10, .box) { (from: Picture.Pixel, to: Picture.Pixel, parameter: Float) in
+                    from.interpolated(to: to, at: parameter)
+                }
             }
+            #expect(try sheet == Raster(tiling: tiles, columns: 3, gap: 2, fill: Picture.Color.white.pixel))
+            #expect(sheet.width == Cardinal(52))
         }
-        #expect(try sheet == Raster(tiling: tiles, columns: 3, gap: 2, fill: Picture.Color.white.pixel))
-        #expect(sheet.width == Cardinal(52))
-    }
 
-    @Test func `a feed hands over every frame once asked in order, the same frame when asked again or out of order, and nothing past the end`() async throws {
-        let feed = Self.frames(workers: 3).feed(first: 10, ahead: 4)
-        for position: Ordinal in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 2, 7] {
-            #expect(try await feed.frame(at: position) == Self.plain(position))
+        @Test func `a feed hands over every frame once asked in order, the same frame when asked again or out of order, and nothing past the end`() async throws {
+            let feed = Self.frames(workers: 3).feed(first: 10, ahead: 4)
+            for position: Ordinal in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 2, 7] {
+                #expect(try await feed.frame(at: position) == Self.plain(position))
+            }
+            #expect(try await feed.frame(at: 10) == nil)
+            #expect(try await feed.frame(at: 400) == nil)
+            let places = Self.frames(workers: 2).feed(first: 3) { position, _ in position }
+            #expect(try await places.frame(at: 2) == 2)
+            #expect(try await places.frame(at: 3) == nil)
         }
-        #expect(try await feed.frame(at: 10) == nil)
-        #expect(try await feed.frame(at: 400) == nil)
-        let places = Self.frames(workers: 2).feed(first: 3) { position, _ in position }
-        #expect(try await places.frame(at: 2) == 2)
-        #expect(try await places.frame(at: 3) == nil)
-    }
 
-    @Test func `a frame the renderer refuses fails the run with its position`() async throws {
-        let frames = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, workers: 4) { position in
-            guard position == 5 else { return Self.picture(position) }
-            let empty = Picture.Image(.empty, in: Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 0, ury: 4), scale: 1)
-            return [Self.square(0, 0, 4, .image(empty))]
+        @Test func `a frame the renderer refuses fails the run with its position`() async throws {
+            let frames = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, workers: 4) { position in
+                guard position == 5 else { return Self.picture(position) }
+                let empty = Picture.Image(.empty, in: Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 0, ury: 4), scale: 1)
+                return [Self.square(0, 0, 4, .image(empty))]
+            }
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.renderer(.unsupported, at: 5)) {
+                _ = try await frames.rasters([0, 1, 2, 3, 4, 5, 6, 7])
+            }
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.renderer(.unsupported, at: 5)) {
+                _ = try await frames.feed(first: 8).frame(at: 1)
+            }
+            #expect(try await frames.rasters([0, 1, 2, 3, 4]).count == 5)
         }
-        await #expect(throws: Motion.Hosting.Picture.Frames.Error.renderer(.unsupported, at: 5)) {
-            _ = try await frames.rasters([0, 1, 2, 3, 4, 5, 6, 7])
-        }
-        await #expect(throws: Motion.Hosting.Picture.Frames.Error.renderer(.unsupported, at: 5)) {
-            _ = try await frames.feed(first: 8).frame(at: 1)
-        }
-        #expect(try await frames.rasters([0, 1, 2, 3, 4]).count == 5)
     }
-}
+#endif

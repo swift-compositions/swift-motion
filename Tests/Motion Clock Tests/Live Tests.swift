@@ -8,7 +8,8 @@ import Test_Apple
 import Testing
 
 /// These tests capture the screen from the fixture process, so they run only where Screen Recording is granted.
-@MainActor @Suite(
+@MainActor
+@Suite(
     .enabled(if: CGPreflightScreenCaptureAccess(), "needs Screen Recording permission"),
     .serialized,
     .timeLimit(.minutes(4)),

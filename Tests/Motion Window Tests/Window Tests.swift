@@ -10,7 +10,8 @@ import Testing
 @testable import Motion_Window
 
 /// These tests capture the screen, so they run only where Screen Recording is granted.
-@MainActor @Suite(
+@MainActor
+@Suite(
     .enabled(if: CGPreflightScreenCaptureAccess(), "needs Screen Recording permission"),
     .serialized,
     .timeLimit(.minutes(4)),

@@ -34,7 +34,7 @@ extension Motion.Encoding {
                 guard try await track.load(.canProvideSampleCursors) else {
                     throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has a picture whose samples cannot be stepped through")
                 }
-                // The count walks the track's sample table and reads no sample data. An AVAssetReader
+                // WHY: The count walks the track's sample table and reads no sample data. An AVAssetReader
                 // waits on CoreMedia's shared read queue, and three movies read at once have waited there for good.
                 var frames = Cardinal.zero
                 if let cursor = track.makeSampleCursorAtFirstSampleInDecodeOrder() {

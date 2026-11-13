@@ -18,7 +18,12 @@ let package = Package(
         .library(name: "Motion Window", targets: ["Motion Window"]),
         .library(name: "Motion Clock", targets: ["Motion Clock"]),
         .library(name: "Motion Picture", targets: ["Motion Picture"]),
+        .library(name: "Motion Command", targets: ["Motion Command"]),
         .library(name: "Motion Clock Shims", type: .dynamic, targets: ["Motion Clock Shims"]),
+    ],
+    traits: [
+        .trait(name: "Picture", description: "Motion Picture: frames and reels drawn from pictures of swift-picture"),
+        .trait(name: "Command", description: "Motion Command: a reel's proofs written from the command line", enabledTraits: ["Picture"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swift-atoms/swift-rate.git", branch: "main"),
@@ -29,10 +34,14 @@ let package = Package(
         .package(url: "https://github.com/swift-atoms/swift-cardinal.git", branch: "main"),
         .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main", traits: ["Geometry"]),
         .package(url: "https://github.com/swift-iec/swift-iec-61966.git", branch: "main"),
-        .package(url: "https://github.com/swift-compositions/swift-picture.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-picture.git", branch: "main", traits: ["PNG"]),
         .package(url: "https://github.com/swift-compositions/swift-witnesses.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-test-apple.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-threads.git", branch: "main"),
+        .package(url: "https://github.com/swift-molecules/swift-timeline.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-arguments.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-file-system.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-process.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -52,10 +61,23 @@ let package = Package(
             name: "Motion Picture",
             dependencies: [
                 .target(name: "Motion"),
-                .product(name: "Picture", package: "swift-picture"),
-                .product(name: "Picture CPU", package: "swift-picture"),
-                .product(name: "Thread Pool", package: "swift-threads"),
-                .product(name: "Witnesses", package: "swift-witnesses"),
+                .product(name: "Picture", package: "swift-picture", condition: .when(traits: ["Picture"])),
+                .product(name: "Picture CPU", package: "swift-picture", condition: .when(traits: ["Picture"])),
+                .product(name: "Picture PNG Integration", package: "swift-picture", condition: .when(traits: ["Picture"])),
+                .product(name: "Thread Pool", package: "swift-threads", condition: .when(traits: ["Picture"])),
+                .product(name: "Witnesses", package: "swift-witnesses", condition: .when(traits: ["Picture"])),
+                .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Picture"])),
+            ]
+        ),
+        .target(
+            name: "Motion Command",
+            dependencies: [
+                .target(name: "Motion"),
+                .target(name: "Motion Picture"),
+                .target(name: "Motion Encoding"),
+                .product(name: "Command", package: "swift-arguments", condition: .when(traits: ["Command"])),
+                .product(name: "File System", package: "swift-file-system", condition: .when(traits: ["Command"])),
+                .product(name: "Process", package: "swift-process", condition: .when(traits: ["Command"])),
             ]
         ),
         .target(
@@ -141,7 +163,21 @@ let package = Package(
                 .product(name: "Picture", package: "swift-picture"),
                 .product(name: "Picture CPU", package: "swift-picture"),
                 .product(name: "Witnesses", package: "swift-witnesses"),
+                .product(name: "Picture PNG Integration", package: "swift-picture"),
+                .product(name: "Timeline", package: "swift-timeline"),
                 .product(name: "Test Apple", package: "swift-test-apple"),
+            ]
+        ),
+        .testTarget(
+            name: "Motion Command Tests",
+            dependencies: [
+                .target(name: "Motion"),
+                .target(name: "Motion Picture"),
+                .target(name: "Motion Command"),
+                .target(name: "Motion Encoding"),
+                .product(name: "Picture", package: "swift-picture"),
+                .product(name: "Command", package: "swift-arguments"),
+                .product(name: "File System", package: "swift-file-system"),
             ]
         ),
         .testTarget(
