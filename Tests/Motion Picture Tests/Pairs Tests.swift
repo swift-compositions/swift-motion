@@ -75,15 +75,14 @@
         }
 
         @Test func `a reel's frames at instants are the frames its hosting draws, and nothing past its end`() async throws {
-            let reel = Motion.Reel<String>(
-                width: 8, height: 6, rate: .thirty, over: .white,
-                parts: [
-                    Motion.Reel<String>.Part("a", frames: 3) { frame in
-                        [`Picture Tests`.rectangle(Double(Int(bitPattern: frame.position)), 1, 2, 2, .black)]
-                    }
-                ])
+            let part = Motion.Reel<String>.Part("a", frames: 3) { frame in
+                [`Picture Tests`.rectangle(Double(Int(bitPattern: frame.position)), 1, 2, 2, .black)]
+            }
+            let reel = Motion.Reel<String>(width: 8, height: 6, rate: .thirty, over: .white, parts: [part])
             let tenth = try Rational(numerator: 1, denominator: 10)
-            let shown = try await reel.frames(at: [try Rational(numerator: 1, denominator: 40), -tenth, tenth, try Rational(numerator: 1, denominator: 15)])
+            let early = try Rational(numerator: 1, denominator: 40)
+            let late = try Rational(numerator: 1, denominator: 15)
+            let shown = try await reel.frames(at: [early, -tenth, tenth, late])
             let drawn = try await reel.hosting().rasters([0, 2])
             #expect(shown[0] == drawn[0])
             #expect(shown[1] == nil)

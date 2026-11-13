@@ -378,14 +378,19 @@ extension Motion.Encoding {
     }
 
     /// Every sample a reader's output gives, appended to a writer's input in order, and the input finished.
-    // swift-linter:disable:next untyped throws
-    // REASON: the provider's next() and the receiver's append throw untyped; score(_:with:to:) types them.
+    /// A failure to read or to append is `.writer`.
     static func pump(
         _ provider: sending AVAssetReaderOutput.Provider<CMReadySampleBuffer<CMSampleBuffer.DynamicContent>>,
         into receiver: sending AVAssetWriterInput.SampleBufferReceiver
-    ) async throws {
-        while let buffer = try await provider.next() {
-            try await receiver.append(buffer)
+    ) async throws(Motion.Encoding.Error) {
+        // swift-linter:disable:next do throws for typed catch
+        // REASON: the provider's next() and the receiver's append throw untyped; their errors become Error.writer.
+        do {
+            while let buffer = try await provider.next() {
+                try await receiver.append(buffer)
+            }
+        } catch {
+            throw .writer("\(error)")
         }
         receiver.finish()
     }

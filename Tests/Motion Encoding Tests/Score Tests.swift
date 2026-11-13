@@ -15,7 +15,7 @@ import Testing
         let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)))
         buffer.frameLength = AVAudioFrameCount(count)
         guard let channels = unsafe buffer.floatChannelData else { throw CancellationError() }
-        for sample in 0..<count {
+        (0..<count).forEach { sample in
             let level = Float(0.5 * sin(2 * Double.pi * 440 * Double(sample) / 48_000))
             unsafe channels[0][sample] = level
             unsafe channels[1][sample] = level
