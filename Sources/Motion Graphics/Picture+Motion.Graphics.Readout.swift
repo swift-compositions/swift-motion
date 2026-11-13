@@ -37,8 +37,8 @@
                     + [.stroke(body, .solid(lit.faded(by: clamp(plate.edge + plate.heat * hot))), width: plate.pen, join: .round, cap: .round)]
             )
             if moment.flash > 0 { content.elements.append(.fill(body, .solid(lit.faded(by: clamp(plate.flash * moment.flash))))) }
-            let label = try Picture.Text(readout.label, font: ink.font, size: ink.size, figures: .tabular)
-            let rest = try Picture.Text(readout.rest, font: ink.font, size: ink.size, figures: .tabular)
+            let label = try Picture.Text(readout.label, font: ink.font, size: ink.size, figures: style.figures)
+            let rest = try Picture.Text(readout.rest, font: ink.font, size: ink.size, figures: style.figures)
             content.elements.append(label.placed(.init(.solid(ink.color)), at: Picture.Plane.Point<2>([start, baseline])))
             content.elements.append(rest.placed(.init(.solid(ink.color)), at: Picture.Plane.Point<2>([x(after), baseline])))
             let bar = style.bar
@@ -49,7 +49,7 @@
                 )
             }
             content.elements.append(.fill(track(end - start), .solid(bar.track)))
-            let count = try Picture.Text(readout.figures, font: ink.font, size: ink.size, figures: .tabular)
+            let count = try Picture.Text(readout.figures, font: ink.font, size: ink.size, figures: style.figures)
             let share = readout.share * Swift.min(moment.shown, 1)
             let glowing: Picture = [
                 count.placed(.init(.solid(lit)), at: Picture.Plane.Point<2>([x(counted), baseline])),

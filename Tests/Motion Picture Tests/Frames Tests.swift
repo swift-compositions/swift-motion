@@ -55,7 +55,7 @@
         @Sendable static func picture(_ position: Ordinal) -> Picture {
             let step = Double(Int(bitPattern: position))
             var moved = still
-            moved.placement = Picture.Transform(rows: [[1, 0, 30], [0, 1, 14]]).multiplied(by: moved.placement)
+            moved.placement = Matrix<3, 3, Double>(Picture.Transform(rows: [[1, 0, 30], [0, 1, 14]])).multiplied(by: moved.placement)
             return [
                 square(2, 2, 12, .image(still)),
                 square(30, 14, 12, .image(moved)),

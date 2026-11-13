@@ -56,5 +56,24 @@
             }
             #expect(layer.content.elements.count == 3 + 1)
         }
+
+        @Test func `a twinkle's core has its base besides the part that grows with the shine`() throws {
+            var style = Self.twinkle.style
+            style.base = 10
+            let based = Motion.Graphics.Twinkle(at: Self.twinkle.centre, style: style)
+            guard case .layer(let layer) = Picture(based, at: .init(shone: 1.0 / 6)).elements.first,
+                case .shape(let core) = layer.content.elements.last,
+                let box = core.path.boundingBox
+            else {
+                Issue.record("a twinkle's core is a glow in its layer")
+                return
+            }
+            let half: Double = (box.urx.underlying - box.llx.underlying) / 2
+            #expect(Swift.abs(half - 35) < 1e-9)
+            var unbased = Self.twinkle.style
+            unbased.base = 0
+            let plain = Motion.Graphics.Twinkle(at: Self.twinkle.centre, style: unbased)
+            #expect(Picture(plain, at: .init(shone: 0.5)) == Picture(Self.twinkle, at: .init(shone: 0.5)))
+        }
     }
 #endif

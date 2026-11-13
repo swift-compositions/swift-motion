@@ -57,10 +57,10 @@
             of + Formatter.Number().format(Double(Int(clamping: total)))
         }
 
-        /// The line set in the ink's font at its size, in tabular figures.
+        /// The line set in the ink's font at its size, in the style's figures.
         var set: Picture.Text {
             get throws(Picture.Text.Error) {
-                try Picture.Text(line, font: style.ink.font, size: style.ink.size, figures: .tabular)
+                try Picture.Text(line, font: style.ink.font, size: style.ink.size, figures: style.figures)
             }
         }
 

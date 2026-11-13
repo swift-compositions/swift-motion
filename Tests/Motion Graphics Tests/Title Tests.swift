@@ -11,8 +11,8 @@
         static let red = Picture.Color(hex: 0xFF0000)
         static let blue = Picture.Color(hex: 0x0000FF)
 
-        static func title(_ font: ISO_14496_22.FontFile) -> Motion.Graphics.Title {
-            Motion.Graphics.Title(
+        static func title(_ font: ISO_14496_22.FontFile) throws -> Motion.Graphics.Title {
+            try Motion.Graphics.Title(
                 ["AB ", "CD"],
                 at: Picture.Plane.Point<2>([600, 400]),
                 anchor: .center,
@@ -26,10 +26,10 @@
 
         @Test func `a title hidden draws nothing, and at rest each letter stands where the whole line stands`() throws {
             guard let sans = Tests.sans else { return }
-            let title = Self.title(sans)
-            #expect(try Picture(title, at: .hidden) == .empty)
-            let text = try title.text
-            let letters = try title.letters(at: .resting(5))
+            let title = try Self.title(sans)
+            #expect(Picture(title, at: .hidden) == .empty)
+            let text = title.text
+            let letters = title.letters(at: .resting(5))
             #expect(letters.count == 4)
             #expect(letters.map(\.color) == [Self.red, Self.red, Self.blue, Self.blue])
             #expect(letters.allSatisfy { $0.opacity == 1 })
@@ -43,11 +43,11 @@
 
         @Test func `a letter enters from its rise, at its growth, coming up from clear, and one not begun is not drawn`() throws {
             guard let sans = Tests.sans else { return }
-            let title = Self.title(sans)
-            let half = try title.letters(at: .init([0.5, 0, 0, 1, 0.5]))
+            let title = try Self.title(sans)
+            let half = title.letters(at: .init([0.5, 0, 0, 1, 0.5]))
             #expect(half.map(\.glyph.scalar) == ["A", "C", "D"])
             #expect(half.map(\.opacity) == [0.9, 1, 0.6])
-            let rest = try title.letters(at: .resting(5))
+            let rest = title.letters(at: .resting(5))
             let cap = try Picture.Text.Metrics(font: sans, size: 100).cap
             let middle = { (letter: Motion.Graphics.Title.Letter) -> Vector<2, Double> in
                 guard let box = letter.glyph.path.boundingBox else { return Vector([0, 0]) }
@@ -56,7 +56,30 @@
             #expect(Swift.abs(middle(half[0])[1] - middle(rest[0])[1] - 0.5 * 0.42 * 100) < 1e-9)
             #expect(Swift.abs(middle(half[2])[1] - middle(rest[3])[1] + 0.5 * 0.5 * 100) < 1e-9)
             #expect(Swift.abs(middle(half[2])[0] - middle(rest[3])[0]) < 1e-9)
-            #expect(try Picture(title, at: .init([0.5])).elements.count == 1)
+            #expect(Picture(title, at: .init([0.5])).elements.count == 1)
+        }
+
+        @Test func `a letter that has begun to enter shows at least its run's floor`() throws {
+            guard let sans = Tests.sans else { return }
+            let floored = try Motion.Graphics.Title(
+                ["AB"],
+                at: Picture.Plane.Point<2>([600, 400]),
+                anchor: .center,
+                style: .init(font: sans, size: 100, runs: [.init(color: Self.red, rise: 0.4, grow: 0, fade: 1, floor: 0.35)])
+            )
+            #expect(floored.letters(at: .init([0.1, 0.5])).map(\.opacity) == [0.35, 0.5])
+            #expect(floored.letters(at: .init([0, 1])).map(\.opacity) == [1])
+            #expect(try Self.title(sans).letters(at: .init([0.1])).map(\.opacity).first.map { Swift.abs($0 - 0.18) < 1e-12 } == true)
+        }
+
+        @Test func `a title sets its line once, when it is made`() throws {
+            guard let sans = Tests.sans else { return }
+            let title = try Self.title(sans)
+            #expect(title.text == (try Picture.Text("AB CD", font: sans, size: 100)))
+            #expect(title.looks == [0, 0, 0, 1, 1])
+            #expect(throws: Picture.Text.Error.size) {
+                try Motion.Graphics.Title(["A"], at: Picture.Plane.Point<2>([0, 0]), anchor: .left, style: .init(font: sans, size: 0, runs: []))
+            }
         }
     }
 #endif

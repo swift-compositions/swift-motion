@@ -4,16 +4,20 @@
 
     extension Picture {
         /// A shockwave at a moment: each of its `rings(at:)` stroked round its centre, the echoes under the lead
-        /// ring, glowing together and adding their light to what is behind. With no ring it is empty.
+        /// ring, a ring of no radius a disc the pen wide, glowing together if the style has a glow and adding their
+        /// light to what is behind. With no ring it is empty.
         public init(_ shockwave: Motion.Graphics.Shockwave, at moment: Motion.Graphics.Shockwave.Moment) {
-            let rings = shockwave.rings(at: moment).filter { $0.radius > 0 && $0.pen > 0 }
+            let rings = shockwave.rings(at: moment).filter { $0.radius >= 0 && $0.pen > 0 }
             guard !rings.isEmpty else {
                 self = .empty
                 return
             }
             let strokes: Picture = Picture(
                 rings.reversed().map { ring in
-                    .stroke(
+                    guard ring.radius > 0 else {
+                        return .fill(Picture.Plane.Path(Picture.Plane.Circle(center: shockwave.centre, radius: .init(ring.pen / 2))), .solid(ring.color))
+                    }
+                    return .stroke(
                         Picture.Plane.Path(Picture.Plane.Circle(center: shockwave.centre, radius: .init(ring.radius))),
                         .solid(ring.color),
                         width: ring.pen,
@@ -22,8 +26,11 @@
                     )
                 }
             )
-            let style = shockwave.style
-            self = [.layer(Picture.Layer(strokes.glow(deviation: style.deviation, strength: Float(style.strength)), operator: .lighter))]
+            guard let glow = shockwave.style.glow else {
+                self = [.layer(Picture.Layer(strokes, operator: .lighter))]
+                return
+            }
+            self = [.layer(Picture.Layer(strokes.glow(deviation: glow.deviation, strength: Float(glow.strength)), operator: .lighter))]
         }
     }
 #endif

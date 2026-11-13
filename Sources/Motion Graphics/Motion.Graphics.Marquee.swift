@@ -41,11 +41,14 @@
 
         /// How far left of the region's left edge the first copy of a row starts when the wall has travelled a
         /// distance: from 0 up to the unit, not including it, so it wraps every unit and the copies always cover
-        /// the row. Even rows, the first included, slide left as the travel grows and odd rows slide right.
+        /// the row. The row's own travel is the wall's plus its start in the style; even rows, the first
+        /// included, slide left as it grows and odd rows slide right.
         public func offset(row: Ordinal, travel: Double) throws(Picture.Text.Error) -> Double {
             let unit = try unit(row: row)
-            guard unit > 0, travel.isFinite else { return 0 }
-            let moved = Int(bitPattern: row) % 2 == 0 ? travel : -travel
+            let index = Int(bitPattern: row)
+            let own = travel + (style.starts.isEmpty ? 0 : style.starts[index % style.starts.count])
+            guard unit > 0, own.isFinite else { return 0 }
+            let moved = index % 2 == 0 ? own : -own
             let wrapped = moved - (moved / unit).rounded(.down) * unit
             return wrapped < unit ? wrapped : 0
         }

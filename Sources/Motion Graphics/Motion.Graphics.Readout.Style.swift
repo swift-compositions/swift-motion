@@ -29,6 +29,10 @@
             /// The point it turns about, from the plate's upper left corner.
             public var pivot: Picture.Plane.Point<2>
 
+            /// How its numbers are set: tabular by default, so the count's digits stand still as it counts;
+            /// `.cells` with a share for punctuation keeps a point or a comma among them from moving them either.
+            public var figures: Picture.Text.Figures
+
             public init(
                 ink: Motion.Graphics.Ink,
                 accent: [Picture.Color],
@@ -38,7 +42,8 @@
                 glow: Glow,
                 grow: Double,
                 fade: Double,
-                pivot: Picture.Plane.Point<2>
+                pivot: Picture.Plane.Point<2>,
+                figures: Picture.Text.Figures = .tabular
             ) {
                 self.ink = ink
                 self.accent = accent
@@ -49,6 +54,7 @@
                 self.grow = grow
                 self.fade = fade
                 self.pivot = pivot
+                self.figures = figures
             }
         }
     }
