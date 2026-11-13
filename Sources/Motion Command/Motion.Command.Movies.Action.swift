@@ -1,4 +1,4 @@
-#if Command
+#if Command && canImport(AVFoundation)
     public import Motion
 
     extension Motion.Command.Movies {

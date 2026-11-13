@@ -13,6 +13,9 @@
         typealias Request = Motion.Command.Request
         typealias Reel = Motion.Reel<Swift.String>
 
+        /// A dot laid over the first two frames of the reel.
+        static let dot = Reel.Layer("dot", over: 0..<Rate.thirty.start(of: 2)) { _ in [square(10)] }
+
         static let reel = Reel(
             width: 20,
             height: 12,
@@ -23,7 +26,8 @@
                     [square(Double(Int(bitPattern: frame.position)))]
                 },
                 Reel.Part("ending", frames: 3) { _ in .empty },
-            ]
+            ],
+            layers: [dot]
         )
 
         /// A black square four pixels on a side, one row down and `x` across.
@@ -146,6 +150,47 @@
             )
             let written = try await Motion.Command.run(movies)
             #expect(written == (0..<2).map { directory + "/compare/pairs-0000\($0).png" })
+        }
+
+        @Test func `layers, proofs and settings are read from the command line`() throws {
+            let request = try Request.parse(["sheet", "out", "--layer", "dot,glow", "--proof", "dots", "--bare", "--set", "assets=/a/b", "--set", "x=1=2"])
+            #expect(request.layers == ["dot", "glow"] && request.proofs == ["dots"] && request.bare)
+            #expect(request.value("assets") == "/a/b" && request.value("x") == "1=2" && request.value("y") == nil)
+            #expect(throws: Command.Error.self) { try Request.parse(["sheet", "out", "--set", "assets"]) }
+        }
+
+        @Test func `a reel is drawn with the layers named, or none, and an unknown layer is refused`() async throws {
+            let directory = Self.directory()
+            let layered = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/layered", parts: ["opening"]))
+            let bare = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/bare", parts: ["opening"], bare: true))
+            let named = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/named", parts: ["opening"], layers: ["dot"]))
+            let read = { (file: Swift.String) throws -> [Byte] in try File(File.Path(validating: file)).read.bytes() }
+            #expect(try read(layered[0]) != read(bare[0]))
+            #expect(try read(layered[0]) == read(named[0]))
+            #expect(try read(layered[3]) == read(bare[3]))
+            await #expect {
+                try await Motion.Command.run(Self.reel, Request(.frames, output: directory, layers: ["glow"]))
+            } throws: { error in
+                guard let error = error as? Motion.Command.Error, case .layer(let name) = error else { return false }
+                return name == "glow"
+            }
+        }
+
+        @Test func `a film's proofs of the whole reel are written by name, with their pictures, and an unknown one is refused`() async throws {
+            let directory = Self.directory()
+            let span = Reel.Proof.overview(of: Self.reel.positions(ofLayer: "dot"))
+            let alone = Reel.Proof(pictures: ["square": [Self.square(0)]])
+            let film = Motion.Command.Film(Self.reel, proofs: ["dot": span, "alone": alone])
+            let named = try await Motion.Command.run(film, Request(.sheet, output: directory, proofs: ["dot"]))
+            #expect(named == ["sheet-dot", "dot-00000", "dot-00001"].map { directory + "/" + $0 + ".png" })
+            let all = try await Motion.Command.run(film, Request(.sheet, output: directory))
+            #expect(all.suffix(4) == ["alone-square", "sheet-dot", "dot-00000", "dot-00001"].map { directory + "/" + $0 + ".png" })
+            await #expect {
+                try await Motion.Command.run(film, Request(.sheet, output: directory, proofs: ["glow"]))
+            } throws: { error in
+                guard let error = error as? Motion.Command.Error, case .proof(let name) = error else { return false }
+                return name == "glow"
+            }
         }
     }
 #endif

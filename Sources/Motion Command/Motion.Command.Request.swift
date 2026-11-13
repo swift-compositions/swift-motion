@@ -25,6 +25,14 @@
             public var width: Cardinal
             /// For compare: a font file the instants are written in, or empty for no labels.
             public var font: Swift.String
+            /// For sheet: the names of proofs of the whole reel to write.
+            public var proofs: [Swift.String]
+            /// The keys of the layers to draw, by name; empty for every layer.
+            public var layers: [Swift.String]
+            /// Whether to draw the reel without any layer.
+            public var bare: Bool
+            /// Values for the maker of the film, each `<name>=<value>`.
+            public var settings: [Swift.String]
 
             public init(
                 _ action: Action = .sheet,
@@ -37,7 +45,11 @@
                 step: Rational = Self.half,
                 pairs: Cardinal = 10,
                 width: Cardinal = 480,
-                font: Swift.String = ""
+                font: Swift.String = "",
+                proofs: [Swift.String] = [],
+                layers: [Swift.String] = [],
+                bare: Bool = false,
+                settings: [Swift.String] = []
             ) {
                 self.action = action
                 self.output = output
@@ -50,6 +62,10 @@
                 self.pairs = pairs
                 self.width = width
                 self.font = font
+                self.proofs = proofs
+                self.layers = layers
+                self.bare = bare
+                self.settings = settings
             }
         }
     }
@@ -67,7 +83,7 @@
                 Command_Primitive::Command.Positional(
                     \.action,
                     name: "action",
-                    help: .init(abstract: "sheet, frames, movie or compare."),
+                    help: .init(abstract: "sheet or frames, and where AVFoundation is, movie or compare."),
                     transform: Self.action
                 )
                 Command_Primitive::Command.Positional(
@@ -126,13 +142,41 @@
                     name: .long(.literal("font")),
                     help: .init(abstract: "For compare: a TrueType or OpenType font file the instants are written in; without it, no labels.")
                 )
+                Command_Primitive::Command.Option.Many(
+                    \.proofs,
+                    name: .long(.literal("proof")),
+                    help: .init(abstract: "For sheet: the proofs of the whole reel to write; commas may join several.")
+                )
+                Command_Primitive::Command.Option.Many(
+                    \.layers,
+                    name: .long(.literal("layer")),
+                    help: .init(abstract: "The layers to draw, by key, and no other; commas may join several.")
+                )
+                Command_Primitive::Command.Flag(
+                    \.bare,
+                    name: .long(.literal("bare")),
+                    help: .init(abstract: "Draw the reel without any layer.")
+                )
+                Command_Primitive::Command.Option.Many(
+                    \.settings,
+                    name: .long(.literal("set")),
+                    help: .init(abstract: "A value for the film's maker, as <name>=<value>; may be given more than once.")
+                )
             }
         }
 
-        /// Parts joined by commas count as parts given one by one, and compare needs a reference.
+        /// Parts, proofs and layers joined by commas count as given one by one, a setting needs its `=`, and
+        /// compare needs a reference.
         public mutating func validate() throws(Command_Primitive::Command.Error) {
             parts = parts.flatMap { $0.split(separator: ",").map(Swift.String.init) }
-            if action == .compare, reference.isEmpty { throw .validationFailed(reason: "compare needs --reference") }
+            proofs = proofs.flatMap { $0.split(separator: ",").map(Swift.String.init) }
+            layers = layers.flatMap { $0.split(separator: ",").map(Swift.String.init) }
+            if let setting = settings.first(where: { !$0.contains("=") }) {
+                throw .validationFailed(reason: "no setting \(setting): <name>=<value>")
+            }
+            #if canImport(AVFoundation)
+                if action == .compare, reference.isEmpty { throw .validationFailed(reason: "compare needs --reference") }
+            #endif
         }
 
         /// A request is read and not run: `Motion.Command.run(_:_:proofs:)` acts on it with a reel.
@@ -140,6 +184,11 @@
     }
 
     extension Motion.Command.Request {
+        /// The value given for a name with `--set <name>=<value>`, the last one when given more than once, or nil.
+        public func value(_ name: Swift.String) -> Swift.String? {
+            settings.last { $0.hasPrefix(name + "=") }.map { Swift.String($0.dropFirst(name.count + 1)) }
+        }
+
         /// A request read from a command line's arguments, without the executable's name.
         public static func parse(_ arguments: [Swift.String]) throws(Command_Primitive::Command.Error) -> Self {
             try Command_Primitive::Command.parse(Self.self, from: arguments, initial: Self())

@@ -11,14 +11,15 @@
         /// Each part lasts a number of frames and draws the picture of each of its own frames, counted from zero
         /// at its start. Each layer lives over a span of the reel's time and draws, over the part beneath, the
         /// picture of each of the reel's frames whose centre falls in that span. Parts are named by a key the
-        /// caller chooses; more than one part may carry the same key.
+        /// caller chooses; more than one part may carry the same key. Layers carry keys of the same type, by which
+        /// a reel is drawn with some layers or none.
         public struct Reel<Key: Hashable & Sendable>: Sendable {
             public let width: Cardinal
             public let height: Cardinal
             public let rate: Rate
             public let background: Picture::Picture.Color
             public let parts: [Part]
-            public let layers: [Timeline.Layer<@Sendable (Frame) -> Picture::Picture>]
+            public let layers: [Layer]
 
             /// The parts as a sequence of `Timeline.Stack`, each layer's content the place of its part in
             /// `parts`. A part of no frames is not in it.
@@ -30,7 +31,7 @@
                 rate: Rate,
                 over background: Picture::Picture.Color = .black,
                 parts: [Part],
-                layers: [Timeline.Layer<@Sendable (Frame) -> Picture::Picture>] = []
+                layers: [Layer] = []
             ) {
                 self.width = width
                 self.height = height
@@ -90,6 +91,34 @@
             }
         }
 
+        /// The reel's frames whose centre falls in a span of its time in seconds, from its start: the frames a
+        /// layer of that lifetime is drawn on.
+        public func positions(during span: Range<Rational>) -> [Ordinal] {
+            let first = Swift.max(rate.started(before: span.lowerBound - rate.period * Self.half), .zero)
+            let end = Swift.min(rate.started(before: span.upperBound - rate.period * Self.half), Integer(Int(clamping: frames)))
+            guard first < end, let low = first.exactly(UInt.self), let high = end.exactly(UInt.self) else { return [] }
+            return (low..<high).map { Ordinal($0) }
+        }
+
+        /// The reel's frames that the layers with this key are drawn on, in order, each once.
+        public func positions(ofLayer key: Key) -> [Ordinal] {
+            Swift.Array(Set(layers.filter { $0.key == key }.flatMap { positions(during: $0.timeline.lifetime) })).sorted()
+        }
+
+        /// The same reel with only the layers whose keys are given, in the reel's order; with no keys, no layers.
+        public func layered(_ keys: [Key]) -> Self {
+            Self(width: width, height: height, rate: rate, over: background, parts: parts, layers: layers.filter { keys.contains($0.key) })
+        }
+
+        /// One half.
+        static var half: Rational {
+            do throws(Rational.Error) {
+                return try Rational(numerator: 1, denominator: 2)
+            } catch {
+                preconditionFailure("two is not zero")
+            }
+        }
+
         /// The picture of a frame of the reel: its part's picture of its own frame, with the picture of every
         /// layer alive at the frame's centre laid over it in the order of the layers. From `frames` on it is
         /// empty.
@@ -99,8 +128,8 @@
             var picture = part.picture(Frame(position: place.frame, time: rate.centre(of: Integer(Int(bitPattern: place.frame)))))
             let time = rate.centre(of: Integer(Int(bitPattern: position)))
             let frame = Frame(position: position, time: time)
-            for layer in layers where layer.alive(at: time) {
-                picture.elements.append(contentsOf: layer.content(frame).elements)
+            for layer in layers where layer.timeline.alive(at: time) {
+                picture.elements.append(contentsOf: layer.timeline.content(frame).elements)
             }
             return picture
         }
@@ -126,9 +155,10 @@
     extension Motion.Reel {
         /// A proof printed of the frames of the parts with these keys, or of the whole reel: every frame on a
         /// sheet or among the stills is drawn once, through `hosting(_:workers:renderer:)`. A sheet is the
-        /// raster `Motion.Hosting.Picture.Frames.sheet(_:columns:gap:fill:)` gives for its frames, and a still the
-        /// frame at full size; each is a PNG of the picture's sRGB pixels, written as `W3C_PNG::W3C_PNG.Image` of a raster
-        /// says. A frame beyond the frames printed fails with `.outside` before anything is drawn.
+        /// raster `Motion.Hosting.Picture.Frames.sheet(_:columns:gap:fill:)` gives for its frames, a still the
+        /// frame at full size, and a picture the picture drawn alone at the reel's size over its background,
+        /// through the same renderer; each is a PNG of the picture's sRGB pixels, written as
+        /// `W3C_PNG::W3C_PNG.Image` of a raster says. A frame beyond the frames printed fails with `.outside` before anything is drawn.
         public func prints(
             _ proof: Proof,
             of keys: [Key]? = nil,
@@ -187,7 +217,28 @@
                     throw .png(error)
                 }
             }
-            return Prints(sheets: sheets, stills: printed)
+            let names = proof.pictures.keys.sorted()
+            let pictures = proof.pictures
+            let alone = Motion.Hosting.Picture.Frames(width: width, height: height, over: background, workers: workers, renderer: drawing.renderer) {
+                position in pictures[names[Int(bitPattern: position)]] ?? .empty
+            }
+            let made: [Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>]
+            do throws(Motion.Hosting.Picture.Frames.Error) {
+                made = try await alone.drawn(names.indices.map { Ordinal(UInt($0)) }) { _, raster in
+                    Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Self.png(raster) }
+                }
+            } catch {
+                throw .frames(error)
+            }
+            var drawnAlone: [String: [Byte]] = [:]
+            for (name, result) in zip(names, made) {
+                do throws(W3C_PNG::W3C_PNG.Image.Error) {
+                    drawnAlone[name] = try result.get()
+                } catch {
+                    throw .png(error)
+                }
+            }
+            return Prints(sheets: sheets, stills: printed, pictures: drawnAlone)
         }
 
         /// Every frame of the parts with these keys, or of the whole reel, as PNGs to be asked for one after

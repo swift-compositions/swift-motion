@@ -10,11 +10,13 @@
             /// Every frame as a PNG, numbered from zero.
             case frames
 
-            /// Every frame as an H.264 MP4.
-            case movie
+            #if canImport(AVFoundation)
+                /// Every frame as an H.264 MP4.
+                case movie
 
-            /// Sheets of a reference movie and the reel drawn directly, side by side at the same instants, as PNGs.
-            case compare
+                /// Sheets of a reference movie and the reel drawn directly, side by side at the same instants, as PNGs.
+                case compare
+            #endif
         }
     }
 #endif

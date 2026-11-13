@@ -1,35 +1,39 @@
 #if Command
-    internal import AVFoundation
     import Command
     import File_System
     public import Motion
-    import Motion_Encoding
     public import Motion_Picture
     import Process
     import Picture_PNG_Integration
+    #if canImport(AVFoundation)
+        internal import AVFoundation
+        import Motion_Encoding
+    #endif
 
     extension Motion {
-        /// A film's command line: the executable a reel is written from calls `main(_:proofs:arguments:)` and
-        /// nothing else. It reads the arguments, writes the files and the movie, and holds no drawing of its own.
+        /// A film's command line: the executable a reel is written from calls `main(_:arguments:)` with its film,
+        /// or `main(arguments:_:)` with a function that makes the film from the request, and nothing else. It
+        /// reads the arguments, writes the files and the movie, and holds no drawing of its own.
         ///
-        ///     reel sheet <output> [--part <key>...] [--at <frames>] [--stills <frames>] [--columns <count>]
+        ///     reel sheet <output> [--part <key>...] [--proof <name>...] [--at <frames>] [--stills <frames>] [--columns <count>]
         ///     reel frames <output> [--part <key>...]
         ///     reel movie <output> [--part <key>...]
         ///     reel compare <output> --reference <movie> [--part <key>...] [--step <s>] [--pairs <count>] [--width <pixels>] [--font <file>]
         ///
-        /// `main(arguments:)` is the command line over movie files, which needs no reel: `compare`, `score` and
-        /// `reduce`, as `Motion.Command.Movies` reads them.
+        /// Every action also takes `--layer <key>...` to draw only those layers, `--bare` to draw none, and
+        /// `--set <name>=<value>...` for the maker of the film. `movie` and `compare` need AVFoundation and exist
+        /// only where it does. `main(arguments:)` is the command line over movie files, which needs no reel:
+        /// `compare`, `score` and `reduce`, as `Motion.Command.Movies` reads them.
         public enum Command {}
     }
 
     extension Motion.Command {
-        /// Reads the command line, writes what it asks for of the reel, says how many files it wrote, and ends
+        /// Reads the command line, writes what it asks for of the film, says how many files it wrote, and ends
         /// the process: with 0 when it wrote them, 0 after printing the help it was asked for, the arguments'
-        /// own code when they could not be read, and 1 when writing failed.
-        public static func main<Key>(
-            _ reel: Motion.Reel<Key>,
-            proofs: [Key: Motion.Reel<Key>.Proof] = [:],
-            arguments: [Swift.String]? = nil
+        /// own code when they could not be read, and 1 when the film could not be made or writing failed.
+        public static func main<Key, Failure: Swift.Error>(
+            arguments: [Swift.String]? = nil,
+            _ film: (Request) async throws(Failure) -> Film<Key>
         ) async -> Never {
             let request: Request
             do throws(Command_Primitive::Command.Error) {
@@ -42,10 +46,17 @@
                 }
                 Process.Exit.normal(Command_Primitive::Command.Diagnostic.exitCode(for: error))
             }
+            let made: Film<Key>
+            do throws(Failure) {
+                made = try await film(request)
+            } catch {
+                print("error: \(error)")
+                Process.Exit.normal(1)
+            }
             let clock = ContinuousClock()
             let began = clock.now
             do throws(Error) {
-                let written = try await run(reel, request, proofs: proofs)
+                let written = try await run(made, request)
                 print("\(written.count) files written into \(request.output) in \(clock.now - began)")
                 Process.Exit.normal(0)
             } catch {
@@ -54,24 +65,52 @@
             }
         }
 
+        /// `main(arguments:_:)` of a film made before the command line is read.
+        public static func main<Key>(_ film: Film<Key>, arguments: [Swift.String]? = nil) async -> Never {
+            await main(arguments: arguments) { _ in film }
+        }
+
+        /// `main(_:arguments:)` of a reel with proofs of its parts.
+        public static func main<Key>(
+            _ reel: Motion.Reel<Key>,
+            proofs: [Key: Motion.Reel<Key>.Proof] = [:],
+            arguments: [Swift.String]? = nil
+        ) async -> Never {
+            await main(Film(reel, parts: proofs), arguments: arguments)
+        }
+
+        /// `run(_:_:)` of a reel with proofs of its parts.
+        public static func run<Key>(
+            _ reel: Motion.Reel<Key>,
+            _ request: Request,
+            proofs: [Key: Motion.Reel<Key>.Proof] = [:]
+        ) async throws(Error) -> [Swift.String] {
+            try await run(Film(reel, parts: proofs), request)
+        }
+
         /// Writes what a request asks for of the reel into its output directory, made if it is not there, and
         /// gives the paths written, in the order written.
         ///
         /// The frames are those of the parts the request names, by `String(describing:)` of their keys, played
         /// one after another, or every frame of the reel. `sheet` with frames `at` or `stills` writes one sheet
         /// of the frames `at`, `columns` to a row, as `sheet-<parts>-at.png` and the stills as
-        /// `<parts>-<frame>.png`, where `<parts>` is the names joined by `+`, or `reel`. `sheet` without them
-        /// writes for each part named, or each key of the reel, the part's proof in `proofs`, or its
-        /// `Motion.Reel.Proof.overview(of:)`: its sheets as `sheet-<key>.png` or `sheet-<key>-<name>.png` and its
-        /// stills as `<key>-<frame>.png`. `frames` writes every frame as `<frame>.png`. `movie` writes
+        /// `<parts>-<frame>.png`, where `<parts>` is the names joined by `+`, or `reel`. `sheet` with `proofs`
+        /// names writes those proofs of the whole reel. `sheet` without any of them writes for each part named,
+        /// or each key of the reel, the part's proof in the film, or its `Motion.Reel.Proof.overview(of:)`, and
+        /// when no part is named, every proof of the whole reel. A proof named `<name>`, a part's by its key,
+        /// is written as its sheets `sheet-<name>.png` or `sheet-<name>-<sheet>.png`, its stills
+        /// `<name>-<frame>.png` and its pictures `<name>-<picture>.png`. A reel is drawn with only the layers
+        /// `layers` names, or none when `bare`; a layer or proof name the film does not have is refused with
+        /// `.layer` or `.proof` before anything is written. `frames` writes every frame as `<frame>.png`. `movie` writes
         /// `<parts>.mp4` through `Motion.Encoding` at the reel's size and rate, replacing one already there.
         /// Frames are numbered with at least five digits.
-        public static func run<Key>(
-            _ reel: Motion.Reel<Key>,
-            _ request: Request,
-            proofs: [Key: Motion.Reel<Key>.Proof] = [:]
-        ) async throws(Error) -> [Swift.String] {
+        public static func run<Key>(_ film: Film<Key>, _ request: Request) async throws(Error) -> [Swift.String] {
+            let reel = try layered(film.reel, request)
             let keys = try keys(request.parts, in: reel)
+            let named = try request.proofs.map { name throws(Error) in
+                guard let proof = film.proofs[name] else { throw .proof(name) }
+                return (name, proof)
+            }
             let label = request.parts.isEmpty ? "reel" : request.parts.joined(separator: "+")
             let directory = try path(request.output)
             do throws(File.System.Create.Directory.Error) {
@@ -85,11 +124,23 @@
                 let proof = Motion.Reel<Key>.Proof(sheets: sheets, stills: request.stills)
                 return try await prints(proof, of: keys, named: label, from: reel, into: request.output)
 
+            case .sheet where !named.isEmpty:
+                var written: [Swift.String] = []
+                for (name, proof) in named {
+                    written += try await prints(proof, of: nil, named: name, from: reel, into: request.output)
+                }
+                return written
+
             case .sheet:
                 var written: [Swift.String] = []
                 for key in keys ?? Self.keys(of: reel) {
-                    let proof = proofs[key] ?? .overview(of: Cardinal(UInt(reel.positions(of: [key]).count)))
+                    let proof = film.parts[key] ?? .overview(of: Cardinal(UInt(reel.positions(of: [key]).count)))
                     written += try await prints(proof, of: [key], named: Swift.String(describing: key), from: reel, into: request.output)
+                }
+                guard keys == nil else { return written }
+                for name in film.proofs.keys.sorted() {
+                    guard let proof = film.proofs[name] else { continue }
+                    written += try await prints(proof, of: nil, named: name, from: reel, into: request.output)
                 }
                 return written
 
@@ -117,6 +168,7 @@
                     position += Cardinal.one
                 }
 
+            #if canImport(AVFoundation)
             case .movie:
                 let file = request.output + "/" + label + ".mp4"
                 let movie = try path(file)
@@ -153,9 +205,25 @@
                         throw .frames(error)
                     }
                 }
+            #endif
             }
         }
 
+        /// The reel with only the layers the request names, by `String(describing:)` of their keys, or none when
+        /// it asks for a bare reel, or as it is. A name no layer has fails with `.layer`.
+        static func layered<Key>(_ reel: Motion.Reel<Key>, _ request: Request) throws(Error) -> Motion.Reel<Key> {
+            guard !request.bare else { return reel.layered([]) }
+            guard !request.layers.isEmpty else { return reel }
+            let keys = try request.layers.map { name throws(Error) in
+                guard let layer = reel.layers.first(where: { Swift.String(describing: $0.key) == name }) else { throw .layer(name) }
+                return layer.key
+            }
+            return reel.layered(keys)
+        }
+    }
+
+    #if canImport(AVFoundation)
+    extension Motion.Command {
         /// Reads the command line over movie files, does what it asks, says how many files it wrote, and ends the
         /// process: with 0 when it wrote them, 0 after printing the help it was asked for, the arguments' own code
         /// when they could not be read, and 1 when writing failed.
@@ -312,6 +380,10 @@
             }
         }
 
+    }
+    #endif
+
+    extension Motion.Command {
         /// The keys of the parts with these names, by `String(describing:)`, in the order named; nil for no
         /// names. A name no part has fails with `.part`.
         static func keys<Key>(_ names: [Swift.String], in reel: Motion.Reel<Key>) throws(Error) -> [Key]? {
@@ -330,7 +402,7 @@
         }
 
         /// A proof printed and written: each sheet as `sheet-<name>.png`, or `sheet-<name>-<sheet>.png` for a
-        /// named sheet, and each still as `<name>-<frame>.png`.
+        /// named sheet, each still as `<name>-<frame>.png`, and each picture as `<name>-<picture>.png`.
         static func prints<Key>(
             _ proof: Motion.Reel<Key>.Proof,
             of keys: [Key]?,
@@ -354,6 +426,12 @@
             for still in proof.stills {
                 guard let bytes = prints.stills[still] else { continue }
                 let file = directory + "/" + name + "-" + numbered(still) + ".png"
+                try write(bytes, to: file)
+                written.append(file)
+            }
+            for picture in proof.pictures.keys.sorted() {
+                guard let bytes = prints.pictures[picture] else { continue }
+                let file = directory + "/" + name + "-" + picture + ".png"
                 try write(bytes, to: file)
                 written.append(file)
             }

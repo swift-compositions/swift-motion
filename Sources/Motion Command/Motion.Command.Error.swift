@@ -2,7 +2,9 @@
     public import Command
     public import File_System
     public import Motion
-    public import Motion_Encoding
+    #if canImport(AVFoundation)
+        public import Motion_Encoding
+    #endif
     public import Motion_Picture
     public import Picture_PNG_Integration
 
@@ -14,6 +16,12 @@
 
             /// The reel has no part of that name.
             case part(Swift.String)
+
+            /// The reel has no layer of that name.
+            case layer(Swift.String)
+
+            /// The film has no proof of the whole reel of that name.
+            case proof(Swift.String)
 
             /// A sheet or still asked for a frame beyond the frames written.
             case outside(Ordinal)
@@ -39,8 +47,10 @@
             /// A movie already there could not be removed.
             case delete(File.System.Delete.Error)
 
-            /// A movie could not be written or read.
-            case movie(Motion.Encoding.Error)
+            #if canImport(AVFoundation)
+                /// A movie could not be written or read.
+                case movie(Motion.Encoding.Error)
+            #endif
 
             /// A sheet of pairs could not be made.
             case pairs(Motion.Pairs.Error)

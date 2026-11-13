@@ -1,4 +1,4 @@
-#if Command
+#if Command && canImport(AVFoundation)
     public import Command
     public import Motion
     public import Motion_Encoding

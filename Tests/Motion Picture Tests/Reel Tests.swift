@@ -29,13 +29,10 @@
         ]
 
         /// A bar over the frames 4 up to 7 of the reel, moving with the reel's frame.
-        static func layer(at rate: Rate) -> Timeline.Layer<@Sendable (Reel.Frame) -> Picture> {
-            Timeline.Layer(
-                { frame in
-                    [Tests.rectangle(Double(Int(bitPattern: frame.position)), 10, 3, 3, Picture.Color(red: 1, green: 1, blue: 0.2, alpha: 0.7))]
-                },
-                over: rate.start(of: 4)..<rate.start(of: 7)
-            )
+        static func layer(at rate: Rate) -> Reel.Layer {
+            Reel.Layer("bar", over: rate.start(of: 4)..<rate.start(of: 7)) { frame in
+                [Tests.rectangle(Double(Int(bitPattern: frame.position)), 10, 3, 3, Picture.Color(red: 1, green: 1, blue: 0.2, alpha: 0.7))]
+            }
         }
 
         static func reel(at rate: Rate = .ntsc, layered: Bool = false) -> Reel {
@@ -91,7 +88,7 @@
             #expect(reel.picture(at: 3) == plain.picture(at: 3))
             #expect(reel.picture(at: 7) == plain.picture(at: 7))
             var expected = plain.picture(at: 5)
-            expected.elements.append(contentsOf: Self.layer(at: .ntsc).content(Reel.Frame(position: 5, time: Rate.ntsc.centre(of: 5))).elements)
+            expected.elements.append(contentsOf: Self.layer(at: .ntsc).timeline.content(Reel.Frame(position: 5, time: Rate.ntsc.centre(of: 5))).elements)
             #expect(reel.picture(at: 5) == expected)
             #expect(reel.picture(at: 10) == .empty)
         }
@@ -171,6 +168,34 @@
             #expect(movie.frames == 5)
             #expect(try await movie.feed.frame(at: 3) == (try await reel.hosting(workers: 1).rasters([8]))[0])
             #expect(try await movie.feed.frame(at: 5) == nil)
+        }
+
+        @Test func `a layer's frames are those whose centre falls in its lifetime, and a reel can drop its layers`() async throws {
+            let reel = Self.reel(layered: true)
+            #expect(reel.positions(ofLayer: "bar") == [4, 5, 6])
+            #expect(reel.positions(ofLayer: "none") == [])
+            let tick = try Rational(numerator: 1, denominator: 100_000)
+            #expect(reel.positions(during: reel.rate.centre(of: 2)..<reel.rate.centre(of: 4)) == [2, 3])
+            #expect(reel.positions(during: (reel.rate.centre(of: 2) + tick)..<(reel.rate.centre(of: 4) + tick)) == [3, 4])
+            #expect(reel.positions(during: 0..<1000) == (0..<10).map { Ordinal(UInt($0)) })
+            let bare = reel.layered([])
+            #expect(bare.layers.isEmpty)
+            #expect(reel.layered(["bar"]).layers.count == 1)
+            let plain = try await Self.reel().hosting(workers: 1).rasters([5])
+            #expect(try await bare.hosting(workers: 1).rasters([5]) == plain)
+            #expect(try await reel.hosting(workers: 1).rasters([5]) != plain)
+        }
+
+        @Test func `a proof prints pictures that are no frame alone at the reel's size, and overviews any frames`() async throws {
+            let reel = Self.reel()
+            let alone: Picture = [Tests.rectangle(2, 2, 4, 4, .white)]
+            let proof = Reel.Proof(pictures: ["badge": alone])
+            let prints = try await reel.prints(proof)
+            let drawn = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, over: Picture.Color(gray: 0.5), workers: 1) { _ in alone }
+            let expected = try await drawn.drawn([0]) { _, raster in raster }
+            #expect(prints.pictures["badge"] == (try Self.png(expected[0])))
+            let some = Reel.Proof.overview(of: [4, 5, 6] as [Ordinal])
+            #expect(some == Reel.Proof(sheets: [Reel.Sheet(frames: [4, 5, 6], columns: 10)], stills: [4, 5, 6]))
         }
     }
 #endif
