@@ -92,7 +92,7 @@ import Testing
         #expect(try await places.frame(at: 3) == nil)
     }
 
-    @Test func `a frame the renderer refuses fails the run with its position`() async {
+    @Test func `a frame the renderer refuses fails the run with its position`() async throws {
         let frames = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, workers: 4) { position in
             guard position == 5 else { return Self.picture(position) }
             let empty = Picture.Image(.empty, in: Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 0, ury: 4), scale: 1)
@@ -104,6 +104,6 @@ import Testing
         await #expect(throws: Motion.Hosting.Picture.Frames.Error.renderer(.unsupported, at: 5)) {
             _ = try await frames.feed(first: 8).frame(at: 1)
         }
-        #expect(await (try? frames.rasters([0, 1, 2, 3, 4]))?.count == 5)
+        #expect(try await frames.rasters([0, 1, 2, 3, 4]).count == 5)
     }
 }
