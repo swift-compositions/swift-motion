@@ -3,7 +3,8 @@
 
     extension Motion {
         /// Components drawn on screen in a motion picture: a window's chrome, a terminal's transcript and its
-        /// typing, a caption, a headline, a checklist and its boxes, and a readout.
+        /// typing, a caption, a headline, a title whose letters arrive one by one, a checklist and its boxes, a
+        /// readout, a progress ring, a shockwave, a wall of moving type, a glint and a twinkle.
         ///
         /// Each component is a value that holds its structure (its words, its place) and a `Style` that holds
         /// every decision of its look, and each is drawn at a `Moment`, its progress values at one instant, by
