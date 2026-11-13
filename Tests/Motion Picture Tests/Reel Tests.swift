@@ -80,6 +80,16 @@
             #expect(reel.positions() == (0..<10).map { Ordinal(UInt($0)) })
         }
 
+        @Test func `an instant of chosen parts is the reel's instant of its frame, at the same offset into it`() throws {
+            let reel = Self.reel()
+            let rate = reel.rate
+            let quarter = rate.period * (try Rational(numerator: 1, denominator: 4))
+            #expect(reel.instants([.zero, rate.start(of: 2) + quarter], of: ["b"]) == [rate.start(of: 3), rate.start(of: 5) + quarter])
+            #expect(reel.instants([rate.start(of: 5), rate.start(of: 8)], of: ["b", "a"]) == [rate.start(of: 0), rate.start(of: 8)])
+            #expect(reel.instants([rate.start(of: 5)], of: ["b"]) == [rate.start(of: 5)])
+            #expect(reel.instants([quarter, rate.start(of: 7)], of: nil) == [quarter, rate.start(of: 7)])
+        }
+
         @Test func `a layer is laid over the frames whose centre falls in its lifetime, and over no other`() {
             let reel = Self.reel(layered: true)
             let counts = reel.positions().map { reel.picture(at: $0).elements.count }

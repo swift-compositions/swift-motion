@@ -91,6 +91,20 @@
             }
         }
 
+        /// The reel's instants of instants of the parts with these keys played one after another, as
+        /// `positions(of:)` orders their frames: each falls in the frame at `rate.index(at:)` of it, and keeps its
+        /// offset into that frame from the start of the frame in the reel. Without keys, or outside the chosen
+        /// frames, an instant is its own.
+        public func instants(_ instants: [Rational], of keys: [Key]?) -> [Rational] {
+            guard keys != nil else { return instants }
+            let positions = positions(of: keys)
+            return instants.map { instant in
+                let index = rate.index(at: instant)
+                guard let place = index.exactly(Int.self), positions.indices.contains(place) else { return instant }
+                return instant - rate.start(of: index) + rate.start(of: Integer(Int(bitPattern: positions[place])))
+            }
+        }
+
         /// The reel's frames whose centre falls in a span of its time in seconds, from its start: the frames a
         /// layer of that lifetime is drawn on.
         public func positions(during span: Range<Rational>) -> [Ordinal] {

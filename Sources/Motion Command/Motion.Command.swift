@@ -197,8 +197,15 @@
                     let pairs = try layout(width: request.width, font: request.font, of: reference)
                     let positions = keys.map { reel.positions(of: $0).count } ?? Int(clamping: reel.frames)
                     let length = reel.rate.start(of: Integer(positions))
-                    return try await compare(reference, length: length, step: request.step, count: request.pairs, as: pairs, into: request.output) {
-                        instants throws(Error) in
+                    return try await compare(
+                        reference,
+                        length: length,
+                        step: request.step,
+                        count: request.pairs,
+                        as: pairs,
+                        into: request.output,
+                        at: { reel.instants($0, of: keys) }
+                    ) { instants throws(Error) in
                         do throws(Motion.Hosting.Picture.Frames.Error) {
                             return try await reel.frames(at: instants, of: keys)
                         } catch {
@@ -331,7 +338,9 @@
             }
 
             /// Sheets of the reference beside another film at every step from zero before `length`, `count` pairs to
-            /// a sheet, written into a directory, made if missing, as `pairs-<sheet>.png`.
+            /// a sheet, written into a directory, made if missing, as `pairs-<sheet>.png`. Each pair is the other
+            /// film's frame at its instant beside the reference's at the instant `at` gives for it, and is labelled
+            /// with the reference's instant.
             static func compare(
                 _ reference: Motion.Decoding,
                 length: Rational,
@@ -339,6 +348,7 @@
                 count: Cardinal,
                 as pairs: Motion.Pairs,
                 into directory: Swift.String,
+                at timing: ([Rational]) -> [Rational] = { $0 },
                 other: ([Rational]) async throws(Error) -> [Raster<Motion.Pixel>?]
             ) async throws(Error) -> [Swift.String] {
                 let folder = try path(directory)
@@ -349,14 +359,15 @@
                 }
                 var written: [Swift.String] = []
                 for (sheet, instants) in Motion.Pairs.instants(every: step, before: length, count: count).enumerated() {
+                    let times = timing(instants)
                     let left: [Raster<Motion.Pixel>?]
                     do throws(Motion.Encoding.Error) {
-                        left = try await reference.frames(at: instants)
+                        left = try await reference.frames(at: times)
                     } catch {
                         throw .movie(error)
                     }
                     let right = try await other(instants)
-                    let set = zip(instants, zip(left, right)).map { Motion.Pairs.Pair(time: $0, reference: $1.0, other: $1.1) }
+                    let set = zip(times, zip(left, right)).map { Motion.Pairs.Pair(time: $0, reference: $1.0, other: $1.1) }
                     let bytes: [Byte]
                     do throws(Motion.Pairs.Error) {
                         bytes = try pairs.png(set)
