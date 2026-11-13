@@ -5,6 +5,7 @@
     import Picture_PNG_Integration
     import Test_Apple
     import Testing
+    import Synchronization
     import Timeline
 
     @Suite(.deadline(.seconds(180))) struct `Reel Tests` {
@@ -257,6 +258,35 @@
             #expect(prints.pictures["badge"] == (try Self.png(expected[0])))
             let some = Reel.Proof.overview(of: [4, 5, 6] as [Ordinal])
             #expect(some == Reel.Proof(sheets: [Reel.Sheet(frames: [4, 5, 6], columns: 10)], stills: [4, 5, 6]))
+        }
+        @Test func `asking for frames of one part builds that part's drawing once and no other part's`() async throws {
+            let built = Mutex<[String: Int]>([:])
+            func part(_ key: String, frames: Cardinal) -> Reel.Part {
+                Reel.Part(key, frames: frames) {
+                    built.withLock { $0[key, default: 0] += 1 }
+                    return { frame in [Tests.rectangle(Double(Int(bitPattern: frame.position)), 2, 5, 6, .white)] }
+                }
+            }
+            let reel = Reel(width: Self.width, height: Self.height, rate: .ntsc, parts: [part("a", frames: 3), part("b", frames: 4), part("c", frames: 2)])
+            #expect(reel.frames == 9)
+            #expect(reel.place(of: 5)?.key == "b")
+            #expect(reel.positions(of: ["b"]) == [3, 4, 5, 6])
+            #expect(built.withLock { $0 }.isEmpty)
+            let frames = try await reel.hosting(["b"], workers: 3).rasters([0, 1, 2, 3])
+            #expect(frames.count == 4)
+            #expect(built.withLock { $0 } == ["b": 1])
+            _ = reel.picture(at: 1)
+            _ = reel.picture(at: 2)
+            #expect(built.withLock { $0 } == ["a": 1, "b": 1])
+        }
+
+        @Test func `a scene's part built on demand draws as the scene's part drawn at once`() {
+            let scene = Motion.Scene(rate: .thirty, frames: 4) { time in time < Rate.thirty.start(of: 3) ? 0 : 1 }
+            let drawing: @Sendable (Int) -> Picture = { state in state == 0 ? .empty : [Tests.rectangle(0, 0, 1, 1, .white)] }
+            let ready = Reel.Part("scene", scene: scene, picture: drawing)
+            let later = Reel.Part("scene", scene: scene, building: { drawing })
+            let frames = (0..<4).map { Reel.Frame(position: Ordinal(UInt($0)), time: .zero) }
+            #expect(frames.map(ready.picture) == frames.map(later.picture))
         }
     }
 #endif

@@ -223,12 +223,35 @@
             #expect(Self.readout(sans, value: 1650).figures == "1650")
             let plates = try [0, 1, 7, 111, 1111, 1650, 9999].map { value in try Picture(Self.readout(sans, value: Cardinal(UInt(value))), at: .resting) }
                 .map { picture -> Picture.Element? in
-                    guard case .group(let turned) = picture.elements.first, case .group(let grown) = turned.content.elements.first else { return nil }
-                    return grown.content.elements.first
+                    guard case .group(let placed) = picture.elements.first else { return nil }
+                    return placed.content.elements.first
                 }
             #expect(plates.allSatisfy { $0 != nil && $0 == plates[0] })
             #expect(try Picture(Self.readout(sans, value: 3), at: .hidden) == .empty)
             #expect(try Picture(Self.readout(sans, value: 3), at: .init(light: 0)) == .empty)
+        }
+
+        @Test func `a readout's plate is the one its drawing lays, under the transform it is drawn in at a moment`() throws {
+            guard let sans = Self.sans else { return }
+            let readout = Self.readout(sans, value: 66)
+            let plate = try readout.plate
+            #expect(plate.urx.underlying == 400 && plate.lly.underlying == 20 && plate.ury.underlying == 80)
+            #expect(try Self.readout(sans, value: 1649).plate == plate)
+            let style = readout.style.plate
+            for moment in [Motion.Graphics.Readout.Moment.resting, .init(shown: 0.5), .init(shown: 1.05, tilt: 0.2, drop: 12)] {
+                let picture = try Picture(readout, at: moment)
+                let drawn: Picture
+                if case .layer(let layer) = picture.elements.first { drawn = layer.content } else { drawn = picture }
+                guard case .group(let placed) = drawn.elements.first else {
+                    Issue.record("a readout is drawn in one group")
+                    continue
+                }
+                #expect(placed.transform == (try readout.transform(at: moment)))
+                #expect(Swift.Array(placed.content.elements.prefix(1)) == style.surface.elements(plate, corners: style.corners))
+            }
+            let middle = Picture.Plane.Point<2>([(plate.llx.underlying + plate.urx.underlying) / 2, 50])
+            let still = try readout.transform(at: .init(shown: 0.5)).applied(to: Vector([middle[0], middle[1]]))
+            #expect(Swift.abs(still[0] - middle[0]) < 1e-9 && Swift.abs(still[1] - middle[1]) < 1e-9)
         }
 
         @Test func `a readout's accent mixes its colours by heat, as written, then toward its finish`() throws {

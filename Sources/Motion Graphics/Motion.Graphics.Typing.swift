@@ -1,5 +1,6 @@
 #if Graphics
     public import Motion
+    public import Picture
     import Timeline
 
     extension Motion.Graphics {
@@ -16,6 +17,18 @@
             public init(_ count: Cardinal, from start: Rational, to end: Rational, weights: some Swift.Sequence<Rational>) {
                 self.strokes = Timeline.instants(count, from: start, to: end, weights: weights)
             }
+        }
+    }
+
+    extension Motion.Graphics.Typing {
+        /// A hand typing a text in a cadence: one stroke for each of its characters, the first at `start` and the
+        /// last at `end`, the gaps between weighted by the cadence with draws under a key. The instants are a pure
+        /// function of the text, the key, the cadence and the two ends, so two runs with one key type alike, and
+        /// never go back.
+        public init(_ text: some Swift.StringProtocol, key: Threefry.Key, cadence: Cadence, from start: Rational, to end: Rational) {
+            let characters = Swift.Array(text)
+            let weights = characters.indices.dropFirst().map { cadence.weight(of: characters, at: $0, key: key) }
+            self.init(Cardinal(UInt(characters.count)), from: start, to: end, weights: weights)
         }
     }
 

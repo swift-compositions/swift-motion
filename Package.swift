@@ -93,6 +93,7 @@ let package = Package(
             dependencies: [
                 .target(name: "Motion"),
                 .product(name: "Formatter", package: "swift-formatter", condition: .when(traits: ["Graphics"])),
+                .product(name: "Numeric", package: "swift-numeric", condition: .when(traits: ["Graphics"])),
                 .product(name: "Picture", package: "swift-picture", condition: .when(traits: ["Graphics"])),
                 .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Graphics"])),
             ]

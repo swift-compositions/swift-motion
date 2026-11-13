@@ -57,6 +57,47 @@
             of + Formatter.Number().format(Double(Int(clamping: total)))
         }
 
+        /// The line set in the ink's font at its size, in tabular figures.
+        var set: Picture.Text {
+            get throws(Picture.Text.Error) {
+                try Picture.Text(line, font: style.ink.font, size: style.ink.size, figures: .tabular)
+            }
+        }
+
+        /// The plate at rest, before the readout grows, turns or drops: as wide as the line and two insets,
+        /// `plate.height` tall, its top edge through `place` at its left end, its middle or its right end as
+        /// `anchor` says. Since the count's digits share one advance, it is the same whatever the count reads.
+        public var plate: Picture.Plane.Rectangle {
+            get throws(Picture.Text.Error) {
+                plate(of: try set)
+            }
+        }
+
+        /// The plate around a set line.
+        func plate(of set: Picture.Text) -> Picture.Plane.Rectangle {
+            let wide = set.width + 2 * style.plate.inset
+            let left = place[0] - anchor.indent(of: 0, in: wide)
+            let top = place[1]
+            return Picture.Plane.Rectangle(llx: .init(left), lly: .init(top), urx: .init(left + wide), ury: .init(top + style.plate.height))
+        }
+
+        /// Where the readout stands at a moment: grown about the plate's middle from `1 − grow` of its size by how
+        /// far it has shown, then turned by the tilt about the pivot and dropped. The plate at a moment is `plate`
+        /// under this transform, and so is everything the readout draws.
+        public func transform(at moment: Moment) throws(Picture.Text.Error) -> Picture.Transform {
+            transform(at: moment, plate: try plate)
+        }
+
+        /// Where the readout stands at a moment, about a plate.
+        func transform(at moment: Moment, plate: Picture.Plane.Rectangle) -> Picture.Transform {
+            let (left, top) = (plate.llx.underlying, plate.lly.underlying)
+            let middle = Picture.Plane.Point<2>([(left + plate.urx.underlying) / 2, (top + plate.ury.underlying) / 2])
+            let grown = Picture.Transform.scale(1 - style.grow + style.grow * moment.shown, about: middle)
+            let pivot = Picture.Plane.Point<2>([left + style.pivot[0], top + style.pivot[1]])
+            let turned = Picture.Transform.translation(x: 0, y: moment.drop).multiplied(by: .rotation(Radian(moment.tilt), about: pivot))
+            return turned.multiplied(by: grown)
+        }
+
         /// The share of the total the count has come to, 0 to 1; a total of nothing is full.
         public var share: Double {
             let total = Double(Int(clamping: total))
