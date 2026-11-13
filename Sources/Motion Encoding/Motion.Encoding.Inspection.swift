@@ -16,6 +16,9 @@ extension Motion.Encoding {
         public var signal: ITU_T_H_273.Signal?
         /// The number of sound tracks.
         public var sounds: Cardinal
+        /// The picture's rate: one over the shortest frame duration the file states, exactly; nil when it states none.
+        /// For a movie whose frames all last the same, which is every movie `Motion.Encoding` writes, it is the frame rate.
+        public var rate: Rate?
 
         /// Reads the movie at `url`. A file that is no movie, or has no picture, fails with `.reader`.
         public init(of url: URL) async throws(Motion.Encoding.Error) {
@@ -41,6 +44,7 @@ extension Motion.Encoding {
                     frames += Cardinal.one
                     while cursor.stepInDecodeOrder(byCount: 1) == 1 { frames += Cardinal.one }
                 }
+                let shortest = try await track.load(.minFrameDuration)
                 let code = format.mediaSubType.rawValue
                 self.init(
                     codec: String(decoding: [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: code >> $0) }, as: UTF8.self),
@@ -49,7 +53,8 @@ extension Motion.Encoding {
                     frames: frames,
                     duration: try Rational(numerator: Integer(length.value), denominator: Integer(length.timescale)),
                     signal: Self.signal(format),
-                    sounds: Cardinal(UInt(try await asset.loadTracks(withMediaType: .audio).count))
+                    sounds: Cardinal(UInt(try await asset.loadTracks(withMediaType: .audio).count)),
+                    rate: Self.rate(shortest)
                 )
             } catch let failure as Motion.Encoding.Error {
                 throw failure
@@ -58,7 +63,16 @@ extension Motion.Encoding {
             }
         }
 
-        init(codec: String, width: Cardinal, height: Cardinal, frames: Cardinal, duration: Rational, signal: ITU_T_H_273.Signal?, sounds: Cardinal) {
+        init(
+            codec: String,
+            width: Cardinal,
+            height: Cardinal,
+            frames: Cardinal,
+            duration: Rational,
+            signal: ITU_T_H_273.Signal?,
+            sounds: Cardinal,
+            rate: Rate?
+        ) {
             self.codec = codec
             self.width = width
             self.height = height
@@ -66,11 +80,22 @@ extension Motion.Encoding {
             self.duration = duration
             self.signal = signal
             self.sounds = sounds
+            self.rate = rate
         }
     }
 }
 
 extension Motion.Encoding.Inspection {
+    /// One over a frame's duration, exactly; nil for a duration that is not a positive time.
+    static func rate(_ duration: CMTime) -> Rate? {
+        guard duration.isNumeric, duration.value > 0, duration.timescale > 0 else { return nil }
+        do throws(Rate.Error) {
+            return try Rate(Integer(duration.timescale), per: Integer(duration.value))
+        } catch {
+            return nil
+        }
+    }
+
     /// The H.273 signal a format description's colour tags name, where this package writes that tag.
     static func signal(_ format: CMFormatDescription) -> ITU_T_H_273.Signal? {
         let tags = CMFormatDescriptionGetExtensions(format) as? [String: Any] ?? [:]

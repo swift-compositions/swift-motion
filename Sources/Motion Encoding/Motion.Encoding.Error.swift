@@ -12,8 +12,14 @@ extension Motion.Encoding {
         case size(width: Cardinal, height: Cardinal, bits: Cardinal)
         /// This many frames end later than the movie's timescale can say.
         case length(Cardinal)
+        /// The movie could not be written.
         case writer(String)
         /// The movie could not be read back.
         case reader(String)
+        /// An instant AVFoundation cannot be told exactly: its numerator or denominator does not fit a `CMTime`.
+        case instant(Rational)
+        /// The cue at this position lays no sound under the picture: it enters at or after the picture's end,
+        /// starts at or after its sound's end, or its sound has no audio.
+        case cue(Ordinal)
     }
 }

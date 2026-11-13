@@ -39,8 +39,14 @@
             /// A movie already there could not be removed.
             case delete(File.System.Delete.Error)
 
-            /// The movie could not be written.
+            /// A movie could not be written or read.
             case movie(Motion.Encoding.Error)
+
+            /// A sheet of pairs could not be made.
+            case pairs(Motion.Pairs.Error)
+
+            /// The font file could not be read.
+            case font(File.System.Read.Full.Error)
         }
     }
 

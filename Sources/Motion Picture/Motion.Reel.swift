@@ -218,6 +218,27 @@
             return (count, hosting(keys, workers: workers, renderer: renderer).feed(first: count, ahead: ahead))
         }
 
+        /// The frames of the parts with these keys, or of the whole reel, shown at these instants in seconds from
+        /// their start, in the order given: the frame at `rate.index(at:)` of each, drawn as `hosting(_:workers:renderer:)`
+        /// draws it, and nil for an instant before zero or from the end of the frames on. It is how a reel drawn
+        /// directly is set beside a movie in `Motion.Pairs`.
+        public func frames(
+            at instants: [Rational],
+            of keys: [Key]? = nil,
+            workers: Cardinal? = nil,
+            renderer: Picture::Picture.Renderer? = nil
+        ) async throws(Motion.Hosting.Picture.Frames.Error) -> [Raster<Motion.Pixel>?] {
+            let count = keys.map { positions(of: $0).count } ?? Int(clamping: frames)
+            let places: [Ordinal?] = instants.map { instant in
+                guard instant >= .zero, let index = rate.index(at: instant).exactly(Int.self), index < count else { return nil }
+                return Ordinal(UInt(index))
+            }
+            let wanted = Swift.Array(Set(places.compactMap { $0 })).sorted()
+            let drawn = try await hosting(keys, workers: workers, renderer: renderer).rasters(wanted)
+            let shown = Dictionary(uniqueKeysWithValues: zip(wanted, drawn))
+            return places.map { place in place.flatMap { shown[$0] } }
+        }
+
         /// A raster of the picture's pixels as PNG bytes, compressed fast.
         static func png(_ raster: Raster<Picture::Picture.Pixel>) throws(W3C_PNG::W3C_PNG.Image.Error) -> [Byte] {
             W3C_PNG::W3C_PNG.serialize(try W3C_PNG::W3C_PNG.Image(raster), level: .fast)

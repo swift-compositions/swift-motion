@@ -258,3 +258,174 @@ extension Motion.Encoding {
         }
     }
 }
+
+extension Motion.Encoding {
+    /// A time as an exact fraction of seconds, or nil for one that is not a number of ticks.
+    static func instant(_ time: CMTime) -> Rational? {
+        guard time.isNumeric, time.timescale > 0 else { return nil }
+        do throws(Rational.Error) {
+            return try Rational(numerator: Integer(time.value), denominator: Integer(time.timescale))
+        } catch {
+            return nil
+        }
+    }
+
+    /// An instant in seconds as a `CMTime`, exactly, or `.instant` when its numerator or denominator does not fit.
+    static func time(_ instant: Rational) throws(Motion.Encoding.Error) -> CMTime {
+        guard let value = instant.numerator.exactly(CMTimeValue.self), let scale = instant.denominator.exactly(CMTimeScale.self) else {
+            throw .instant(instant)
+        }
+        return CMTime(value: value, timescale: scale)
+    }
+}
+
+extension Motion.Encoding {
+    /// Lays cues of sound under a movie's picture and writes the result as an MP4 at `url`, where no file may be.
+    ///
+    /// The picture is copied sample for sample, not encoded again, so it keeps its codec, colour tag, timescale
+    /// and frame durations. The cues are mixed into one sound, each from its offset, entering at its film time,
+    /// at its gain with its fades, as `Cue` says, and encoded as stereo AAC at 48 kHz; before the first cue
+    /// enters the sound is silent, and nothing plays past the picture's end. A cue that lays no sound under the
+    /// picture fails with `.cue` and its position, and a time AVFoundation cannot be told exactly with
+    /// `.instant`, both before anything is written; a movie with no picture fails with `.reader`.
+    public static func score(_ picture: URL, with cues: [Cue], to url: URL) async throws(Motion.Encoding.Error) {
+        // swift-linter:disable:next do throws for typed catch
+        // REASON: AVMutableComposition, AVAssetReader and AVAssetWriter throw untyped; their errors become Error.writer.
+        do {
+            try await lay(cues, under: picture, to: url)
+        } catch let failure as Motion.Encoding.Error {
+            throw failure
+        } catch {
+            throw .writer("\(error)")
+        }
+    }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: loadTracks, insertTimeRange, AVAssetReader and AVAssetWriter throw untyped; score(_:with:to:) types them.
+    static func lay(_ cues: [Cue], under picture: URL, to url: URL) async throws {
+        let movie = AVURLAsset(url: picture)
+        guard let frames = try await movie.loadTracks(withMediaType: .video).first, let format = try await frames.load(.formatDescriptions).first else {
+            throw Motion.Encoding.Error.reader("\(picture.lastPathComponent) has no picture")
+        }
+        let range = try await frames.load(.timeRange)
+        guard let film = instant(range.end) else { throw Motion.Encoding.Error.reader("\(picture.lastPathComponent) states no length") }
+        let scale = try await frames.load(.naturalTimeScale)
+        let composition = AVMutableComposition()
+        guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw Motion.Encoding.Error.writer("no picture track could be made")
+        }
+        video.naturalTimeScale = scale
+        try video.insertTimeRange(CMTimeRange(start: .zero, duration: range.end), of: frames, at: .zero)
+        var parameters: [AVMutableAudioMixInputParameters] = []
+        for (index, cue) in cues.enumerated() {
+            let sound = AVURLAsset(url: cue.sound)
+            guard let samples = try await sound.loadTracks(withMediaType: .audio).first, let heard = instant(try await sound.load(.duration)) else {
+                throw Motion.Encoding.Error.cue(Ordinal(UInt(index)))
+            }
+            let length = Swift.min(heard - cue.offset, film - cue.entry)
+            guard cue.offset >= .zero, cue.entry >= .zero, length > .zero,
+                let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            else { throw Motion.Encoding.Error.cue(Ordinal(UInt(index))) }
+            try track.insertTimeRange(CMTimeRange(start: try time(cue.offset), duration: try time(length)), of: samples, at: try time(cue.entry))
+            parameters.append(try levels(of: cue, lasting: length, on: track))
+        }
+        guard !parameters.isEmpty else { throw Motion.Encoding.Error.cue(.zero) }
+        let mix = AVMutableAudioMix()
+        mix.inputParameters = parameters
+        let reader = try AVAssetReader(asset: composition)
+        let pictures = AVAssetReaderTrackOutput(track: video, outputSettings: nil)
+        let sounds = AVAssetReaderAudioMixOutput(audioTracks: composition.tracks(withMediaType: .audio), audioSettings: Self.mixed)
+        sounds.audioMix = mix
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        writer.movieTimeScale = scale
+        let copied = AVAssetWriterInput(mediaType: .video, outputSettings: nil, sourceFormatHint: format)
+        copied.mediaTimeScale = scale
+        let encoded = AVAssetWriterInput(mediaType: .audio, outputSettings: Self.aac)
+        let (pictureProvider, soundProvider) = (reader.outputProvider(for: pictures), reader.outputProvider(for: sounds))
+        let (pictureReceiver, soundReceiver) = (writer.inputReceiver(for: copied), writer.inputReceiver(for: encoded))
+        try reader.start()
+        try writer.start()
+        writer.startSession(atSourceTime: .zero)
+        async let picturesCopied: Void = pump(pictureProvider, into: pictureReceiver)
+        async let soundsEncoded: Void = pump(soundProvider, into: soundReceiver)
+        _ = try await (picturesCopied, soundsEncoded)
+        writer.endSession(atSourceTime: range.end)
+        await writer.finishWriting()
+        guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+    }
+
+    /// A cue's level over its stretch: its gain, reached from silence over its fade in and left for silence
+    /// over its fade out, two fades longer together than the stretch each cut to half of it.
+    static func levels(of cue: Cue, lasting length: Rational, on track: AVCompositionTrack) throws(Motion.Encoding.Error) -> AVMutableAudioMixInputParameters {
+        let half: Rational
+        do throws(Rational.Error) {
+            half = try Rational(numerator: length.numerator, denominator: length.denominator * 2)
+        } catch {
+            preconditionFailure("a positive length halves")
+        }
+        let long = cue.fadeIn + cue.fadeOut > length
+        let rise = long ? Swift.min(cue.fadeIn, half) : Swift.max(cue.fadeIn, .zero)
+        let fall = long ? Swift.min(cue.fadeOut, half) : Swift.max(cue.fadeOut, .zero)
+        let levels = AVMutableAudioMixInputParameters(track: track)
+        levels.setVolume(rise > .zero ? 0 : cue.gain, at: .zero)
+        if rise > .zero {
+            levels.setVolumeRamp(fromStartVolume: 0, toEndVolume: cue.gain, timeRange: CMTimeRange(start: try time(cue.entry), duration: try time(rise)))
+        }
+        if fall > .zero {
+            levels.setVolumeRamp(fromStartVolume: cue.gain, toEndVolume: 0, timeRange: CMTimeRange(start: try time(cue.entry + length - fall), duration: try time(fall)))
+        }
+        return levels
+    }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: the provider's next() and the receiver's append throw untyped; score(_:with:to:) types them.
+    /// Every sample a reader's output gives, appended to a writer's input in order, and the input finished.
+    static func pump(
+        _ provider: sending AVAssetReaderOutput.Provider<CMReadySampleBuffer<CMSampleBuffer.DynamicContent>>,
+        into receiver: sending AVAssetWriterInput.SampleBufferReceiver
+    ) async throws {
+        while let buffer = try await provider.next() {
+            try await receiver.append(buffer)
+        }
+        receiver.finish()
+    }
+
+    /// The mixed sound as the reader gives it: interleaved 32-bit float stereo at 48 kHz.
+    static var mixed: [String: any Sendable] {
+        [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 2,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+        ]
+    }
+
+    /// The sound as the movie holds it: stereo AAC at 48 kHz, 192 kbit/s.
+    static var aac: [String: any Sendable] {
+        [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 48_000, AVNumberOfChannelsKey: 2, AVEncoderBitRateKey: 192_000]
+    }
+}
+
+extension Motion.Encoding {
+    /// A movie made smaller for sharing, at one of AVFoundation's export presets: H.264 within the preset's
+    /// size, the picture's shape kept and never made larger, and its sound as AAC. A file already at `url`
+    /// fails the export with `.writer`.
+    public static func reduced(_ movie: URL, to url: URL, as preset: Preset) async throws(Motion.Encoding.Error) {
+        // swift-linter:disable:next do throws for typed catch
+        // REASON: AVAssetExportSession throws untyped; its errors become Error.writer.
+        do {
+            guard let session = AVAssetExportSession(asset: AVURLAsset(url: movie), presetName: preset.name) else {
+                throw Motion.Encoding.Error.writer("no export session for \(preset)")
+            }
+            session.shouldOptimizeForNetworkUse = true
+            try await session.export(to: url, as: .mp4)
+        } catch let failure as Motion.Encoding.Error {
+            throw failure
+        } catch {
+            throw .writer("\(error)")
+        }
+    }
+}
