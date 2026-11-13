@@ -7,7 +7,9 @@ import Motion_Encoding
 import Test_Apple
 import Testing
 
-@Suite(.deadline(.seconds(180))) struct `Encoding Tests` {
+/// AVFoundation's readers and writers wait on CoreMedia's shared queues, and many at once in one process have
+/// waited there for good on a small machine, so these tests, and the suites nested in them, run one at a time.
+@Suite(.serialized, .deadline(.seconds(600))) struct `Encoding Tests` {
     static func gradient(_ index: Ordinal, width: Int = 320, height: Int = 180) -> Raster<Motion.Pixel>? {
         let shift = (Int(exactly: index) ?? 0) * 8
         var bytes = [UInt8](repeating: 255, count: width * height * 4)
