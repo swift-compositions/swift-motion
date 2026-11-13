@@ -45,6 +45,81 @@
             "/tmp/motion-command-tests-" + Swift.String(UInt64.random(in: 0...UInt64.max))
         }
 
+        /// Every file a run wrote, read back in the order written.
+        static func contents(_ files: [Swift.String]) throws -> [[Byte]] {
+            try files.map { try File(File.Path(validating: $0)).read.bytes() }
+        }
+
+        @Test func `a cache directory and a scale are read from the command line`() throws {
+            let request = try Request.parse(["frames", "out", "--cache", "/tmp/kept", "--scale", "0.5"])
+            #expect(request.cache == "/tmp/kept" && request.scale == 0.5)
+            #expect(try Request.parse(["frames", "out"]).cache.isEmpty)
+            #expect(try Request.parse(["frames", "out"]).scale == 1)
+            #expect(throws: Command.Error.self) { try Request.parse(["frames", "out", "--scale", "0"]) }
+            #expect(throws: Command.Error.self) { try Request.parse(["frames", "out", "--scale", "half"]) }
+        }
+
+        @Test func `a run through a warm cache writes the bytes a run without one writes`() async throws {
+            let directory = Self.directory()
+            let cache = directory + "/cache"
+            let proof = Reel.Proof(sheets: [Reel.Sheet("start", frames: [0, 1, 2], columns: 2)], stills: [3], pictures: ["square": [Self.square(3)]])
+            let film = Motion.Command.Film(Self.reel, parts: ["opening": proof])
+            for action in [Motion.Command.Action.sheet, .frames] {
+                let plain = try await Motion.Command.run(film, Request(action, output: directory + "/plain-\(action)"))
+                let cold = try await Motion.Command.run(film, Request(action, output: directory + "/cold-\(action)", cache: cache))
+                let warm = try await Motion.Command.run(film, Request(action, output: directory + "/warm-\(action)", cache: cache))
+                #expect(try Self.contents(cold) == Self.contents(plain))
+                #expect(try Self.contents(warm) == Self.contents(plain))
+            }
+            let reference = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/plain"))
+            let kept = try await Motion.Command.run(Self.reel, Request(.movie, output: directory + "/warm", cache: cache))
+            let (plainFrames, warmFrames) = (try await Self.decoded(reference[0]), try await Self.decoded(kept[0]))
+            #expect(plainFrames == warmFrames)
+        }
+
+        /// Every frame of a movie, decoded.
+        static func decoded(_ file: Swift.String) async throws -> [Raster<Motion.Pixel>] {
+            let box = Frames()
+            _ = try await Motion.Encoding.read(URL(filePath: file)) { _, raster in box.append(raster) }
+            return box.frames
+        }
+
+        final class Frames: @unchecked Sendable {
+            var frames: [Raster<Motion.Pixel>] = []
+            func append(_ raster: Raster<Motion.Pixel>) { frames.append(raster) }
+        }
+
+        @Test func `a changed reel through a warm cache writes what it draws, never what was kept`() async throws {
+            let directory = Self.directory()
+            let cache = directory + "/cache"
+            _ = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/first", cache: cache))
+            let changed = Reel(
+                width: 20,
+                height: 12,
+                rate: .thirty,
+                over: .white,
+                parts: [Reel.Part("opening", frames: 4) { frame in [Self.square(Double(Int(bitPattern: frame.position)) + 0.5)] }],
+                layers: [Self.dot]
+            )
+            let plain = try await Motion.Command.run(changed, Request(.frames, output: directory + "/plain"))
+            let warm = try await Motion.Command.run(changed, Request(.frames, output: directory + "/warm", cache: cache))
+            #expect(try Self.contents(warm) == Self.contents(plain))
+            let first = try Self.contents((0..<4).map { directory + "/first/0000\($0).png" })
+            #expect(try first != Self.contents(plain))
+        }
+
+        @Test func `a draft is the reel at a scale, kept apart from its full size in one cache`() async throws {
+            let directory = Self.directory()
+            let cache = directory + "/cache"
+            _ = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/full", cache: cache))
+            let plain = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/plain", scale: 0.5))
+            let warm = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/warm", cache: cache, scale: 0.5))
+            #expect(try Self.contents(warm) == Self.contents(plain))
+            let movie = try await Motion.Command.run(Self.reel, Request(.movie, output: directory, scale: 0.5))
+            let inspection = try await Motion.Encoding.Inspection(of: URL(filePath: movie[0]))
+            #expect(inspection.width == 10 && inspection.height == 6)
+        }
+
         @Test func `an action and a directory are all a request needs`() throws {
             #expect(try Request.parse(["frames", "out"]) == Request(.frames, output: "out"))
             #expect(try Request.parse(["movie", "/a/b"]) == Request(.movie, output: "/a/b"))

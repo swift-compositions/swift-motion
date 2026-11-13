@@ -33,6 +33,10 @@
             public var bare: Bool
             /// Values for the maker of the film, each `<name>=<value>`.
             public var settings: [Swift.String]
+            /// A directory drawn frames are kept in and read back from, or empty to draw every frame.
+            public var cache: Swift.String
+            /// How large the reel is drawn: 1 at its own size, 0.5 as a draft of half the width and height.
+            public var scale: Double
 
             public init(
                 _ action: Action = .sheet,
@@ -49,7 +53,9 @@
                 proofs: [Swift.String] = [],
                 layers: [Swift.String] = [],
                 bare: Bool = false,
-                settings: [Swift.String] = []
+                settings: [Swift.String] = [],
+                cache: Swift.String = "",
+                scale: Double = 1
             ) {
                 self.action = action
                 self.output = output
@@ -66,6 +72,8 @@
                 self.layers = layers
                 self.bare = bare
                 self.settings = settings
+                self.cache = cache
+                self.scale = scale
             }
         }
     }
@@ -162,6 +170,17 @@
                     name: .long(.literal("set")),
                     help: .init(abstract: "A value for the film's maker, as <name>=<value>; may be given more than once.")
                 )
+                Command_Primitive::Command.Option(
+                    \.cache,
+                    name: .long(.literal("cache")),
+                    help: .init(abstract: "A directory drawn frames are kept in and read back from by later runs; without it, every frame is drawn.")
+                )
+                Command_Primitive::Command.Option(
+                    \.scale,
+                    name: .long(.literal("scale")),
+                    help: .init(abstract: "Draw the reel this many times its size, such as 0.5 for a draft.", defaults: "1"),
+                    transform: Self.factor
+                )
             }
         }
 
@@ -235,6 +254,12 @@
             } catch {
                 preconditionFailure("two is not zero")
             }
+        }
+
+        /// A scale: a decimal number above zero, such as `0.5`.
+        @Sendable static func factor(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Double {
+            guard let factor = Double(text), factor > 0, factor.isFinite else { throw .validationFailed(reason: "no scale \(text)") }
+            return factor
         }
 
         @Sendable static func count(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Cardinal {

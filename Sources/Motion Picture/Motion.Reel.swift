@@ -21,6 +21,10 @@
             public let parts: [Part]
             public let layers: [Layer]
 
+            /// How much larger every length is drawn than the parts and layers give it: 1 unless the reel was
+            /// `scaled(by:)`.
+            public let scale: Double
+
             /// The parts as a sequence of `Timeline.Stack`, each layer's content the place of its part in
             /// `parts`. A part of no frames is not in it.
             let stack: Timeline.Stack<Int>
@@ -39,8 +43,42 @@
                 self.background = background
                 self.parts = parts
                 self.layers = layers
+                self.scale = 1
                 self.stack = Self.sequence(parts, at: rate)
             }
+
+            init(_ reel: Self, width: Cardinal, height: Cardinal, layers: [Layer], scale: Double) {
+                self.width = width
+                self.height = height
+                self.rate = reel.rate
+                self.background = reel.background
+                self.parts = reel.parts
+                self.layers = layers
+                self.scale = scale
+                self.stack = reel.stack
+            }
+        }
+    }
+
+    extension Motion.Reel {
+        /// The same reel drawn `factor` times as large: every length of every picture, the part's and each
+        /// layer's alike, is multiplied by it about the top left corner, and the width and the height are
+        /// multiplied by it and rounded to the nearest pixel, halves up, never below one. At 0.5 it is a draft of
+        /// half the size, about a quarter of the drawing; at 1 it is the reel itself. A factor that is not a
+        /// positive finite number gives the reel as it is.
+        public func scaled(by factor: Double) -> Self {
+            guard factor > 0, factor.isFinite, factor != 1 else { return self }
+            func side(_ length: Cardinal) -> Cardinal {
+                guard length > .zero else { return .zero }
+                return Cardinal(UInt(Swift.max((Double(Int(clamping: length)) * factor).rounded(.toNearestOrAwayFromZero), 1)))
+            }
+            return Self(self, width: side(width), height: side(height), layers: layers, scale: scale * factor)
+        }
+
+        /// A picture drawn at the reel's scale.
+        func scaled(_ picture: Picture::Picture) -> Picture::Picture {
+            guard scale != 1 else { return picture }
+            return [.group(Picture::Picture.Group(picture, transform: .scale(scale, about: Picture::Picture.Plane.Point<2>([0.0, 0.0]))))]
         }
     }
 
@@ -121,7 +159,7 @@
 
         /// The same reel with only the layers whose keys are given, in the reel's order; with no keys, no layers.
         public func layered(_ keys: [Key]) -> Self {
-            Self(width: width, height: height, rate: rate, over: background, parts: parts, layers: layers.filter { keys.contains($0.key) })
+            Self(self, width: width, height: height, layers: layers.filter { keys.contains($0.key) }, scale: scale)
         }
 
         /// One half.
@@ -145,7 +183,7 @@
             for layer in layers where layer.timeline.alive(at: time) {
                 picture.elements.append(contentsOf: layer.timeline.content(frame).elements)
             }
-            return picture
+            return scaled(picture)
         }
 
         /// The reel's frames to draw several at a time: the frame at position `i` is the `i`th of
@@ -233,8 +271,9 @@
             }
             let names = proof.pictures.keys.sorted()
             let pictures = proof.pictures
+            let reel = self
             let alone = Motion.Hosting.Picture.Frames(width: width, height: height, over: background, workers: workers, renderer: drawing.renderer) {
-                position in pictures[names[Int(bitPattern: position)]] ?? .empty
+                position in reel.scaled(pictures[names[Int(bitPattern: position)]] ?? .empty)
             }
             let made: [Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>]
             do throws(Motion.Hosting.Picture.Frames.Error) {

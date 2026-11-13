@@ -120,6 +120,57 @@
             #expect(try await layered.hosting(["b"], workers: 1).rasters([5]) == [background])
         }
 
+        /// A triangle through three points, filled with a colour: slanted edges, whose pixels are only partly covered.
+        static func triangle(_ points: [(Double, Double)], _ color: Picture.Color) -> Picture.Element {
+            let corners = points.map { Picture.Plane.Point<2>([$0.0, $0.1]) }
+            let sides = zip(corners, corners.dropFirst() + corners.prefix(1)).map { start, end in
+                Picture.Plane.Path.Segment.line(.init(start: start, end: end))
+            }
+            let path = Picture.Plane.Path(subpaths: [.init(startPoint: corners[0], segments: sides, isClosed: true)])
+            return .shape(Picture.Shape(path, fill: .init(.solid(color))))
+        }
+
+        @Test func `a reel at scale one is the reel, frame for frame`() async throws {
+            let reel = Self.reel(layered: true)
+            let same = reel.scaled(by: 1)
+            #expect(same.width == reel.width && same.height == reel.height && same.scale == 1)
+            #expect(try await same.hosting(workers: 2).rasters(reel.positions()) == reel.hosting(workers: 2).rasters(reel.positions()))
+        }
+
+        @Test func `a draft at half the scale is half as wide and high and close to the full frame made smaller`() async throws {
+            let full = Reel(
+                width: 96,
+                height: 64,
+                rate: .thirty,
+                over: Picture.Color(gray: 0.5),
+                parts: [
+                    Reel.Part("shapes", frames: 3) { frame in
+                        let shift = Double(Int(bitPattern: frame.position)) * 3.3
+                        return [
+                            Tests.rectangle(7.3 + shift, 5.6, 41.7, 23.1, Picture.Color(red: 0.8, green: 0.2, blue: 0.1)),
+                            Tests.rectangle(30.2, 20.9 + shift, 50.5, 31.4, Picture.Color(red: 0.1, green: 0.6, blue: 0.9, alpha: 0.6)),
+                            Self.triangle([(4.4 + shift, 60.1), (52.7, 3.3 + shift), (90.9, 41.6)], .white),
+                        ]
+                    }
+                ],
+                layers: [Reel.Layer("bar", over: 0..<1) { _ in [Tests.rectangle(3.1, 48.2, 80.4, 9.7, .white)] }]
+            )
+            let draft = full.scaled(by: 0.5)
+            #expect(draft.width == 48 && draft.height == 32 && draft.scale == 0.5)
+            let large = try await full.hosting(workers: 1).drawn(full.positions()) { _, raster in
+                raster.resampled(width: 48, height: 32, .box) { (from: Picture.Pixel, to: Picture.Pixel, parameter: Float) in
+                    from.interpolated(to: to, at: parameter)
+                }.map { Motion.Pixel($0) }
+            }
+            let small = try await draft.hosting(workers: 1).rasters(draft.positions())
+            for (made, drawn) in zip(large, small) {
+                let psnr = try #require(drawn.psnr(against: made))
+                #expect(psnr > 40)
+            }
+            #expect(Reel(width: 3, height: 1, rate: .thirty, parts: []).scaled(by: 0.5).width == 2)
+            #expect(Reel(width: 1, height: 1, rate: .thirty, parts: []).scaled(by: 0.1).width == 1)
+        }
+
         @Test func `a scene is a part drawn from its state at each frame's centre`() {
             let scene = Motion.Scene(rate: .thirty, frames: 4) { time in time < Rate.thirty.start(of: 3) ? 0 : 1 }
             let part = Reel.Part("scene", scene: scene) { state in state == 0 ? .empty : [Tests.rectangle(0, 0, 1, 1, .white)] }
