@@ -2,6 +2,7 @@
     import Motion
     import Picture
     import Testing
+    import Timeline
 
     @testable import Motion_Graphics
 
@@ -78,6 +79,18 @@
             }
             let expected = Motion.Graphics.Typing(Cardinal(UInt(characters.count)), from: .zero, to: try Self.end, weights: weights)
             #expect(Motion.Graphics.Typing(text, key: key, cadence: try Self.cadence, from: .zero, to: try Self.end) == expected)
+        }
+
+        @Test func `a cadence strikes one key for each glyph, a line feed none, at the jitter's weights`() throws {
+            let key = Threefry.Key(3, 4)
+            let typing = Motion.Graphics.Typing("ab\ncd", key: key, cadence: try Self.cadence, from: .zero, to: try Self.end)
+            let jitter = Timeline.Jitter(key: key, spread: try Self.cadence.spread)
+            let weights = [jitter.weight(at: 1), jitter.weight(at: 2), jitter.weight(at: 3)]
+            #expect(typing == Motion.Graphics.Typing(4, from: .zero, to: try Self.end, weights: weights))
+            #expect(typing.strokes == typing.series.instants)
+            for instant in typing.strokes + [.zero, try Self.end + 1] {
+                #expect(Int(clamping: typing.standing(at: instant)) == typing.strokes.filter { $0 <= instant }.count)
+            }
         }
     }
 #endif
