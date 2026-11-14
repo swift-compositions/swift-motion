@@ -45,6 +45,7 @@
             let caption = try Motion.Graphics.Caption(
                 .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
                 at: Picture.Plane.Point<2>([500, 400]),
+                anchor: .center,
                 style: .init(
                     transcript: Self.transcript,
                     plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8)),
@@ -60,7 +61,7 @@
 
             let headline = try Motion.Graphics.Headline(
                 [.init("A CIRCLE."), .init("FOR NOW, AND LONGER", offset: 12)],
-                about: Picture.Plane.Point<2>([500, 300]),
+                at: Picture.Plane.Point<2>([500, 300]),
                 region: Picture.Plane.Path(Picture.Plane.Rectangle(llx: 300, lly: 200, urx: 600, ury: 400)),
                 style: .init(
                     ink: .init(font: sans, size: 400, color: .white),
@@ -225,8 +226,8 @@
             drawn.append(("twinkle early", Picture(twinkle, at: .init(shone: 0.2))))
 
             let window = try Motion.Graphics.Window(
-                frame: Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310),
-                title: "~/film zsh",
+                "~/film zsh",
+                in: Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310),
                 style: .init(
                     title: ink(sans, 14),
                     plate: .init(surface: .fill(Picture.Color(gray: 0.1)), corners: .continuous(14, exponent: 5), edge: .init(color: .white, pen: 2)),

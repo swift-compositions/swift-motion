@@ -3,8 +3,8 @@
     public import Picture
 
     extension Motion.Graphics.Checklist {
-        /// One row of a checklist, which also stands alone: a box whose left edge is at `left` and whose centre is
-        /// the style's rise above the baseline, the item's name a gap right of the box's centre, and its tag
+        /// One row of a checklist, which also stands alone: a box whose left edge is at `left` and whose center is
+        /// the style's rise above the baseline, the item's name a gap right of the box's center, and its tag
         /// ending at `right`. The name and the tag are set once, when the row is made.
         public struct Row: Sendable {
             public let item: Item

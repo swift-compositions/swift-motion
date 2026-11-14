@@ -6,10 +6,10 @@
     @testable import Motion_Graphics
 
     @Suite struct `Spinner Tests` {
-        static let centre = Picture.Plane.Point<2>([100, 80])
+        static let center = Picture.Plane.Point<2>([100, 80])
 
         static let spinner = Motion.Graphics.Spinner(
-            at: centre,
+            at: center,
             radius: 40,
             style: .init(
                 pen: 8,
@@ -20,7 +20,7 @@
 
         @Test func `a spinner hidden draws nothing, and at rest or filled whole it is the whole ring`() {
             #expect(Picture(Self.spinner, at: .hidden) == .empty)
-            let ring = Picture.Plane.Path(Picture.Plane.Circle(center: Self.centre, radius: .init(40)))
+            let ring = Picture.Plane.Path(Picture.Plane.Circle(center: Self.center, radius: .init(40)))
             #expect(Self.spinner.arc(at: .resting) == ring)
             #expect(Self.spinner.arc(at: .init(turn: 0.37, filled: 1)) == ring)
             #expect(Picture(Self.spinner, at: .init(turn: 0.2, filled: 3)) == Picture(Self.spinner, at: .init(turn: 0.2, filled: 1)))
@@ -48,9 +48,9 @@
         }
 
         @Test func `its glow spares a mask of the caller's, and at a strength of 0 there is no glow layer`() throws {
-            let soft: Picture = [.glow(.white, center: Self.centre, radius: 36)]
+            let soft: Picture = [.glow(.white, center: Self.center, radius: 36)]
             let style = Self.spinner.style
-            let masked = Motion.Graphics.Spinner(at: Self.centre, radius: 40, style: style, mask: soft)
+            let masked = Motion.Graphics.Spinner(at: Self.center, radius: 40, style: style, mask: soft)
             let picture = Picture(masked, at: .init(filled: 0.5))
             guard case .layer(let light) = picture.elements.last, case .layer(let spared) = light.content.elements.last else {
                 Issue.record("the glow is a layer that spares its mask")
@@ -59,11 +59,11 @@
             #expect(spared.content == soft && spared.operator == .destinationOut)
             var dim = style
             dim.arc.glow = .init(deviation: 6, strength: 0)
-            let dark = Picture(Motion.Graphics.Spinner(at: Self.centre, radius: 40, style: dim), at: .init(filled: 0.5))
+            let dark = Picture(Motion.Graphics.Spinner(at: Self.center, radius: 40, style: dim), at: .init(filled: 0.5))
             #expect(dark.elements.allSatisfy { if case .layer = $0 { false } else { true } })
             #expect(dark.elements.count == 2)
             dim.arc.glow = nil
-            #expect(Picture(Motion.Graphics.Spinner(at: Self.centre, radius: 40, style: dim), at: .init(filled: 0.5)) == dark)
+            #expect(Picture(Motion.Graphics.Spinner(at: Self.center, radius: 40, style: dim), at: .init(filled: 0.5)) == dark)
         }
 
         @Test func `the track glows by its own glow under the arc's, sparing what the arc's spares, and without one is drawn plain`() {
@@ -72,8 +72,8 @@
             #expect(plain.elements.count == 3)
             var style = Self.spinner.style
             style.track.glow = .init(deviation: 4, strength: 0.3, flash: 0.2)
-            let glowing = Motion.Graphics.Spinner(at: Self.centre, radius: 40, style: style)
-            let ring = Picture.Plane.Path(Picture.Plane.Circle(center: Self.centre, radius: .init(40)))
+            let glowing = Motion.Graphics.Spinner(at: Self.center, radius: 40, style: style)
+            let ring = Picture.Plane.Path(Picture.Plane.Circle(center: Self.center, radius: .init(40)))
             let track: Picture = [.stroke(ring, .solid(style.track.color), width: 8, join: .round, cap: .round)]
             let lit = track.glow(deviation: 4, strength: Float(0.3 + 0.2 * 0.5), sparing: glowing.spared)
             #expect(Picture(glowing, at: .init(filled: 0.5, flash: 0.5)) == Picture(lit.elements + plain.elements.dropFirst()))

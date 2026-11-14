@@ -5,7 +5,7 @@
     extension Motion.Graphics.Checkbox {
         /// A box's look: its half side, corner radius and the pen and colour of its edge; the fill's colour, the
         /// least half it is drawn at and its glow; how far beyond its size the box may spring; and the tick, a
-        /// line through points about the centre, in its colour and weight.
+        /// line through points about the center, in its colour and weight.
         public struct Style: Sendable, Hashable {
             public var half: Double
             public var radius: Double
@@ -19,7 +19,7 @@
             /// The largest share of its size the box springs to.
             public var overshoot: Double
 
-            /// The tick's points, as offsets from the centre.
+            /// The tick's points, as offsets from the center.
             public var tick: [Picture.Plane.Point<2>]
             public var mark: Picture.Color
             public var weight: Double

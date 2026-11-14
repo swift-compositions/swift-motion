@@ -9,7 +9,7 @@
         public struct Marquee: Sendable {
             /// The words of the rows: row i repeats the `i mod n`th of the n lines.
             public let lines: [Swift.String]
-            public var region: Picture.Plane.Rectangle
+            public var frame: Picture.Plane.Rectangle
             public let style: Style
             /// Each line set in the ink.
             let texts: [Picture.Text]
@@ -17,9 +17,9 @@
             let cap: Double
 
             /// A marquee, its lines set once: it fails as `Picture.Text` does for a line in the ink.
-            public init(_ lines: [Swift.String], in region: Picture.Plane.Rectangle, style: Style) throws(Picture.Text.Error) {
+            public init(_ lines: [Swift.String], in frame: Picture.Plane.Rectangle, style: Style) throws(Picture.Text.Error) {
                 self.lines = lines
-                self.region = region
+                self.frame = frame
                 self.style = style
                 var texts: [Picture.Text] = []
                 for line in lines {
@@ -35,7 +35,7 @@
         /// How many rows fill the region: one for each band a pitch tall that begins above its bottom, the first
         /// at its top. With no lines or no pitch, none.
         public var rows: Cardinal {
-            let tall = region.ury.underlying - region.lly.underlying
+            let tall = frame.ury.underlying - frame.lly.underlying
             guard !lines.isEmpty, style.pitch > 0, tall > 0 else { return .zero }
             return Cardinal(UInt((tall / style.pitch).rounded(.up)))
         }

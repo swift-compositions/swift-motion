@@ -8,10 +8,10 @@
         /// and the tick trimmed to the share drawn.
         public init(_ checkbox: Motion.Graphics.Checkbox, at moment: Motion.Graphics.Checkbox.Moment) {
             let style = checkbox.style
-            let centre = checkbox.centre
+            let center = checkbox.place
             func square(_ half: Double, radius: Double) -> Picture.Plane.Path {
                 Picture.Plane.Path(
-                    Picture.Plane.Rectangle(llx: .init(centre[0] - half), lly: .init(centre[1] - half), urx: .init(centre[0] + half), ury: .init(centre[1] + half)),
+                    Picture.Plane.Rectangle(llx: .init(center[0] - half), lly: .init(center[1] - half), urx: .init(center[0] + half), ury: .init(center[1] + half)),
                     radius: .init(radius)
                 )
             }
@@ -25,7 +25,7 @@
                 let glowing = style.glow.map { $0.applied(to: filled, strength: $0.strength(flash: moment.flash)) } ?? filled
                 elements.append(contentsOf: glowing.elements)
             }
-            let tick = style.tick.map { Picture.Plane.Point<2>([centre[0] + $0[0], centre[1] + $0[1]]) }
+            let tick = style.tick.map { Picture.Plane.Point<2>([center[0] + $0[0], center[1] + $0[1]]) }
             if moment.stroke > 0, let path = Picture.Plane.Path.polyline(vertices: tick) {
                 elements.append(.stroke(path.trimmed(to: .init(Swift.min(moment.stroke, 1))), .solid(style.mark), width: style.weight, join: .round, cap: .round))
             }

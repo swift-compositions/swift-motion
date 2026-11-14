@@ -5,12 +5,12 @@
     extension Picture {
         /// A marquee at a moment: each row that has a moment and has begun to rise, its words repeated a unit
         /// apart from `offset(row:travel:)` left of the region's left edge until past its right edge, their
-        /// capitals centred in the row's band, lowered by `(1 − risen)` times the style's rise (a pitch without one)
+        /// capitals centered in the row's band, lowered by `(1 − risen)` times the style's rise (a pitch without one)
         /// and clipped inside the region to the row's slot about its resting baseline, or to its band without one,
         /// so a row rises into its window.
         public init(_ marquee: Motion.Graphics.Marquee, at moment: Motion.Graphics.Marquee.Moment) {
             let style = marquee.style
-            let region = marquee.region
+            let region = marquee.frame
             let (left, right, top, bottom) = (region.llx.underlying, region.urx.underlying, region.lly.underlying, region.ury.underlying)
             let cap = marquee.cap
             var elements: [Picture.Element] = []

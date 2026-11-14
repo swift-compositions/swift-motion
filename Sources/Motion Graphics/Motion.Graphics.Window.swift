@@ -16,7 +16,7 @@
             let text: Picture.Text
 
             /// A window, its title set once: it fails as `Picture.Text` does for the title in its ink.
-            public init(frame: Picture.Plane.Rectangle, title: Swift.String, style: Style) throws(Picture.Text.Error) {
+            public init(_ title: Swift.String, in frame: Picture.Plane.Rectangle, style: Style) throws(Picture.Text.Error) {
                 self.frame = frame
                 self.title = title
                 self.style = style

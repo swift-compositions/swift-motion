@@ -4,7 +4,7 @@
 
     extension Picture {
         /// A window at a moment: its plate over its frame, the body and the edge, the rule under the bar, the traffic lights and the
-        /// title centred on the bar at the middle of its capitals, all faded by how much of the window shows.
+        /// title centered on the bar at the middle of its capitals, all faded by how much of the window shows.
         public init(_ window: Motion.Graphics.Window, at moment: Motion.Graphics.Window.Moment) {
             guard moment.shown > 0 else {
                 self = .empty
@@ -17,8 +17,8 @@
             let rule = Picture.Plane.Path(Picture.Plane.Rectangle(llx: .init(left), lly: .init(bar), urx: .init(right), ury: .init(bar + style.line)))
             let middle = top + style.bar / 2
             let lights = (0..<Int(clamping: style.lights.count)).map { place in
-                let centre = Picture.Plane.Point<2>([left + style.lights.inset + Double(place) * style.lights.step, middle])
-                return Picture.Element.fill(Picture.Plane.Path(Picture.Plane.Circle(center: centre, radius: .init(style.lights.radius))), .solid(style.lights.color))
+                let center = Picture.Plane.Point<2>([left + style.lights.inset + Double(place) * style.lights.step, middle])
+                return Picture.Element.fill(Picture.Plane.Path(Picture.Plane.Circle(center: center, radius: .init(style.lights.radius))), .solid(style.lights.color))
             }
             let title = window.text
             let content = Picture(

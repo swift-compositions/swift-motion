@@ -91,7 +91,7 @@
             #expect(reel.instants([quarter, rate.start(of: 7)], of: nil) == [quarter, rate.start(of: 7)])
         }
 
-        @Test func `a layer is laid over the frames whose centre falls in its lifetime, and over no other`() {
+        @Test func `a layer is laid over the frames whose center falls in its lifetime, and over no other`() {
             let reel = Self.reel(layered: true)
             let counts = reel.positions().map { reel.picture(at: $0).elements.count }
             #expect(counts == [1, 1, 1, 1, 2, 2, 2, 1, 1, 1])
@@ -172,7 +172,7 @@
             #expect(Reel(width: 1, height: 1, rate: .thirty, parts: []).scaled(by: 0.1).width == 1)
         }
 
-        @Test func `a scene is a part drawn from its state at each frame's centre`() {
+        @Test func `a scene is a part drawn from its state at each frame's center`() {
             let scene = Motion.Scene(rate: .thirty, frames: 4) { time in time < Rate.thirty.start(of: 3) ? 0 : 1 }
             let part = Reel.Part("scene", scene: scene) { state in state == 0 ? .empty : [Tests.rectangle(0, 0, 1, 1, .white)] }
             #expect(part.frames == 4)
@@ -232,7 +232,7 @@
             #expect(try await movie.feed.frame(at: 5) == nil)
         }
 
-        @Test func `a layer's frames are those whose centre falls in its lifetime, and a reel can drop its layers`() async throws {
+        @Test func `a layer's frames are those whose center falls in its lifetime, and a reel can drop its layers`() async throws {
             let reel = Self.reel(layered: true)
             #expect(reel.positions(ofLayer: "bar") == [4, 5, 6])
             #expect(reel.positions(ofLayer: "none") == [])

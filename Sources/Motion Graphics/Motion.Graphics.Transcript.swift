@@ -14,7 +14,7 @@
         public struct Transcript: Sendable {
             public let lines: [Line]
             /// The start of the first line's baseline: where the marks stand.
-            public var origin: Picture.Plane.Point<2>
+            public var place: Picture.Plane.Point<2>
             public let style: Style
             /// A cell's width: the style's `advance`.
             public let advance: Double
@@ -22,9 +22,9 @@
             let settings: [Setting]
 
             /// A transcript, its lines set once: it fails as `Picture.Text` does for a mark or a row in its ink.
-            public init(_ lines: [Line], at origin: Picture.Plane.Point<2>, style: Style) throws(Picture.Text.Error) {
+            public init(_ lines: [Line], at place: Picture.Plane.Point<2>, style: Style) throws(Picture.Text.Error) {
                 self.lines = lines
-                self.origin = origin
+                self.place = place
                 self.style = style
                 self.advance = try style.advance
                 var settings: [Setting] = []
@@ -47,10 +47,10 @@
             Double(settings.map(\.columns).max() ?? 0) * advance
         }
 
-        /// The baseline of each line's first row, from the origin down by the leading for each row before it.
+        /// The baseline of each line's first row, from the place down by the leading for each row before it.
         var baselines: [Double] {
             let before = settings.reduce(into: [0]) { rows, setting in rows.append((rows.last ?? 0) + setting.rows.count) }
-            return before.dropLast().map { origin[1] + Double($0) * style.leading }
+            return before.dropLast().map { place[1] + Double($0) * style.leading }
         }
     }
 #endif

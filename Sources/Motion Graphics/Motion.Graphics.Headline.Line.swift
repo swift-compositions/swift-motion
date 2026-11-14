@@ -2,7 +2,7 @@
     public import Motion
 
     extension Motion.Graphics.Headline {
-        /// One line of a headline: its words, and how far across it stands from the centre, so lines can drift
+        /// One line of a headline: its words, and how far across it stands from the center, so lines can drift
         /// apart.
         public struct Line: Sendable, Hashable {
             public var text: Swift.String

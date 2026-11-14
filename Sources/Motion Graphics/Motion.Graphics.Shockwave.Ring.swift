@@ -25,7 +25,7 @@
     }
 
     extension Motion.Graphics.Shockwave.Ring {
-        /// How brightly the ring lights a thing at a distance from the wave's centre: its light where the
+        /// How brightly the ring lights a thing at a distance from the wave's center: its light where the
         /// distance is its radius, falling evenly to nothing a pen to either side, so half its light at the
         /// pen's edge. A pen that is not positive lights nothing. The ring's softness is not counted: a soft
         /// ring lights a thing as the hard ring of its radius and pen does.

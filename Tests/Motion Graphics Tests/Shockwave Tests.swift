@@ -116,7 +116,7 @@
             var style = Self.single().style
             style.soft = 2
             style.softened = 10
-            let soft = Motion.Graphics.Shockwave(at: Self.single().centre, style: style)
+            let soft = Motion.Graphics.Shockwave(at: Self.single().place, style: style)
             let ring = try #require(soft.rings(at: .init(spread: 0.25)).first)
             let hard = try #require(Self.single().rings(at: .init(spread: 0.25)).first)
             #expect(ring.softness == 4 && hard.softness == 0)

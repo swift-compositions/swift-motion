@@ -3,7 +3,7 @@
     public import Picture
 
     extension Picture {
-        /// A headline at a moment: each placed line in the ink, centred on its point, and again in the second ink
+        /// A headline at a moment: each placed line in the ink, centered on its point, and again in the second ink
         /// inside the region, both clipped to the line's slot.
         public init(_ headline: Motion.Graphics.Headline, at moment: Motion.Graphics.Headline.Moment) {
             let style = headline.style

@@ -15,7 +15,7 @@
             let style = spinner.style
             var content: Picture = []
             if style.track.color.alpha > 0 {
-                let ring = Picture.Plane.Path(Picture.Plane.Circle(center: spinner.centre, radius: .init(spinner.radius)))
+                let ring = Picture.Plane.Path(Picture.Plane.Circle(center: spinner.place, radius: .init(spinner.radius)))
                 let track: Picture = [.stroke(ring, .solid(style.track.color), width: style.pen, join: .round, cap: .round)]
                 let glowing = style.track.glow.map { $0.applied(to: track, strength: $0.strength(flash: moment.flash), sparing: spinner.spared) } ?? track
                 content.elements.append(contentsOf: glowing.elements)

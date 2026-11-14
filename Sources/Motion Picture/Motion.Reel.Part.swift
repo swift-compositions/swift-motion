@@ -36,7 +36,7 @@
         }
 
         /// A scene as a part whose drawing is built the first time one of its frames is drawn: its frames, each
-        /// drawn from the state the scene has at the frame's centre at the scene's own rate, which is the reel's
+        /// drawn from the state the scene has at the frame's center at the scene's own rate, which is the reel's
         /// when the scene is to play at its own speed.
         public init<State>(
             _ key: Key,

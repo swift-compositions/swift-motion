@@ -2,8 +2,8 @@
     public import Motion
 
     extension Motion.Graphics.Checklist.Row {
-        /// A row's look: its box and how far the box's centre stands above the baseline; the name's ink, its gap
-        /// from the box's centre and how far left of its place it starts its slide; the tag's ink and how far its
+        /// A row's look: its box and how far the box's center stands above the baseline; the name's ink, its gap
+        /// from the box's center and how far left of its place it starts its slide; the tag's ink and how far its
         /// baseline stands below the row's.
         public struct Style: Sendable {
             public var box: Motion.Graphics.Checkbox.Style

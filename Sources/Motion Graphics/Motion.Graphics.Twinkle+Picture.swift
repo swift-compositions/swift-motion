@@ -15,7 +15,7 @@
                 return
             }
             let style = twinkle.style
-            let (x, y) = (twinkle.centre[0], twinkle.centre[1])
+            let (x, y) = (twinkle.place[0], twinkle.place[1])
             let origin = Picture.Plane.Point<2>([0.0, 0.0])
             var lights: [Picture.Element] = style.rays.map { ray in
                 let angle = ray.angle + style.turn * moment.shone
@@ -26,7 +26,7 @@
             }
             let core = style.base + style.radius * shine
             if core > 0 {
-                lights.append(.glow(style.core.faded(by: Float(shine)), center: twinkle.centre, radius: core))
+                lights.append(.glow(style.core.faded(by: Float(shine)), center: twinkle.place, radius: core))
             }
             self = [.layer(Picture.Layer(Picture(lights), operator: .lighter))]
         }

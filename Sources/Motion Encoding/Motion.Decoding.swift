@@ -6,7 +6,7 @@ extension Motion {
     ///
     /// An instant is a time in seconds from the movie's start, and the frame shown there is the last one whose
     /// presentation starts at or before it, with no tolerance either way. A frame position is shown at its
-    /// centre at the movie's rate. Frames are decoded by one `AVAssetReader` pass over the stretch asked for,
+    /// center at the movie's rate. Frames are decoded by one `AVAssetReader` pass over the stretch asked for,
     /// from the sync frame before its start, and only the frames asked for become rasters.
     public struct Decoding: Sendable, Hashable {
         /// The movie read.
@@ -46,7 +46,7 @@ extension Motion.Decoding {
         try await frames(at: [instant])[0]
     }
 
-    /// The frames at these positions, in the order given, each the frame shown at its centre at the movie's rate.
+    /// The frames at these positions, in the order given, each the frame shown at its center at the movie's rate.
     /// A position at or beyond the movie's frames fails with `.frame` before anything is decoded, and a movie that
     /// states no rate with `.reader`.
     public func frames(positions: [Ordinal]) async throws(Motion.Encoding.Error) -> [Raster<Motion.Pixel>] {
@@ -59,7 +59,7 @@ extension Motion.Decoding {
         }
     }
 
-    /// The frame at a position: the frame shown at its centre at the movie's rate.
+    /// The frame at a position: the frame shown at its center at the movie's rate.
     public func frame(position: Ordinal) async throws(Motion.Encoding.Error) -> Raster<Motion.Pixel> {
         try await frames(positions: [position])[0]
     }

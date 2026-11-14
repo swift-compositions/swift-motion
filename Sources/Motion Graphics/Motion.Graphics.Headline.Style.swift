@@ -23,7 +23,7 @@
 
             public var slot: Motion.Graphics.Slot
 
-            /// The width of a line's slot, about the centre.
+            /// The width of a line's slot, about the center.
             public var span: Double
 
             public init(

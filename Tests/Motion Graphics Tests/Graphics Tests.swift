@@ -173,7 +173,7 @@
         @Test func `a headline's lines are set at the one size that fits the widest to the measure`() throws {
             let headline = try Motion.Graphics.Headline(
                 [.init("A CIRCLE."), .init("FOR NOW, AND LONGER")],
-                about: Picture.Plane.Point<2>([500, 300]),
+                at: Picture.Plane.Point<2>([500, 300]),
                 style: .init(
                     ink: .init(font: Fonts.sans, size: 400, color: .white),
                     second: .black,
@@ -197,7 +197,7 @@
             let checklist = try Self.checklist(Fonts.sans)
             let rows = checklist.rows
             #expect(rows.map(\.baseline) == [170, 214, 258])
-            #expect(rows.allSatisfy { $0.checkbox.centre == Picture.Plane.Point<2>([40 + 12, $0.baseline - 8]) })
+            #expect(rows.allSatisfy { $0.checkbox.place == Picture.Plane.Point<2>([40 + 12, $0.baseline - 8]) })
             #expect(Picture(checklist, at: .hidden) == .empty)
             #expect(Picture(checklist, at: .resting(3)).elements.count == 2 + 1 + 1 + 3)
             #expect(Picture(checklist, at: .resting(3)) != Picture(checklist, at: .resting(2)))
@@ -220,7 +220,7 @@
         @Test func `every list's moment has a hidden that draws nothing and a resting that draws it whole`() throws {
             let headline = try Motion.Graphics.Headline(
                 [.init("A CIRCLE."), .init("FOR NOW")],
-                about: Picture.Plane.Point<2>([500, 300]),
+                at: Picture.Plane.Point<2>([500, 300]),
                 style: .init(
                     ink: .init(font: Fonts.sans, size: 100, color: .white),
                     second: .black,
@@ -306,10 +306,11 @@
             #expect(style.lit(heat: 0.5, finished: 1) == Picture.Color(hex: 0x0000FF))
         }
 
-        @Test func `a caption's plate centres the whole line on its place, its last baseline through it`() throws {
+        @Test func `a caption's plate centers the whole line on its place, its last baseline through it`() throws {
             let caption = try Motion.Graphics.Caption(
                 .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
                 at: Picture.Plane.Point<2>([500, 400]),
+                anchor: .center,
                 style: .init(
                     transcript: Self.transcript(Fonts.mono),
                     plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8)),
@@ -332,8 +333,8 @@
 
         @Test func `a window's body stands under its bar, and a window hidden draws nothing`() throws {
             let window = try Motion.Graphics.Window(
-                frame: Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310),
-                title: "~/film — zsh",
+                "~/film — zsh",
+                in: Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310),
                 style: .init(
                     title: Self.ink(Fonts.sans, 14),
                     plate: .init(surface: .fill(.clear), corners: .circular(12), edge: .init(color: .white, pen: 2)),
@@ -443,6 +444,7 @@
             let caption = try Motion.Graphics.Caption(
                 .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
                 at: Picture.Plane.Point<2>([500, 400]),
+                anchor: .center,
                 style: .init(
                     transcript: Self.transcript(Fonts.mono),
                     plate: .init(surface: Self.glassy, corners: .capsule),
@@ -461,8 +463,8 @@
         @Test func `a window's body of glass is a pane over its frame with its corners`() throws {
             let frame = Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310)
             let window = try Motion.Graphics.Window(
-                frame: frame,
-                title: "~/film — zsh",
+                "~/film — zsh",
+                in: frame,
                 style: .init(
                     title: Self.ink(Fonts.sans, 14),
                     plate: .init(surface: Self.glassy, corners: .continuous(14, exponent: 5), edge: .init(color: .white, pen: 2)),

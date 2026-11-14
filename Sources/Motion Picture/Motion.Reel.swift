@@ -11,7 +11,7 @@
         ///
         /// Each part lasts a number of frames and draws the picture of each of its own frames, counted from zero
         /// at its start. Each layer lives over a span of the reel's time and draws, over the part beneath, the
-        /// picture of each of the reel's frames whose centre falls in that span. Parts are named by a key the
+        /// picture of each of the reel's frames whose center falls in that span. Parts are named by a key the
         /// caller chooses; more than one part may carry the same key. Layers carry keys of the same type, by which
         /// a reel is drawn with some layers or none.
         public struct Reel<Key: Hashable & Sendable>: Sendable {
@@ -103,7 +103,7 @@
 
         /// The part a frame of the reel falls in and the frame of that part it is, or nil from `frames` on.
         ///
-        /// The frame's centre is looked up in the sequence of parts, and the part's own frame is the one its
+        /// The frame's center is looked up in the sequence of parts, and the part's own frame is the one its
         /// age there falls in, so the first frame of a part is zero and its last is one less than its frames.
         public func place(of position: Ordinal) -> Place? {
             let time = rate.centre(of: Integer(Int(bitPattern: position)))
@@ -144,7 +144,7 @@
             }
         }
 
-        /// The reel's frames whose centre falls in a span of its time in seconds, from its start: the frames a
+        /// The reel's frames whose center falls in a span of its time in seconds, from its start: the frames a
         /// layer of that lifetime is drawn on.
         public func positions(during span: Range<Rational>) -> [Ordinal] {
             let first = Swift.max(rate.started(before: span.lowerBound - rate.period * Self.half), .zero)
@@ -173,7 +173,7 @@
         }
 
         /// The picture of a frame of the reel: its part's picture of its own frame, with the picture of every
-        /// layer alive at the frame's centre laid over it in the order of the layers. From `frames` on it is
+        /// layer alive at the frame's center laid over it in the order of the layers. From `frames` on it is
         /// empty.
         public func picture(at position: Ordinal) -> Picture::Picture {
             guard let place = place(of: position) else { return .empty }

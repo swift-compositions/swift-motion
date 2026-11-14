@@ -8,11 +8,12 @@
         /// spreads, thins and fades to nothing as it goes, and leaves echoes behind it, each fainter than the one
         /// before.
         public struct Shockwave: Sendable {
-            public var centre: Picture.Plane.Point<2>
+            /// The point the wave is thrown from: its rings' center.
+            public var place: Picture.Plane.Point<2>
             public var style: Style
 
-            public init(at centre: Picture.Plane.Point<2>, style: Style) {
-                self.centre = centre
+            public init(at place: Picture.Plane.Point<2>, style: Style) {
+                self.place = place
                 self.style = style
             }
         }
@@ -59,7 +60,7 @@
             return rings
         }
 
-        /// How brightly the passing wave lights a thing at a distance from its centre at a moment, 0 to 1: the
+        /// How brightly the passing wave lights a thing at a distance from its center at a moment, 0 to 1: the
         /// brightest of its rings' `light(at:)` there, so a caller flashes what the wave passes by the law the
         /// rings are drawn with.
         public func light(at distance: Double, moment: Moment) -> Double {
