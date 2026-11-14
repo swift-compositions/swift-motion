@@ -22,5 +22,8 @@ extension Motion.Encoding {
         /// The cue at this position lays no sound under the picture: it enters at or after the picture's end,
         /// starts at or after its sound's end, or its sound has no audio.
         case cue(Ordinal)
+        /// No movie within this many bytes could be made, even at the smallest size; the fewest bytes one was
+        /// written in follow.
+        case limit(Cardinal, fewest: Cardinal)
     }
 }

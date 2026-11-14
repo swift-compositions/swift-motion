@@ -229,6 +229,8 @@
             #expect(score.offset == (try Rational(numerator: 1001, denominator: 30000)) && score.at == 1 && score.gain == 0.5)
             #expect(score.fall == .half)
             #expect(try Movies.parse(["reduce", "a.mp4", "b.mp4", "--height", "540"]).preset == .height540)
+            #expect(try Movies.parse(["reduce", "a.mp4", "b.mp4", "--bytes", "1000000"]).bytes == 1_000_000)
+            #expect(try Movies.parse(["reduce", "a.mp4", "b.mp4"]).bytes == nil)
             #expect(throws: Command.Error.self) { try Movies.parse(["score", "a.mp4", "b.mp4"]) }
             #expect(throws: Command.Error.self) { try Movies.parse(["reduce", "a.mp4", "b.mp4", "--height", "600"]) }
             #expect(throws: Command.Error.self) { try Movies.parse(["compare", "a", "b", "c", "--step", "-1"]) }

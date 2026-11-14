@@ -276,7 +276,8 @@
             /// `pairs-<sheet>.png` numbered from zero; each frame is `width` wide and as tall as keeps the
             /// reference's shape, and the instants are written in the font given, or not at all. `score` lays the
             /// sound under the movie as one `Motion.Encoding.Cue` and `reduce` makes the movie smaller with
-            /// `Motion.Encoding.reduced(_:to:as:)`; each replaces a file already at its output.
+            /// `Motion.Encoding.reduced(_:to:within:)` when given `bytes` and `reduced(_:to:as:)` otherwise;
+            /// each replaces a file already at its output.
             public static func run(_ request: Movies) async throws(Error) -> [Swift.String] {
                 let files = request.files
                 switch request.action {
@@ -314,7 +315,11 @@
                 case .reduce:
                     try replace(files[1])
                     do throws(Motion.Encoding.Error) {
-                        try await Motion.Encoding.reduced(URL(filePath: files[0]), to: URL(filePath: files[1]), as: request.preset)
+                        if let bytes = request.bytes {
+                            try await Motion.Encoding.reduced(URL(filePath: files[0]), to: URL(filePath: files[1]), within: bytes)
+                        } else {
+                            try await Motion.Encoding.reduced(URL(filePath: files[0]), to: URL(filePath: files[1]), as: request.preset)
+                        }
                     } catch {
                         throw .movie(error)
                     }

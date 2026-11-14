@@ -451,22 +451,197 @@ extension Motion.Encoding {
 }
 
 extension Motion.Encoding {
-    /// A movie made smaller for sharing, at one of AVFoundation's export presets: H.264 within the preset's
-    /// size, the picture's shape kept and never made larger, and its sound as AAC. A file already at `url`
-    /// fails the export with `.writer`.
+    /// A movie made smaller for sharing at a `Preset`: the largest picture of the movie's shape within the
+    /// preset's size, never larger than the movie's own, at the bit rate `Motion.Encoding` writes by default,
+    /// four bits per pixel per second, its picture encoded again and its frames and sound kept as
+    /// `reduced(_:to:within:)` keeps them. A file already at `url` fails with `.writer`.
     public static func reduced(_ movie: URL, to url: URL, as preset: Preset) async throws(Motion.Encoding.Error) {
-        // swift-linter:disable:next do throws for typed catch
-        // REASON: AVAssetExportSession throws untyped; its errors become Error.writer.
-        do {
-            guard let session = AVAssetExportSession(asset: AVURLAsset(url: movie), presetName: preset.name) else {
-                throw Motion.Encoding.Error.writer("no export session for \(preset)")
+        let source = try await Inspection(of: movie)
+        let size = preset.fit(width: source.width, height: source.height)
+        try await reduced(movie, to: url, width: size.width, height: size.height, bits: bits(width: size.width, height: size.height))
+    }
+
+    /// The best movie that is at most `limit` bytes on file, or `.limit` when none can be.
+    ///
+    /// A movie whose file is already within the limit is copied as it is. Otherwise its picture is encoded
+    /// again, its frames, their durations and its sound kept, at sizes of its shape from its own down: each
+    /// side three quarters of the size before, rounded down to an even number of pixels, while the shorter
+    /// side is at least `side`, and last the size whose shorter side is `side`. At each size the bit rate is
+    /// what the limit leaves the picture over the movie's length, less the sound's bytes and an allowance for
+    /// the file's index, and at most four bits per pixel per second; a size at which that is less than half
+    /// a bit per pixel per second is passed over for the next. A movie written larger than the limit is
+    /// written again at that size, up to three times in all, its bit rate cut by how far the picture went
+    /// over and a tenth more. The first that is within the limit is kept: the largest size and, at it, the
+    /// most bits the limit allows. Each size is measured on the written file, never predicted. When even the
+    /// smallest size at half a bit per pixel per second is over the limit, it fails with `.limit` and the
+    /// fewest bytes a movie was written in. A file already at `url` fails with `.writer` before anything is
+    /// written.
+    public static func reduced(_ movie: URL, to url: URL, within limit: Cardinal) async throws(Motion.Encoding.Error) {
+        guard !exists(url) else { throw .writer("a file is already at \(url.lastPathComponent)") }
+        let source = try await Inspection(of: movie)
+        let length = try bytes(of: movie)
+        guard length > limit else {
+            guard unsafe copyfile(movie.path, url.path, nil, copyfile_flags_t(COPYFILE_ALL | COPYFILE_EXCL)) == 0 else {
+                throw .writer("\(movie.lastPathComponent) could not be copied to \(url.lastPathComponent)")
             }
-            session.shouldOptimizeForNetworkUse = true
-            try await session.export(to: url, as: .mp4)
+            return
+        }
+        let sound = try await soundBytes(of: movie)
+        let room = Int(clamping: limit) - Int(clamping: sound) - Self.allowance(frames: source.frames)
+        let seconds = Swift.max(source.duration.approximation, 1e-9)
+        let sizes = ladder(width: source.width, height: source.height)
+        var fewest: Cardinal?
+        for (rung, size) in sizes.enumerated() {
+            let last = rung == sizes.indices.last
+            let most = Int(clamping: bits(width: size.width, height: size.height))
+            let least = Swift.max(most / 8, 1)
+            var rate = Swift.min(most, Int(Double(Swift.max(room, 0)) * 8 / seconds))
+            if rate < least {
+                guard last else { continue }
+                rate = least
+            }
+            for again in 0..<3 {
+                let attempt = url.deletingLastPathComponent().appending(path: ".\(url.lastPathComponent).\(getpid()).\(rung).\(again).mp4")
+                defer { _ = unsafe unlink(attempt.path) }
+                try await reduced(movie, to: attempt, width: size.width, height: size.height, bits: Cardinal(UInt(rate)))
+                let written = try bytes(of: attempt)
+                fewest = Swift.min(fewest ?? written, written)
+                if written <= limit {
+                    guard unsafe renamex_np(attempt.path, url.path, UInt32(RENAME_EXCL)) == 0 else {
+                        throw .writer("a file is already at \(url.lastPathComponent)")
+                    }
+                    return
+                }
+                let picture = Swift.max(Double(Int(clamping: written) - Int(clamping: sound)), 1)
+                let allowed = Double(Int(clamping: limit) - Int(clamping: sound))
+                rate = Int(Double(rate) * allowed / picture * 0.9)
+                guard rate >= least else { break }
+            }
+        }
+        throw .limit(limit, fewest: fewest ?? length)
+    }
+
+    /// The movie's picture encoded again as H.264 at `width` by `height` and `bits` per second, its frames
+    /// and their durations, its timescale and its colour tag kept, and its sound, a track at most, copied
+    /// sample for sample, written at `url`, where no file may be.
+    static func reduced(_ movie: URL, to url: URL, width: Cardinal, height: Cardinal, bits: Cardinal) async throws(Motion.Encoding.Error) {
+        guard width >= side, height >= side, let wide = Int(exactly: width), let tall = Int(exactly: height), let rate = Int(exactly: bits) else {
+            throw .size(width: width, height: height, bits: bits)
+        }
+        // swift-linter:disable:next do throws for typed catch
+        // REASON: AVAssetReader and AVAssetWriter throw untyped; their errors become Error.writer.
+        do {
+            try await shrink(movie, to: url, width: wide, height: tall, bits: rate)
         } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
             throw .writer("\(error)")
+        }
+    }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: loadTracks, AVAssetReader and AVAssetWriter throw untyped; reduced(_:to:width:height:bits:) types them.
+    static func shrink(_ movie: URL, to url: URL, width: Int, height: Int, bits: Int) async throws {
+        let asset = AVURLAsset(url: movie)
+        guard let frames = try await asset.loadTracks(withMediaType: .video).first, let format = try await frames.load(.formatDescriptions).first else {
+            throw Motion.Encoding.Error.reader("\(movie.lastPathComponent) has no picture")
+        }
+        let sounds = try await asset.loadTracks(withMediaType: .audio)
+        guard sounds.count <= 1 else { throw Motion.Encoding.Error.reader("\(movie.lastPathComponent) has more than one sound") }
+        let range = try await frames.load(.timeRange)
+        let scale = try await frames.load(.naturalTimeScale)
+        let reader = try AVAssetReader(asset: asset)
+        let decoded = AVAssetReaderTrackOutput(track: frames, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        writer.movieTimeScale = scale
+        var settings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoScalingModeKey: AVVideoScalingModeResize,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: bits,
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+            ],
+        ]
+        if let signal = Inspection.signal(format), let properties = Motion.Encoding(width: .zero, height: .zero, rate: .thirty, signal: signal).properties {
+            settings[AVVideoColorPropertiesKey] = properties
+        }
+        let encoded = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
+        encoded.mediaTimeScale = scale
+        if let sound = sounds.first {
+            let copied = AVAssetReaderTrackOutput(track: sound, outputSettings: nil)
+            let copy = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: try await sound.load(.formatDescriptions).first)
+            let (pictureProvider, pictureReceiver) = (reader.outputProvider(for: decoded), writer.inputReceiver(for: encoded))
+            let (soundProvider, soundReceiver) = (reader.outputProvider(for: copied), writer.inputReceiver(for: copy))
+            try reader.start()
+            try writer.start()
+            writer.startSession(atSourceTime: range.start)
+            async let picturesEncoded: Void = pump(pictureProvider, into: pictureReceiver)
+            async let soundCopied: Void = pump(soundProvider, into: soundReceiver)
+            _ = try await (picturesEncoded, soundCopied)
+        } else {
+            let (pictureProvider, pictureReceiver) = (reader.outputProvider(for: decoded), writer.inputReceiver(for: encoded))
+            try reader.start()
+            try writer.start()
+            writer.startSession(atSourceTime: range.start)
+            try await pump(pictureProvider, into: pictureReceiver)
+        }
+        writer.endSession(atSourceTime: range.end)
+        await writer.finishWriting()
+        guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+    }
+}
+
+extension Motion.Encoding {
+    /// The sizes `reduced(_:to:within:)` tries, largest first.
+    static func ladder(width: Cardinal, height: Cardinal) -> [(width: Cardinal, height: Cardinal)] {
+        let wide = Int(clamping: width)
+        let tall = Int(clamping: height)
+        let floor = Int(clamping: side)
+        var sizes: [(Int, Int)] = []
+        var (numerator, denominator) = (1, 1)
+        while true {
+            let size = (even(wide * numerator / denominator), even(tall * numerator / denominator))
+            guard Swift.min(size.0, size.1) >= floor, numerator < Int.max / 3, denominator < Int.max / 4 else { break }
+            if sizes.last.map({ $0 != size }) ?? true { sizes.append(size) }
+            (numerator, denominator) = (numerator * 3, denominator * 4)
+        }
+        let smallest = wide <= tall ? (floor, Swift.max(floor, even(tall * floor / Swift.max(wide, 1)))) : (Swift.max(floor, even(wide * floor / Swift.max(tall, 1))), floor)
+        if sizes.last.map({ $0 != smallest }) ?? true { sizes.append(smallest) }
+        return sizes.map { (Cardinal(UInt($0.0)), Cardinal(UInt($0.1))) }
+    }
+
+    /// A count of pixels rounded down to an even number.
+    static func even(_ pixels: Int) -> Int { pixels - pixels % 2 }
+
+    /// The bytes a file's index is allowed besides the samples: 2 KiB and 16 bytes a frame.
+    static func allowance(frames: Cardinal) -> Int { 2048 + 16 * Int(clamping: frames) }
+
+    /// How many bytes a file holds, or `.reader`.
+    static func bytes(of url: URL) throws(Motion.Encoding.Error) -> Cardinal {
+        var info = stat()
+        guard unsafe stat(url.path, &info) == 0, let size = UInt(exactly: info.st_size) else {
+            throw .reader("\(url.lastPathComponent) cannot be measured")
+        }
+        return Cardinal(size)
+    }
+
+    /// Whether anything is at `url`.
+    static func exists(_ url: URL) -> Bool { unsafe access(url.path, F_OK) == 0 }
+
+    /// The bytes of a movie's sound samples, all tracks together.
+    static func soundBytes(of url: URL) async throws(Motion.Encoding.Error) -> Cardinal {
+        // swift-linter:disable:next do throws for typed catch
+        // REASON: loadTracks and load throw untyped; their errors become Error.reader.
+        do {
+            var total: Int64 = 0
+            for track in try await AVURLAsset(url: url).loadTracks(withMediaType: .audio) {
+                total += try await track.load(.totalSampleDataLength)
+            }
+            return Cardinal(UInt(Swift.max(total, 0)))
+        } catch {
+            throw .reader("\(error)")
         }
     }
 }

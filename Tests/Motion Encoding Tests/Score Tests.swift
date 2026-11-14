@@ -85,5 +85,68 @@ extension `Encoding Tests` {
             #expect(inspection.width == 960 && inspection.height == 540)
             #expect(inspection.frames == 3)
         }
+
+        /// A frame of grain, the same for a position in every run, which the encoder cannot make small.
+        static func grain(_ index: Ordinal) -> Raster<Motion.Pixel>? {
+            var state = UInt64(Int(exactly: index) ?? 0) &* 0x9E37_79B9_7F4A_7C15 | 1
+            let bytes = (0..<(320 * 180)).flatMap { _ -> [UInt8] in
+                state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+                return [UInt8(truncatingIfNeeded: state >> 56), UInt8(truncatingIfNeeded: state >> 48), UInt8(truncatingIfNeeded: state >> 40), 255]
+            }
+            do throws(Motion.Pixel.Error) {
+                return try Raster<Motion.Pixel>(width: 320, height: 180, bytes: bytes)
+            } catch {
+                return nil
+            }
+        }
+
+        /// A scored movie of 60 frames of grain at 320 × 180, its sound under it.
+        static func scored() async throws -> URL {
+            let picture = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+            try await Motion.Encoding(width: 320, height: 180, rate: .thirty).write(frames: 60, to: picture) { grain($0) }
+            let scored = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+            try await Motion.Encoding.score(picture, with: [Motion.Encoding.Cue(try Self.tone(seconds: 2))], to: scored)
+            return scored
+        }
+
+        static func size(_ url: URL) throws -> Int {
+            try #require(try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int)
+        }
+
+        @Test func `a movie reduced to a limit is within it on file and keeps its shape, frames, rate, tag and sound`() async throws {
+            let movie = try await Self.scored()
+            let sound = try #require(try await AVURLAsset(url: movie).loadTracks(withMediaType: .audio).first)
+            let heard = Int(try await sound.load(.totalSampleDataLength))
+            let limit = heard + (try Self.size(movie) - heard) / 2
+            let small = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+            try await Motion.Encoding.reduced(movie, to: small, within: Cardinal(UInt(limit)))
+            #expect(try Self.size(small) <= limit)
+            let before = try await Motion.Encoding.Inspection(of: movie)
+            let after = try await Motion.Encoding.Inspection(of: small)
+            #expect(after.frames == before.frames && after.rate == before.rate && after.duration == before.duration)
+            #expect(after.signal == before.signal && after.sounds == 1 && after.codec == "avc1")
+            let (wide, tall) = (Int(clamping: after.width), Int(clamping: after.height))
+            #expect(abs(wide * 180 - tall * 320) <= 2 * 320, "\(wide) × \(tall) is not the shape of 320 × 180")
+            #expect(wide <= 320 && tall <= 180 && wide % 2 == 0 && tall % 2 == 0)
+        }
+
+        @Test func `a movie already within the limit is copied as it is`() async throws {
+            let movie = try await Self.scored()
+            let copy = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+            try await Motion.Encoding.reduced(movie, to: copy, within: Cardinal(UInt(try Self.size(movie))))
+            #expect(FileManager.default.contentsEqual(atPath: movie.path, andPath: copy.path))
+        }
+
+        @Test func `a limit no movie can meet at the smallest size is refused with the fewest bytes written, and nothing is left`() async throws {
+            let movie = try await Self.scored()
+            let small = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+            await #expect {
+                try await Motion.Encoding.reduced(movie, to: small, within: 2000)
+            } throws: { error in
+                guard case .limit(let limit, let fewest) = error as? Motion.Encoding.Error else { return false }
+                return limit == 2000 && fewest > 2000
+            }
+            #expect(!FileManager.default.fileExists(atPath: small.path))
+        }
     }
 }

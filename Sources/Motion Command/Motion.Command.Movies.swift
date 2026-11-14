@@ -9,7 +9,7 @@
         ///
         ///     motion compare <reference> <movie> <output> [--step <s>] [--pairs <count>] [--width <pixels>] [--font <file>]
         ///     motion score <movie> <sound> <output> [--offset <s>] [--at <s>] [--gain <g>] [--fade-in <s>] [--fade-out <s>]
-        ///     motion reduce <movie> <output> [--height 540|720|1080]
+        ///     motion reduce <movie> <output> [--height 540|720|1080 | --bytes <count>]
         ///
         /// Times are seconds, written as a whole number, a decimal or a fraction: `1`, `0.5`, `1001/30000`.
         public struct Movies: Sendable, Equatable {
@@ -36,6 +36,8 @@
             public var fall: Rational
             /// For reduce: the size the movie is made smaller to.
             public var preset: Motion.Encoding.Preset
+            /// For reduce: the most bytes the movie written may have; when given, it decides and `preset` is not used.
+            public var bytes: Cardinal?
 
             public init(
                 _ action: Action = .compare,
@@ -49,7 +51,8 @@
                 gain: Float = 1,
                 rise: Rational = .zero,
                 fall: Rational = .zero,
-                preset: Motion.Encoding.Preset = .height720
+                preset: Motion.Encoding.Preset = .height720,
+                bytes: Cardinal? = nil
             ) {
                 self.action = action
                 self.files = files
@@ -63,6 +66,7 @@
                 self.rise = rise
                 self.fall = fall
                 self.preset = preset
+                self.bytes = bytes
             }
         }
     }
@@ -147,6 +151,12 @@
                     help: .init(abstract: "For reduce: 540, 720 or 1080.", defaults: "720"),
                     transform: Self.preset
                 )
+                Command_Primitive::Command.Option(
+                    \.bytes,
+                    name: .long(.literal("bytes")),
+                    help: .init(abstract: "For reduce: the most bytes the movie written may have, instead of a height."),
+                    transform: Self.bytes
+                )
             }
         }
 
@@ -183,6 +193,10 @@
         @Sendable static func gain(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Float {
             guard let gain = Float(text), gain.isFinite, gain >= 0 else { throw .validationFailed(reason: "no gain \(text)") }
             return gain
+        }
+
+        @Sendable static func bytes(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Cardinal? {
+            try Motion.Command.Request.count(text)
         }
 
         @Sendable static func preset(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Motion.Encoding.Preset {
