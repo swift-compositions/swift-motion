@@ -18,7 +18,7 @@
             sampling: Raster<Picture.Pixel>.Sampling = .bilinear,
             edge: Raster<Picture.Pixel>.Edge = .constant(.transparent)
         ) {
-            let (width, height) = (Double(Int(clamping: frame.raster.width)), Double(Int(clamping: frame.raster.height)))
+            let (width, height) = (Double(Int(clamping: frame.width)), Double(Int(clamping: frame.height)))
             let corners = [(0, 0), (width, 0), (width, height), (0, height)].map { x, y in
                 let point = placement.projected(Vector([x, y]))
                 return Picture.Plane.Point<2>([point[0], point[1]])

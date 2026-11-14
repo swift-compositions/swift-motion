@@ -47,7 +47,7 @@
                 parts: [.init("take", frames: 3) { frame in Picture(take, at: frame.time) }]
             )
             let drawn = try await reel.hosting(workers: 2).rasters([0, 1, 2])
-            #expect(drawn == take.frames.map(\.raster))
+            #expect(drawn == (try take.frames.map { try $0.raster() }))
         }
 
         @Test func `a frame placed at twice its size at the nearest pixel shows each pixel as a square of four`() async throws {
@@ -60,7 +60,7 @@
                 width: width,
                 height: height
             )
-            let frame = take.frames[0].raster
+            let frame = try take.frames[0].raster()
             let squares = (0..<(Self.width * Self.height)).allSatisfy { index in
                 let (x, y) = (index % Self.width, index / Self.width)
                 let pixel = frame[x: Ordinal(UInt(x)), y: Ordinal(UInt(y))]
@@ -100,7 +100,7 @@
             #expect(key(changed) != kept)
             for take in [first, second, changed] {
                 let frames = Motion.Hosting.Picture.Frames(width: first.width, height: first.height, workers: 1, store: store) { _ in Picture(take, at: .zero) }
-                #expect(try await frames.rasters([0]) == take.frames.map(\.raster))
+                #expect(try await frames.rasters([0]) == (try take.frames.map { try $0.raster() }))
             }
             let entries = try FileManager.default.contentsOfDirectory(atPath: path).filter { $0.hasSuffix(".entry") }
             #expect(entries.count == 2)
@@ -108,9 +108,33 @@
 
         @Test func `a frame keys a picture by its size and digest, never by its pixels`() throws {
             let frame = Motion.Take.Frame(try Self.raster(seed: 2, width: 200, height: 100))
-            #expect(Mirror(reflecting: frame).children.map(\.label) == ["raster", "digest"])
+            #expect(Mirror(reflecting: frame).children.map(\.label) == ["width", "height", "digest", "pixels"])
             let bytes = try #require(Swift.Mirror.bytes(of: Picture(frame)))
             #expect(bytes.count < 4 * 200 * 100 / 10)
+        }
+
+        @Test func `a take read from its written form draws in a reel as the take it was written from, pixel for pixel`() async throws {
+            let take = try Self.take([0, 1, 0, 2], rate: .ntsc)
+            let read = try Motion.Take(written: take.written())
+            let reel = Motion.Reel<Swift.String>(
+                width: take.width,
+                height: take.height,
+                rate: .ntsc,
+                parts: [.init("take", frames: 4) { frame in Picture(read, at: frame.time) }]
+            )
+            #expect(Picture(read, at: .zero) == Picture(take, at: .zero))
+            let drawn = try await reel.hosting(workers: 2).rasters([3, 0, 2, 1])
+            #expect(drawn == (try [3, 0, 2, 1].map { try take.frames[$0].raster() }))
+        }
+
+        @Test func `a frame whose pixels cannot be read fails the frame drawing it`() async throws {
+            let take = try Self.take([4])
+            var bytes = try take.written()
+            bytes[60] = Byte(bitPattern: ~bytes[60].bitPattern)
+            let read = try Motion.Take(written: bytes)
+            #expect(throws: Motion.Take.Error.damaged(0)) { try read.frames[0].raster() }
+            let frames = Motion.Hosting.Picture.Frames(width: take.width, height: take.height, workers: 1) { _ in Picture(read, at: .zero) }
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.self) { try await frames.rasters([0]) }
         }
     }
 #endif

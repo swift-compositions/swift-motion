@@ -1,4 +1,5 @@
 #if Picture
+    import Binary
     import Byte
     import Motion
     import Picture
@@ -39,14 +40,11 @@
                 },
                 bytes: { tile in
                     var bytes: [Byte] = []
-                    var head: [UInt8] = []
-                    Frames.number(UInt64(tile.small.count), into: &head)
-                    bytes += Frames.bytes(head)
+                    UInt64(tile.small.count).bytes(into: &bytes, endianness: .little)
                     for across in tile.small.keys.sorted() {
                         guard let raster = tile.small[across] else { return nil }
-                        var count: [UInt8] = []
-                        Frames.number(UInt64(Int(clamping: across)), into: &count)
-                        bytes += Frames.bytes(count) + Frames.working(raster)
+                        UInt64(Int(clamping: across)).bytes(into: &bytes, endianness: .little)
+                        bytes += Frames.working(raster)
                     }
                     switch tile.still {
                     case nil:

@@ -17,6 +17,7 @@ let package = Package(
         .library(name: "Motion Cache", targets: ["Motion Cache"]),
         .library(name: "Motion Window", targets: ["Motion Window"]),
         .library(name: "Motion Clock", targets: ["Motion Clock"]),
+        .library(name: "Motion Take File", targets: ["Motion Take File"]),
         .library(name: "Motion Picture", targets: ["Motion Picture"]),
         .library(name: "Motion Command", targets: ["Motion Command"]),
         .library(name: "Motion Graphics", targets: ["Motion Graphics"]),
@@ -24,6 +25,7 @@ let package = Package(
     ],
     traits: [
         .trait(name: "Picture", description: "Motion Picture: frames and reels drawn from pictures of swift-picture"),
+        .trait(name: "File", description: "Motion Take File: takes kept in files through swift-file-system"),
         .trait(name: "Command", description: "Motion Command: a reel's proofs written from the command line", enabledTraits: ["Picture"]),
         .trait(name: "Graphics", description: "Motion Graphics: on-screen components drawn as pictures of swift-picture", enabledTraits: ["Picture"]),
     ],
@@ -48,6 +50,9 @@ let package = Package(
         .package(url: "https://github.com/swift-atoms/swift-standard-library-extensions.git", branch: "main"),
         .package(url: "https://github.com/swift-ietf/swift-rfc-1951.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-fips-180-4.git", branch: "main"),
+        .package(url: "https://github.com/swift-atoms/swift-byte.git", branch: "main"),
+        .package(url: "https://github.com/swift-atoms/swift-binary.git", branch: "main"),
+        .package(url: "https://github.com/swift-atoms/swift-integer.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -62,6 +67,17 @@ let package = Package(
                 .product(name: "Raster", package: "swift-raster"),
                 .product(name: "IEC 61966", package: "swift-iec-61966"),
                 .product(name: "FIPS 180-4", package: "swift-fips-180-4"),
+                .product(name: "RFC 1951", package: "swift-rfc-1951"),
+                .product(name: "Byte", package: "swift-byte"),
+                .product(name: "Binary", package: "swift-binary"),
+                .product(name: "Integer", package: "swift-integer"),
+            ]
+        ),
+        .target(
+            name: "Motion Take File",
+            dependencies: [
+                .target(name: "Motion"),
+                .product(name: "File System", package: "swift-file-system", condition: .when(traits: ["File"])),
             ]
         ),
         .target(
@@ -76,6 +92,8 @@ let package = Package(
                 .product(name: "Witnesses", package: "swift-witnesses", condition: .when(traits: ["Picture"])),
                 .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Picture"])),
                 .product(name: "RFC 1951", package: "swift-rfc-1951", condition: .when(traits: ["Picture"])),
+                .product(name: "Byte", package: "swift-byte", condition: .when(traits: ["Picture"])),
+                .product(name: "Binary", package: "swift-binary", condition: .when(traits: ["Picture"])),
                 .product(name: "FIPS 180-4", package: "swift-fips-180-4", condition: .when(traits: ["Picture"])),
                 .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions", condition: .when(traits: ["Picture"])),
             ]
@@ -166,9 +184,18 @@ let package = Package(
             name: "Motion Tests",
             dependencies: [
                 .target(name: "Motion"),
+                .product(name: "Byte", package: "swift-byte"),
                 .product(name: "FIPS 180-4", package: "swift-fips-180-4"),
                 .product(name: "Rational", package: "swift-rational"),
                 .product(name: "SMPTE ST 12", package: "swift-smpte-st-12"),
+            ]
+        ),
+        .testTarget(
+            name: "Motion Take File Tests",
+            dependencies: [
+                .target(name: "Motion"),
+                .target(name: "Motion Take File"),
+                .product(name: "File System", package: "swift-file-system"),
             ]
         ),
         .testTarget(

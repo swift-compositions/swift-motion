@@ -1,5 +1,6 @@
 #if Picture
     public import Byte
+    import Binary
     public import Motion
     public import Picture
     public import Picture_PNG_Integration
@@ -49,7 +50,7 @@
                 name: { _ in "Motion.Pixel" },
                 make: { _, raster in raster.map { pixel in Motion.Pixel(pixel) } },
                 bytes: { raster in Motion.Hosting.Picture.Frames.kept(raster) },
-                frame: { bytes in Motion.Hosting.Picture.Frames.movie(unsafe bytes.span.bytes) }
+                frame: { bytes in Motion.Hosting.Picture.Frames.movie(bytes) }
             )
         }
 
@@ -65,7 +66,7 @@
                 frame: { bytes in
                     do throws(RFC_1951.Error) {
                         let inflated = try RFC_1951.decompress(bytes)
-                        return Motion.Hosting.Picture.Frames.movie(unsafe inflated.span.bytes)
+                        return Motion.Hosting.Picture.Frames.movie(inflated)
                     } catch {
                         return nil
                     }
@@ -108,51 +109,34 @@
             W3C_PNG::W3C_PNG.serialize(try W3C_PNG::W3C_PNG.Image(raster), level: .fast)
         }
 
-        static func number(_ value: UInt64, into bytes: inout [UInt8]) {
-            withUnsafeBytes(of: value.littleEndian) { unsafe bytes.append(contentsOf: $0) }
-        }
-
+        /// The eight bytes at an offset as an unsigned integer, little-endian, or the largest where they are not
+        /// all there.
         static func number(_ bytes: [Byte], at offset: Int) -> UInt64 {
-            guard offset + 8 <= bytes.count else { return .max }
-            var value: UInt64 = 0
-            for index in (0..<8).reversed() {
-                value = value << 8 | UInt64(bytes[offset + index].bitPattern)
-            }
-            return value
-        }
-
-        /// Bytes as `Byte`s, copied in one piece.
-        static func bytes(_ raw: [UInt8]) -> [Byte] {
-            raw.withUnsafeBytes { source in
-                unsafe [Byte](unsafeUninitializedCapacity: source.count) { target, count in
-                    unsafe UnsafeMutableRawBufferPointer(target).copyMemory(from: source)
-                    count = source.count
-                }
-            }
+            guard offset >= 0, offset <= bytes.count - 8 else { return .max }
+            return UInt64(bytes: bytes[offset..<(offset + 8)], endianness: .little) ?? .max
         }
 
         /// A raster as its width and its height, eight bytes each, little-endian, and its pixels' memory, copied
         /// once.
         static func kept<Pixel>(_ raster: Raster<Pixel>) -> [Byte] {
-            raster.pixels.withUnsafeBytes { memory in
-                unsafe [Byte](unsafeUninitializedCapacity: 16 + memory.count) { target, count in
+            var head: [Byte] = []
+            UInt64(Int(clamping: raster.width)).bytes(into: &head, endianness: .little)
+            UInt64(Int(clamping: raster.height)).bytes(into: &head, endianness: .little)
+            return raster.pixels.withUnsafeBytes { memory in
+                unsafe [Byte](unsafeUninitializedCapacity: head.count + memory.count) { target, count in
                     let into = UnsafeMutableRawBufferPointer(target)
-                    unsafe into.storeBytes(of: UInt64(Int(clamping: raster.width)).littleEndian, toByteOffset: 0, as: UInt64.self)
-                    unsafe into.storeBytes(of: UInt64(Int(clamping: raster.height)).littleEndian, toByteOffset: 8, as: UInt64.self)
-                    unsafe UnsafeMutableRawBufferPointer(rebasing: into[16...]).copyMemory(from: memory)
-                    count = 16 + memory.count
+                    head.withUnsafeBytes { unsafe into.copyMemory(from: $0) }
+                    unsafe UnsafeMutableRawBufferPointer(rebasing: into[head.count...]).copyMemory(from: memory)
+                    count = head.count + memory.count
                 }
             }
         }
 
         /// A movie's frame `kept(_:)` wrote, or nil when the bytes are not one.
-        static func movie(_ bytes: borrowing RawSpan) -> Raster<Motion.Pixel>? {
-            guard bytes.byteCount >= 16 else { return nil }
-            let width = UInt64(littleEndian: unsafe bytes.unsafeLoadUnaligned(fromByteOffset: 0, as: UInt64.self))
-            let height = UInt64(littleEndian: unsafe bytes.unsafeLoadUnaligned(fromByteOffset: 8, as: UInt64.self))
-            guard let columns = UInt(exactly: width), let rows = UInt(exactly: height) else { return nil }
+        static func movie(_ bytes: [Byte]) -> Raster<Motion.Pixel>? {
+            guard bytes.count >= 16, let columns = UInt(exactly: number(bytes, at: 0)), let rows = UInt(exactly: number(bytes, at: 8)) else { return nil }
             do throws(Motion.Pixel.Error) {
-                return try Raster(width: Cardinal(columns), height: Cardinal(rows), bytes: bytes.extracting(droppingFirst: 16))
+                return try unsafe Raster(width: Cardinal(columns), height: Cardinal(rows), bytes: bytes.span.bytes.extracting(droppingFirst: 16))
             } catch {
                 return nil
             }
