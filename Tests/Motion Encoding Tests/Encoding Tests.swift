@@ -117,6 +117,21 @@ import Testing
         #expect(lowest > 38, "\(lowest) dB")
     }
 
+    /// The queue a thread of Swift's cooperative pool serves, by its label; nil on a thread outside it.
+    static func cooperative() -> String? {
+        let label = unsafe String(cString: __dispatch_queue_get_label(nil))
+        return label.hasSuffix(".cooperative") ? label : nil
+    }
+
+    @Test func `reading a movie waits for its frames on a thread of its own, never one of the cooperative pool`() async throws {
+        let url = try await Self.written(rate: .thirty, frames: 2)
+        var pooled: [String] = []
+        try await Motion.Encoding.read(url) { _, _ in
+            if let label = Self.cooperative() { pooled.append(label) }
+        }
+        #expect(pooled.isEmpty)
+    }
+
     @Test func `a signal AVFoundation cannot name is refused, not written untagged`() async {
         let signal = ITU_T_H_273.Signal(primaries: .ebu3213, transfer: .sRGB, matrix: .bt709, range: .limited)
         let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")

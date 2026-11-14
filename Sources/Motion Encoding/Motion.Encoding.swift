@@ -229,6 +229,28 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVURLAsset's loaders and AVAssetReader throw untyped; their errors become Error.reader.
         do {
+            return try await decoded(url, each: each)
+        } catch let failure as Motion.Encoding.Error {
+            throw failure
+        } catch {
+            throw .reader("\(error)")
+        }
+    }
+
+    /// `body` run with a `Reader` of its own as its executor. An `AVAssetReader`
+    /// output's provider waits for its next sample by blocking the thread that asks. Asked on the cooperative
+    /// pool, as many readers as the pool has threads hold all of it, and work they wait on that needs the pool
+    /// never runs: on a three-processor Mac, three readers waited there for good while a writer's task had no
+    /// thread to go on. So every read waits on a thread of its own.
+    static func reading<T, Failure: Swift.Error>(_ body: () async throws(Failure) -> T) async throws(Failure) -> T {
+        try await withTaskExecutorPreference(Reader(), operation: body)
+    }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: it calls AVURLAsset's loaders and AVAssetReader, which throw untyped; read(_:each:) types them.
+    /// `read(_:each:)` on a `Reader` of its own.
+    static func decoded(_ url: URL, each: (Ordinal, Raster<Motion.Pixel>) async -> Void) async throws -> Cardinal {
+        try await reading {
             let asset = AVURLAsset(url: url)
             guard let track = try await asset.loadTracks(withMediaType: .video).first else {
                 throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has no picture")
@@ -245,10 +267,6 @@ extension Motion.Encoding {
             }
             guard reader.status == .completed else { throw Motion.Encoding.Error.reader(reader.error?.localizedDescription ?? "not read to the end") }
             return Cardinal(frame)
-        } catch let failure as Motion.Encoding.Error {
-            throw failure
-        } catch {
-            throw .reader("\(error)")
         }
     }
 
@@ -392,14 +410,26 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: the provider's next() and the receiver's append throw untyped; their errors become Error.writer.
         do {
-            while let buffer = try await provider.next() {
-                try await receiver.append(buffer)
-            }
+            try await copy(provider, into: receiver)
         } catch {
             throw .writer("\(error)")
         }
-        receiver.finish()
     }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: the provider's next() and the receiver's append throw untyped; pump(_:into:) types them.
+    /// `pump(_:into:)` on a `Reader` of its own.
+    static func copy(_ provider: sending Samples, into receiver: sending AVAssetWriterInput.SampleBufferReceiver) async throws {
+        try await reading {
+            while let buffer = try await provider.next() {
+                try await receiver.append(buffer)
+            }
+            receiver.finish()
+        }
+    }
+
+    /// What an `AVAssetReader` output's provider gives: its samples, ready.
+    typealias Samples = AVAssetReaderOutput.Provider<CMReadySampleBuffer<CMSampleBuffer.DynamicContent>>
 
     /// The mixed sound as the reader gives it: interleaved 32-bit float stereo at 48 kHz.
     static var mixed: [String: any Sendable] {
