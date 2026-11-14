@@ -5,17 +5,28 @@
     extension Motion.Graphics {
         /// A wall of moving type: rows of words repeated end to end across a region, one row a pitch below the
         /// next until the region is full, sliding in turn left and right as the moment travels, each row filled or
-        /// outlined as the style's faces say.
+        /// outlined as the style's faces say. The lines are set once, when the marquee is made.
         public struct Marquee: Sendable {
             /// The words of the rows: row i repeats the `i mod n`th of the n lines.
-            public var lines: [Swift.String]
+            public let lines: [Swift.String]
             public var region: Picture.Plane.Rectangle
-            public var style: Style
+            public let style: Style
+            /// Each line set in the ink.
+            let texts: [Picture.Text]
+            /// The ink's cap height.
+            let cap: Double
 
-            public init(_ lines: [Swift.String], in region: Picture.Plane.Rectangle, style: Style) {
+            /// A marquee, its lines set once: it fails as `Picture.Text` does for a line in the ink.
+            public init(_ lines: [Swift.String], in region: Picture.Plane.Rectangle, style: Style) throws(Picture.Text.Error) {
                 self.lines = lines
                 self.region = region
                 self.style = style
+                var texts: [Picture.Text] = []
+                for line in lines {
+                    texts.append(try style.ink.text(line))
+                }
+                self.texts = texts
+                self.cap = try Picture.Text.Metrics(font: style.ink.font, size: style.ink.size).cap
             }
         }
     }
@@ -29,22 +40,22 @@
             return Cardinal(UInt((tall / style.pitch).rounded(.up)))
         }
 
-        /// The words of a row set in the ink.
-        func set(row: Ordinal) throws(Picture.Text.Error) -> Picture.Text {
-            try style.ink.text(lines[Int(bitPattern: row) % lines.count])
+        /// The words of a row as they were set in the ink.
+        func set(row: Ordinal) -> Picture.Text {
+            texts[Int(bitPattern: row) % texts.count]
         }
 
         /// The distance from one copy's start to the next in a row: its words' width and the gap.
-        public func unit(row: Ordinal) throws(Picture.Text.Error) -> Double {
-            try set(row: row).width + style.gap
+        public func unit(row: Ordinal) -> Double {
+            set(row: row).width + style.gap
         }
 
         /// How far left of the region's left edge the first copy of a row starts when the wall has travelled a
         /// distance: from 0 up to the unit, not including it, so it wraps every unit and the copies always cover
         /// the row. The row's own travel is the wall's plus its start in the style; even rows, the first
         /// included, slide left as it grows and odd rows slide right.
-        public func offset(row: Ordinal, travel: Double) throws(Picture.Text.Error) -> Double {
-            let unit = try unit(row: row)
+        public func offset(row: Ordinal, travel: Double) -> Double {
+            let unit = unit(row: row)
             let index = Int(bitPattern: row)
             let own = travel + (style.starts.isEmpty ? 0 : style.starts[index % style.starts.count])
             guard unit > 0, own.isFinite else { return 0 }

@@ -3,39 +3,38 @@
     import Picture
 
     extension Picture {
-        /// One line from the start of its first baseline: the mark, the standing characters of each row, and the
-        /// caret in the cell after the last of them, all faded by how much of the line shows.
+        /// One set line from the start of its first baseline: the mark, the standing glyphs of each row, and the
+        /// caret in the cell after the last of them, all faded by how much of the line shows. A row's standing
+        /// glyphs are the first of those it was set with.
         init(
-            _ line: Motion.Graphics.Transcript.Line,
+            _ setting: Motion.Graphics.Transcript.Setting,
+            of mark: Motion.Graphics.Transcript.Line.Mark,
             at moment: Motion.Graphics.Transcript.Line.Moment,
             from origin: Picture.Plane.Point<2>,
             advance: Double,
             style: Motion.Graphics.Transcript.Style
-        ) throws(Picture.Text.Error) {
+        ) {
             guard moment.shown > 0 else {
                 self = .empty
                 return
             }
             var content: [Picture.Element] = []
             let marked = Float(Swift.min(moment.marked, 1))
-            let ink: Motion.Graphics.Ink
-            switch line.mark {
-            case .prompt(let word):
-                ink = style.typed
-                if marked > 0 { content.append(try style.mark.text(word).placed(.init(.solid(style.mark.color.faded(by: marked))), at: origin)) }
-            case .label(let word, let color):
-                ink = style.said
-                if marked > 0 { content.append(try style.mark.text(word).placed(.init(.solid(color.faded(by: marked))), at: origin)) }
-            case .plain:
-                ink = style.said
+            if marked > 0, let text = setting.mark {
+                let color: Picture.Color
+                switch mark {
+                case .label(_, let own): color = own
+                case .prompt, .plain: color = style.mark.color
+                }
+                content.append(text.placed(.init(.solid(color.faded(by: marked))), at: origin))
             }
-            let start = origin[0] + Double(line.lead) * advance
-            let standing = line.standing(moment.typed)
-            let rows = line.rows(within: style.columns)
+            let start = origin[0] + Double(setting.lead) * advance
+            let standing = Motion.Graphics.standing(moment.typed, of: setting.length)
+            let rows = setting.rows
             for (number, row) in rows.enumerated() where row.standing(standing) > 0 {
                 let baseline = origin[1] + Double(number) * style.leading
-                let text = try ink.text(Swift.String(row.text.prefix(row.standing(standing))))
-                content.append(text.placed(.init(.solid(ink.color)), at: Picture.Plane.Point<2>([start, baseline])))
+                let path = row.path(standing: row.standing(standing))
+                content.append(.group(Picture.Group([.fill(path, .solid(setting.ink.color))], transform: .translation(x: start, y: baseline))))
             }
             if moment.caret > 0, let place = rows.lastIndex(where: { $0.start <= standing }) {
                 let caret = style.caret

@@ -16,55 +16,57 @@
     }
 
     extension Motion.Graphics.Transcript.Line {
-        /// How many characters the words have, line feeds included: what a typed share counts.
-        public var characters: Cardinal {
-            Cardinal(UInt(text.count))
+        /// How many glyphs the words are set as, `Picture.Text.length(of:)`: one for each unicode scalar but a line
+        /// feed. It is what a typed share counts.
+        public var length: Cardinal {
+            Cardinal(UInt(Picture.Text.length(of: text)))
         }
 
-        /// The cells the mark and the space after it take, before the words.
+        /// The cells the mark and the space after it take, before the words: one for each of the mark's glyphs.
         var lead: Int {
             switch mark {
-            case .prompt(let word), .label(let word, _): word.count + 1
+            case .prompt(let word), .label(let word, _): Picture.Text.length(of: word) + 1
             case .plain: 0
             }
         }
 
-        /// How many characters stand at a typed share.
-        func standing(_ share: Double) -> Int {
-            Motion.Graphics.standing(share, of: text.count)
-        }
-
-        /// The rows of the words: each paragraph between line feeds, broken before a word that would end beyond
-        /// the columns, the mark's cells counted, unless it stands alone on its row.
-        func rows(within columns: Cardinal?) -> [Motion.Graphics.Transcript.Row] {
+        /// The rows of the words, each with how many of the line's glyphs come before it: each paragraph between
+        /// line feeds, broken before a word that would end beyond the columns, the mark's cells counted, unless it
+        /// stands alone on its row.
+        func rows(within columns: Cardinal?) -> [(start: Int, words: Swift.String)] {
             let room = columns.map { Swift.max(Int(clamping: $0) - lead, 1) }
-            let paragraphs = text.split(separator: "\n", omittingEmptySubsequences: false)
-            let starts = paragraphs.reduce(into: [0]) { starts, paragraph in starts.append((starts.last ?? 0) + paragraph.count + 1) }
-            return zip(paragraphs, starts).flatMap { paragraph, start in
-                Self.wrapped(paragraph, from: start, within: room)
+            var glyphs: [[UInt8]] = []
+            for byte in text.utf8 {
+                if byte & 0xc0 == 0x80, !glyphs.isEmpty { glyphs[glyphs.count - 1].append(byte) } else { glyphs.append([byte]) }
             }
+            var rows: [(start: Int, words: Swift.String)] = []
+            var start = 0
+            for paragraph in glyphs.split(separator: [0x0a], omittingEmptySubsequences: false) {
+                rows += Self.wrapped(Swift.Array(paragraph), within: room).map { (start + $0.start, $0.words) }
+                start += paragraph.count
+            }
+            return rows
         }
 
-        /// The widest row's cells, the mark's included.
-        func columns(within columns: Cardinal?) -> Int {
-            lead + (rows(within: columns).map(\.text.count).max() ?? 0)
-        }
-
-        /// A paragraph broken into rows of at most `room` characters at its spaces; the spaces at a break end
-        /// no row and start none, though they are counted among the characters.
-        static func wrapped(_ paragraph: Substring, from start: Int, within room: Int?) -> [Motion.Graphics.Transcript.Row] {
-            guard let room, paragraph.count > room else { return [Motion.Graphics.Transcript.Row(start: start, text: paragraph)] }
-            var rows: [Motion.Graphics.Transcript.Row] = []
-            var row = paragraph.startIndex
-            var end: Substring.Index?
-            for word in paragraph.split(separator: " ") {
-                if let last = end, paragraph.distance(from: row, to: word.endIndex) > room {
-                    rows.append(Motion.Graphics.Transcript.Row(start: start + paragraph.distance(from: paragraph.startIndex, to: row), text: paragraph[row..<last]))
+        /// A paragraph of glyphs, each its bytes in UTF-8, broken into rows of at most `room` glyphs at its spaces,
+        /// each with how many of the paragraph's glyphs come before it; the spaces at a break end no row and start
+        /// none, though they are counted among the glyphs.
+        static func wrapped(_ paragraph: [[UInt8]], within room: Int?) -> [(start: Int, words: Swift.String)] {
+            func words(_ glyphs: ArraySlice<[UInt8]>) -> Swift.String {
+                Swift.String(decoding: glyphs.joined(), as: UTF8.self)
+            }
+            guard let room, paragraph.count > room else { return [(0, words(paragraph[...]))] }
+            var rows: [(start: Int, words: Swift.String)] = []
+            var row = 0
+            var end: Int?
+            for word in paragraph.split(separator: [0x20]) {
+                if let last = end, word.endIndex - row > room {
+                    rows.append((row, words(paragraph[row..<last])))
                     row = word.startIndex
                 }
                 end = word.endIndex
             }
-            rows.append(Motion.Graphics.Transcript.Row(start: start + paragraph.distance(from: paragraph.startIndex, to: row), text: paragraph[row...]))
+            rows.append((row, words(paragraph[row...])))
             return rows
         }
     }

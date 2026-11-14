@@ -37,11 +37,11 @@
                 .init(.label("error:", Picture.Color(hex: 0x00FFFF)), "no such file here\nsecond row"),
                 .init(.plain, "done"),
             ]
-            let transcript = Motion.Graphics.Transcript(lines, at: Picture.Plane.Point<2>([10, 40]), style: Self.transcript)
-            drawn.append(("transcript resting", try Picture(transcript, at: .init([.resting, .resting, .resting]))))
-            drawn.append(("transcript typing", try Picture(transcript, at: .init([.resting, .init(shown: 0.7, marked: 0.5, typed: 0.6, caret: 1)]))))
+            let transcript = try Motion.Graphics.Transcript(lines, at: Picture.Plane.Point<2>([10, 40]), style: Self.transcript)
+            drawn.append(("transcript resting", Picture(transcript, at: .init([.resting, .resting, .resting]))))
+            drawn.append(("transcript typing", Picture(transcript, at: .init([.resting, .init(shown: 0.7, marked: 0.5, typed: 0.6, caret: 1)]))))
 
-            let caption = Motion.Graphics.Caption(
+            let caption = try Motion.Graphics.Caption(
                 .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
@@ -50,18 +50,18 @@
                     rise: 20
                 )
             )
-            drawn.append(("caption resting", try Picture(caption, at: .resting)))
-            drawn.append(("caption rising", try Picture(caption, at: .init(shown: 0.5, risen: 0.4, line: .init(typed: 0.6, caret: 1)))))
+            drawn.append(("caption resting", Picture(caption, at: .resting)))
+            drawn.append(("caption rising", Picture(caption, at: .init(shown: 0.5, risen: 0.4, line: .init(typed: 0.6, caret: 1)))))
 
-            let headline = Motion.Graphics.Headline(
+            let headline = try Motion.Graphics.Headline(
                 [.init("A CIRCLE."), .init("FOR NOW, AND LONGER", offset: 12)],
                 about: Picture.Plane.Point<2>([500, 300]),
                 region: Picture.Plane.Path(Picture.Plane.Rectangle(llx: 300, lly: 200, urx: 600, ury: 400)),
                 style: .init(font: sans, size: 400, measure: 640, pitch: 0.9, rise: 0.95, slot: .init(above: 0.8, height: 0.9), span: 1000, ink: .white, second: .black)
             )
-            drawn.append(("headline resting", try Picture(headline, at: .init([.resting, .resting]))))
-            drawn.append(("headline opening", try Picture(headline, at: .init([.init(risen: 0.5), .hidden], opened: 0.3))))
-            drawn.append(("headline leaving", try Picture(headline, at: .init([.init(risen: 1, gone: 0.4), .init(risen: 0.8)]))))
+            drawn.append(("headline resting", Picture(headline, at: .init([.resting, .resting]))))
+            drawn.append(("headline opening", Picture(headline, at: .init([.init(risen: 0.5), .hidden], opened: 0.3))))
+            drawn.append(("headline leaving", Picture(headline, at: .init([.init(risen: 1, gone: 0.4), .init(risen: 0.8)]))))
 
             let title = try Motion.Graphics.Title(
                 ["AB ", "CD"],
@@ -96,7 +96,7 @@
             drawn.append(("checkbox ticked", Picture(checkbox, at: .ticked)))
             drawn.append(("checkbox landing", Picture(checkbox, at: .init(box: 1.1, filled: 0.6, stroke: 0.5, flash: 0.7))))
 
-            let checklist = Motion.Graphics.Checklist(
+            let checklist = try Motion.Graphics.Checklist(
                 heading: "REQUIREMENTS",
                 statement: "A film needs:",
                 items: [.init("Shape", tag: "Bezier"), .init("Type", tag: "OpenType"), .init("Colour")],
@@ -116,14 +116,13 @@
                     )
                 )
             )
-            drawn.append(("checklist resting", try Picture(checklist, at: .resting(3))))
-            drawn.append(("checklist settling", try Picture(checklist, at: .init(shown: 1, settled: 1, headed: 0.4, toned: 0.3, stated: 0.7, rows: [.resting, .init(box: .init(box: 1, filled: 1, stroke: 0.4), named: 0.5, tagged: 0.5)]))))
-            drawn.append(("checklist plate", try Picture(checklist, at: .init(shown: 0.6, settled: 1, headed: 0, toned: 0, stated: 0, rows: []))))
-            drawn.append(("row alone", try Picture(checklist.rows[1], at: .init(box: .ticked, named: 0.6, tagged: 0.5))))
+            drawn.append(("checklist resting", Picture(checklist, at: .resting(3))))
+            drawn.append(("checklist settling", Picture(checklist, at: .init(shown: 1, settled: 1, headed: 0.4, toned: 0.3, stated: 0.7, rows: [.resting, .init(box: .init(box: 1, filled: 1, stroke: 0.4), named: 0.5, tagged: 0.5)]))))
+            drawn.append(("checklist plate", Picture(checklist, at: .init(shown: 0.6, settled: 1, headed: 0, toned: 0, stated: 0, rows: []))))
+            drawn.append(("row alone", Picture(checklist.rows[1], at: .init(box: .ticked, named: 0.6, tagged: 0.5))))
 
-            let readout = Motion.Graphics.Readout(
+            let readout = try Motion.Graphics.Readout(
                 "FRAME",
-                value: 66,
                 of: "/ ",
                 total: 1650,
                 at: Picture.Plane.Point<2>([400, 20]),
@@ -140,8 +139,8 @@
                     pivot: Picture.Plane.Point<2>([12, 10])
                 )
             )
-            drawn.append(("readout resting", try Picture(readout, at: .resting)))
-            drawn.append(("readout hot", try Picture(readout, at: .init(shown: 0.6, heat: 0.4, finished: 0.2, flash: 0.5, light: 0.8))))
+            drawn.append(("readout resting", Picture(readout, at: .resting(66))))
+            drawn.append(("readout hot", Picture(readout, at: .init(count: 66, shown: 0.6, heat: 0.4, finished: 0.2, flash: 0.5, light: 0.8))))
 
             let spinner = Motion.Graphics.Spinner(
                 at: Picture.Plane.Point<2>([100, 80]),
@@ -169,13 +168,13 @@
             drawn.append(("shockwave spreading", Picture(shockwave, at: .init(spread: 0.3))))
             drawn.append(("shockwave late", Picture(shockwave, at: .init(spread: 0.7))))
 
-            let marquee = Motion.Graphics.Marquee(
+            let marquee = try Motion.Graphics.Marquee(
                 ["SHAPE TYPE COLOUR", "MOTION"],
                 in: Picture.Plane.Rectangle(llx: 0, lly: 100, urx: 1200, ury: 600),
                 style: .init(ink: ink(sans, 120), faces: [.filled, .outlined(4)], pitch: 110, gap: 60, rise: 120, slot: .init(above: 0.8, below: 0.1), starts: [0, 37])
             )
-            drawn.append(("marquee travelling", try Picture(marquee, at: .init(travel: 333, rows: [1, 1, 1, 1, 1]))))
-            drawn.append(("marquee rising", try Picture(marquee, at: .init(travel: 50, rows: [0.5, 1, 0.2]))))
+            drawn.append(("marquee travelling", Picture(marquee, at: .init(travel: 333, rows: [1, 1, 1, 1, 1]))))
+            drawn.append(("marquee rising", Picture(marquee, at: .init(travel: 50, rows: [0.5, 1, 0.2]))))
 
             let glint = Motion.Graphics.Glint(
                 over: Picture.Plane.Path(Picture.Plane.Rectangle(llx: 100, lly: 50, urx: 500, ury: 150)),
@@ -198,7 +197,7 @@
             drawn.append(("twinkle whole", Picture(twinkle, at: .init(shone: 0.5))))
             drawn.append(("twinkle early", Picture(twinkle, at: .init(shone: 0.2))))
 
-            let window = Motion.Graphics.Window(
+            let window = try Motion.Graphics.Window(
                 frame: Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310),
                 title: "~/film zsh",
                 style: .init(
@@ -212,8 +211,8 @@
                     lights: .init(count: 3, radius: 5, inset: 20, step: 16, color: Picture.Color(hex: 0xFF0000))
                 )
             )
-            drawn.append(("window resting", try Picture(window, at: .resting)))
-            drawn.append(("window fading", try Picture(window, at: .init(shown: 0.5))))
+            drawn.append(("window resting", Picture(window, at: .resting)))
+            drawn.append(("window fading", Picture(window, at: .init(shown: 0.5))))
             return drawn
         }
 

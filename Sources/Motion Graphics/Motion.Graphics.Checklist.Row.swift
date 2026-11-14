@@ -1,24 +1,33 @@
 #if Graphics
     public import Motion
-    import Picture
+    public import Picture
 
     extension Motion.Graphics.Checklist {
         /// One row of a checklist, which also stands alone: a box whose left edge is at `left` and whose centre is
         /// the style's rise above the baseline, the item's name a gap right of the box's centre, and its tag
-        /// ending at `right`.
+        /// ending at `right`. The name and the tag are set once, when the row is made.
         public struct Row: Sendable {
-            public var item: Item
+            public let item: Item
             public var left: Double
             public var right: Double
             public var baseline: Double
-            public var style: Style
+            public let style: Style
+            /// The name and the tag set in their inks.
+            let name: Picture.Text
+            let tag: Picture.Text
+            /// Each of the tag's glyphs' outline where the tag sets it.
+            let typed: [Picture.Plane.Path]
 
-            public init(_ item: Item, left: Double, right: Double, baseline: Double, style: Style) {
+            /// A row, its name and tag set once: it fails as `Picture.Text` does for them in their inks.
+            public init(_ item: Item, left: Double, right: Double, baseline: Double, style: Style) throws(Picture.Text.Error) {
                 self.item = item
                 self.left = left
                 self.right = right
                 self.baseline = baseline
                 self.style = style
+                self.name = try style.name.text(item.name)
+                self.tag = try style.tag.text(item.tag)
+                self.typed = tag.glyphs.map(\.path)
             }
         }
     }

@@ -2,7 +2,7 @@
     public import Motion
 
     extension Motion.Graphics.Title {
-        /// A title at an instant: for each of its glyphs in order, one for each unicode scalar of its runs, how far
+        /// A title at an instant: for each of its glyphs in order, one for each glyph its runs are set as, how far
         /// it has entered, 0 to 1 and past 1 in a spring's overshoot; a glyph without one is hidden.
         public struct Moment: Sendable, Hashable {
             public var letters: [Double]
