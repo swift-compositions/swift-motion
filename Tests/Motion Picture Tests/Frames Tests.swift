@@ -147,4 +147,41 @@
             #expect(try await frames.rasters([0, 1, 2, 3, 4]).count == 5)
         }
     }
+
+    #if canImport(Darwin)
+        import Darwin
+
+        extension `Frames Tests` {
+            /// The threads of this process, as the kernel counts them.
+            static func threads() -> Int {
+                var list: thread_act_array_t?
+                var count: mach_msg_type_number_t = 0
+                guard unsafe task_threads(mach_task_self_, &list, &count) == KERN_SUCCESS, let list = unsafe list else { return 0 }
+                unsafe UnsafeBufferPointer(start: list, count: Int(count)).forEach { _ = unsafe mach_port_deallocate(mach_task_self_, $0) }
+                let size = vm_size_t(MemoryLayout<thread_t>.stride * Int(count))
+                _ = unsafe vm_deallocate(mach_task_self_, vm_address_t(bitPattern: list), size)
+                return Int(count)
+            }
+
+            @Test func `a Frames holds its workers' threads while it is held, and they end when it is let go`() async throws {
+                let before = Self.threads()
+                let held = (0..<25).map { _ in
+                    Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, over: Self.paper, workers: 4, picture: Self.picture)
+                }
+                #expect(Self.threads() >= before + 75, "\(before) threads before 25 Frames of 4 workers were made")
+                _ = consume held
+                for _ in 0..<60 {
+                    let frames = Motion.Hosting.Picture.Frames(width: Self.width, height: Self.height, over: Self.paper, workers: 4, picture: Self.picture)
+                    #expect(try await frames.rasters([0, 1, 2]).count == 3)
+                }
+                var after = Self.threads()
+                for _ in 0..<100 where after > before + 64 {
+                    try await Task.sleep(for: .milliseconds(50))
+                    after = Self.threads()
+                }
+                #expect(before > 0)
+                #expect(after <= before + 64, "\(before) threads before, \(after) after 85 Frames of 4 workers were made, 60 used, and let go")
+            }
+        }
+    #endif
 #endif
