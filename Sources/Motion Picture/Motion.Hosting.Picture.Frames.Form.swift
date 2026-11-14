@@ -53,7 +53,11 @@
                     let width = Motion.Hosting.Picture.Frames.number(bytes, at: 0)
                     let height = Motion.Hosting.Picture.Frames.number(bytes, at: 8)
                     let raw = Motion.Hosting.Picture.Frames.raw(bytes, from: 16)
-                    return try? Raster(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), bytes: raw)
+                    do throws(Motion.Pixel.Error) {
+                        return try Raster(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), bytes: raw)
+                    } catch {
+                        return nil
+                    }
                 }
             )
         }
@@ -81,7 +85,7 @@
             Self(
                 name: { _ in "PNG fast" },
                 make: { _, raster in Result { () throws(W3C_PNG::W3C_PNG.Image.Error) in try Motion.Hosting.Picture.Frames.png(raster) } },
-                bytes: { made in try? made.get() },
+                bytes: { made in if case .success(let bytes) = made { bytes } else { nil } },
                 frame: { bytes in .success(bytes) }
             )
         }
@@ -153,8 +157,11 @@
                     initialized = Int(count)
                 }
             }
-            guard let raster = try? Raster(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), pixels: pixels) else { return nil }
-            return (raster, end)
+            do throws(Raster<Picture::Picture.Pixel>.Error) {
+                return (try Raster(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), pixels: pixels), end)
+            } catch {
+                return nil
+            }
         }
     }
 #endif

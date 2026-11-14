@@ -41,7 +41,7 @@
                 self.cap = try Picture.Text.Metrics(font: style.font, size: style.size).cap
                 var looks: [Int] = []
                 for (run, words) in runs.enumerated() {
-                    looks += Swift.Array(repeating: style.runs.isEmpty ? 0 : run % style.runs.count, count: words.unicodeScalars.count)
+                    looks += Swift.Array(repeating: style.runs.isEmpty ? 0 : run % style.runs.count, count: Picture.Text.length(of: words))
                 }
                 self.looks = looks
             }

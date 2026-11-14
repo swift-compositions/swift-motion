@@ -213,7 +213,7 @@
             let checkbox = Motion.Graphics.Checkbox(at: Picture.Plane.Point<2>([50, 50]), style: Self.box())
             #expect(Picture(checkbox, at: .hidden) == .empty)
             #expect(Picture(checkbox, at: .resting).elements.count == 1)
-            #expect(Picture(checkbox, at: .ticked).elements.count == 1 + 2 + 1)
+            #expect(Picture(checkbox, at: .ticked).elements.count == 4)
             #expect(Picture(checkbox, at: .init(box: 2)) == Picture(checkbox, at: .init(box: 1.2)))
         }
 
@@ -240,8 +240,7 @@
             let style = readout.style.plate
             for moment in [Motion.Graphics.Readout.Moment.resting, .init(shown: 0.5), .init(shown: 1.05, tilt: 0.2, drop: 12)] {
                 let picture = try Picture(readout, at: moment)
-                let drawn: Picture
-                if case .layer(let layer) = picture.elements.first { drawn = layer.content } else { drawn = picture }
+                let drawn = if case .layer(let layer) = picture.elements.first { layer.content } else { picture }
                 guard case .group(let placed) = drawn.elements.first else {
                     Issue.record("a readout is drawn in one group")
                     continue
@@ -281,7 +280,7 @@
             #expect(plate.lly.underlying == 400 - 16 - 12)
             #expect(plate.ury.underlying == 400 + 5 + 12)
             #expect(try Picture(caption, at: .hidden) == .empty)
-            #expect(try Picture(caption, at: .resting).elements.count == 1 + 2)
+            #expect(try Picture(caption, at: .resting).elements.count == 3)
         }
 
         @Test func `a window's body stands under its bar, and a window hidden draws nothing`() throws {
@@ -302,7 +301,7 @@
             )
             #expect(window.body == Picture.Plane.Rectangle(llx: 10, lly: 42, urx: 410, ury: 310))
             #expect(try Picture(window, at: .hidden) == .empty)
-            #expect(try Picture(window, at: .resting).elements.count == 2 + 3 + 1)
+            #expect(try Picture(window, at: .resting).elements.count == 6)
         }
 
         @Test func `corners give a plate's region and outline: circular, continuous and a capsule`() {

@@ -26,8 +26,16 @@
             Motion.Graphics.Shockwave(
                 at: Picture.Plane.Point<2>([300, 200]),
                 style: .init(
-                    radius: radius, reach: 600, travel: travel, pen: 30, least: 4, color: .white, finish: .white,
-                    fall: 1, trail: .init(count: 0, lag: 0, fade: 1), glow: glow
+                    radius: radius,
+                    reach: 600,
+                    travel: travel,
+                    pen: 30,
+                    least: 4,
+                    color: .white,
+                    finish: .white,
+                    fall: 1,
+                    trail: .init(count: 0, lag: 0, fade: 1),
+                    glow: glow
                 )
             )
         }

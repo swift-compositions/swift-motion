@@ -73,7 +73,7 @@
                     guard offset < bytes.count else { return nil }
                     let still: Result<[Byte], W3C_PNG::W3C_PNG.Image.Error>?
                     switch bytes[offset].bitPattern {
-                    case 0 where offset + 1 == bytes.count: still = nil
+                    case 0 where offset == bytes.indices.last: still = nil
                     case 1: still = .success(Array(bytes[(offset + 1)...]))
                     default: return nil
                     }

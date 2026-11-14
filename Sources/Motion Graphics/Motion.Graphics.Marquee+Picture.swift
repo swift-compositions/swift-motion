@@ -34,7 +34,8 @@
                     copies.append(.group(Picture.Group([shape], transform: .translation(x: x, y: baseline))))
                     x += unit
                 }
-                let window = style.slot.map { (top: resting - $0.above * style.ink.size, bottom: resting + $0.below * style.ink.size) }
+                let window =
+                    style.slot.map { (top: resting - $0.above * style.ink.size, bottom: resting + $0.below * style.ink.size) }
                     ?? (top: band, bottom: band + style.pitch)
                 let slot = Picture.Plane.Rectangle(
                     llx: .init(left),

@@ -46,7 +46,7 @@
             let cap = try Picture.Text.Metrics(font: style.font, size: size).cap
             let pitch = style.pitch * size
             let middle = centre[1]
-            let first = middle + (cap - pitch * Double(lines.count - 1)) / 2
+            let first = middle + (cap - pitch * Double(lines.indices.last ?? 0)) / 2
             let alone = middle + cap / 2
             return lines.indices.map { index in
                 let baseline = first + Double(index) * pitch

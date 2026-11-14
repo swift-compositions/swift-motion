@@ -25,8 +25,8 @@
             let (start, end) = (left + plate.inset, frame.urx.underlying - plate.inset)
             let baseline = top + plate.baseline
             let glyphs = line.glyphs
-            let counted = readout.label.unicodeScalars.count + 1
-            let after = counted + readout.figures.unicodeScalars.count + 1
+            let counted = Picture.Text.length(of: readout.label) + 1
+            let after = counted + Picture.Text.length(of: readout.figures) + 1
             let x = { (place: Int) in start + (place < glyphs.count ? glyphs[place].origin[0] : line.width) }
             let lit = style.lit(heat: moment.heat, finished: moment.finished)
             let hot = Swift.max(moment.heat, moment.finished)

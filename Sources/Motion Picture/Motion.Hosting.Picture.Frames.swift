@@ -98,7 +98,9 @@
                     }
                     let made = form.make(position, raster)
                     if let key, let bytes = form.bytes(made) {
-                        try? store?.keep(bytes, for: key)
+                        do throws(Picture::Picture.Store.Error) {
+                            try store?.keep(bytes, for: key)
+                        } catch {}
                     }
                     progress.results.withLock { $0.frames[place] = made }
                 }

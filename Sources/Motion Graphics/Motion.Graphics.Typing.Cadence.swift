@@ -40,8 +40,8 @@
             } catch {
                 preconditionFailure("1024 is not zero")
             }
-            if characters[position - 1] == " " { weight = weight * word }
-            if characters[position] == " " { weight = weight * space }
+            if characters[position - 1] == " " { weight *= word }
+            if characters[position] == " " { weight *= space }
             return weight
         }
     }

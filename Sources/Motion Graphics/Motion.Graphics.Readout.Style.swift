@@ -64,10 +64,10 @@
         /// written, then mixed toward the finish by how finished it is.
         public func lit(heat: Double, finished: Double) -> Picture.Color {
             let clamp = { (value: Double) in Swift.min(Swift.max(value, 0), 1) }
-            guard !accent.isEmpty else { return finish }
-            let place = clamp(heat) * Double(accent.count - 1)
-            let low = Swift.min(Int(place.rounded(.down)), accent.count - 1)
-            let high = Swift.min(low + 1, accent.count - 1)
+            guard let last = accent.indices.last else { return finish }
+            let place = clamp(heat) * Double(last)
+            let low = Swift.min(Int(place.rounded(.down)), last)
+            let high = Swift.min(low + 1, last)
             let warm = accent[low].mixed(inSRGBTo: accent[high], at: place - Double(low))
             return warm.mixed(inSRGBTo: finish, at: clamp(finished))
         }

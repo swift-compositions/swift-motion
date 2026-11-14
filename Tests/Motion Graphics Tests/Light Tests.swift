@@ -54,7 +54,7 @@
                 Issue.record("a twinkle adds its light in a layer")
                 return
             }
-            #expect(layer.content.elements.count == 3 + 1)
+            #expect(layer.content.elements.count == 4)
         }
 
         @Test func `a twinkle's core has its base besides the part that grows with the shine`() throws {
