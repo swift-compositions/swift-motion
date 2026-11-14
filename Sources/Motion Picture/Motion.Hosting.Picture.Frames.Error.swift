@@ -9,6 +9,9 @@
             /// The renderer failed at the frame at a position.
             case renderer(Picture::Picture.Renderer.Error, at: Ordinal)
 
+            /// The picture of the frame at a position could not be built: its words did not set.
+            case building(Picture::Picture.Text.Error, at: Ordinal)
+
             /// The threads that draw refused the work.
             case pool(Kernel.Thread.Pool.Error)
 

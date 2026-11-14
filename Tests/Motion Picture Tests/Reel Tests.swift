@@ -91,17 +91,17 @@
             #expect(reel.instants([quarter, rate.start(of: 7)], of: nil) == [quarter, rate.start(of: 7)])
         }
 
-        @Test func `a layer is laid over the frames whose center falls in its lifetime, and over no other`() {
+        @Test func `a layer is laid over the frames whose center falls in its lifetime, and over no other`() throws {
             let reel = Self.reel(layered: true)
-            let counts = reel.positions().map { reel.picture(at: $0).elements.count }
+            let counts = try reel.positions().map { try reel.picture(at: $0).elements.count }
             #expect(counts == [1, 1, 1, 1, 2, 2, 2, 1, 1, 1])
             let plain = Self.reel()
-            #expect(reel.picture(at: 3) == plain.picture(at: 3))
-            #expect(reel.picture(at: 7) == plain.picture(at: 7))
-            var expected = plain.picture(at: 5)
+            #expect(try reel.picture(at: 3) == plain.picture(at: 3))
+            #expect(try reel.picture(at: 7) == plain.picture(at: 7))
+            var expected = try plain.picture(at: 5)
             expected.elements.append(contentsOf: Self.layer(at: .ntsc).timeline.content(Reel.Frame(position: 5, time: Rate.ntsc.centre(of: 5))).elements)
-            #expect(reel.picture(at: 5) == expected)
-            #expect(reel.picture(at: 10) == .empty)
+            #expect(try reel.picture(at: 5) == expected)
+            #expect(try reel.picture(at: 10) == .empty)
         }
 
         @Test func `a reel's frames are its parts' own pictures drawn one by one, and a part chosen alone keeps its layers`() async throws {
@@ -172,11 +172,11 @@
             #expect(Reel(width: 1, height: 1, rate: .thirty, parts: []).scaled(by: 0.1).width == 1)
         }
 
-        @Test func `a scene is a part drawn from its state at each frame's center`() {
+        @Test func `a scene is a part drawn from its state at each frame's center`() throws {
             let scene = Motion.Scene(rate: .thirty, frames: 4) { time in time < Rate.thirty.start(of: 3) ? 0 : 1 }
             let part = Reel.Part("scene", scene: scene) { state in state == 0 ? .empty : [Tests.rectangle(0, 0, 1, 1, .white)] }
             #expect(part.frames == 4)
-            let counts = (0..<4).map { local in part.picture(Reel.Frame(position: Ordinal(UInt(local)), time: .zero)).elements.count }
+            let counts = try (0..<4).map { local in try part.picture(Reel.Frame(position: Ordinal(UInt(local)), time: .zero)).elements.count }
             #expect(counts == [0, 0, 0, 1])
         }
 
@@ -275,18 +275,39 @@
             let frames = try await reel.hosting(["b"], workers: 3).rasters([0, 1, 2, 3])
             #expect(frames.count == 4)
             #expect(built.withLock { $0 } == ["b": 1])
-            _ = reel.picture(at: 1)
-            _ = reel.picture(at: 2)
+            _ = try reel.picture(at: 1)
+            _ = try reel.picture(at: 2)
             #expect(built.withLock { $0 } == ["a": 1, "b": 1])
         }
 
-        @Test func `a scene's part built on demand draws as the scene's part drawn at once`() {
+        @Test func `a scene's part built on demand draws as the scene's part drawn at once`() throws {
             let scene = Motion.Scene(rate: .thirty, frames: 4) { time in time < Rate.thirty.start(of: 3) ? 0 : 1 }
             let drawing: @Sendable (Int) -> Picture = { state in state == 0 ? .empty : [Tests.rectangle(0, 0, 1, 1, .white)] }
             let ready = Reel.Part("scene", scene: scene, picture: drawing)
             let later = Reel.Part("scene", scene: scene, building: { drawing })
             let frames = (0..<4).map { Reel.Frame(position: Ordinal(UInt($0)), time: .zero) }
-            #expect(frames.map(ready.picture) == frames.map(later.picture))
+            #expect(try frames.map { try ready.picture($0) } == frames.map { try later.picture($0) })
+        }
+
+        @Test func `a part whose building fails fails the reel's drawing with its key and that failure, built once`() async throws {
+            let built = Mutex(0)
+            let failing = Reel.Part("broken", frames: 2) { () throws(Picture.Text.Error) in
+                built.withLock { $0 += 1 }
+                throw .size
+            }
+            let reel = Reel(width: Self.width, height: Self.height, rate: .ntsc, parts: [Self.part("a", frames: 2, .white), failing])
+            #expect(throws: Reel.Error.building("broken", .size)) { try reel.picture(at: 2) }
+            #expect(throws: Reel.Error.building("broken", .size)) { try reel.picture(at: 3) }
+            #expect(built.withLock { $0 } == 1)
+            #expect(try reel.picture(at: 1) != .empty)
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.building(.size, at: 1)) {
+                try await reel.hosting(["broken"], workers: 1).rasters([1])
+            }
+            await #expect(throws: Reel.Error.building("broken", .size)) {
+                try await reel.prints(Reel.Proof(stills: [3]))
+            }
+            #expect(reel.failure(.building(.size, at: 1), of: ["broken"]) == .building("broken", .size))
+            #expect(built.withLock { $0 } == 1)
         }
     }
 #endif

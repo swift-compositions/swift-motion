@@ -477,5 +477,27 @@
             let pane = try #require(Self.pane(in: Picture(window, at: .resting)))
             #expect(pane.region == .superellipse(.init(frame, radius: 14, exponent: 5)))
         }
+
+        @Test func `a headline line's drift moves it across by that much at that moment and no drift draws it where it stands`() throws {
+            let headline = try Motion.Graphics.Headline(
+                [.init("A CIRCLE."), .init("FOR NOW", offset: 12)],
+                at: Picture.Plane.Point<2>([500, 300]),
+                style: .init(
+                    ink: .init(font: Fonts.sans, size: 100, color: .white),
+                    second: .black,
+                    measure: 640,
+                    pitch: 0.9,
+                    rise: 0.95,
+                    slot: .init(above: 0.8, below: 0.1),
+                    span: 1000
+                )
+            )
+            let still = headline.placements(at: .resting(2))
+            let drifting = headline.placements(at: .init([.init(risen: 1, drift: -30), .init(risen: 1, drift: 45)]))
+            #expect(drifting[0].point == Picture.Plane.Point<2>([still[0].point[0] - 30, still[0].point[1]]))
+            #expect(drifting[1].point == Picture.Plane.Point<2>([still[1].point[0] + 45, still[1].point[1]]))
+            #expect(drifting.map(\.slot) == still.map(\.slot))
+            #expect(Picture(headline, at: .init([.init(risen: 1, drift: 0), .resting])) == Picture(headline, at: .resting(2)))
+        }
     }
 #endif

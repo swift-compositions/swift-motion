@@ -165,11 +165,20 @@
 
         /// The picture of a frame of the reel: its part's picture of its own frame, with the picture of every
         /// layer alive at the frame's center laid over it in the order of the layers. From `frames` on it is
-        /// empty.
-        public func picture(at position: Ordinal) -> Picture::Picture {
+        /// empty. It fails with `.building` of the part's key when the part's drawing could not be built.
+        public func picture(at position: Ordinal) throws(Error) -> Picture::Picture {
             guard let place = place(of: position) else { return .empty }
+            do throws(Picture::Picture.Text.Error) {
+                return try picture(at: position, in: place)
+            } catch {
+                throw .building(place.key, error)
+            }
+        }
+
+        /// The picture of a frame of the reel at its place.
+        func picture(at position: Ordinal, in place: Place) throws(Picture::Picture.Text.Error) -> Picture::Picture {
             let part = parts[Int(bitPattern: place.part)]
-            var picture = part.picture(Frame(position: place.frame, time: rate.centre(of: Integer(Int(bitPattern: place.frame)))))
+            var picture = try part.drawing.drawn()(Frame(position: place.frame, time: rate.centre(of: Integer(Int(bitPattern: place.frame)))))
             let time = rate.centre(of: Integer(Int(bitPattern: position)))
             let frame = Frame(position: position, time: time)
             for layer in layers where layer.timeline.alive(at: time) {
@@ -196,11 +205,27 @@
                 workers: workers,
                 renderer: renderer,
                 store: store
-            ) { position in
-                guard let chosen else { return reel.picture(at: position) }
-                let place = Int(bitPattern: position)
-                return place < chosen.count ? reel.picture(at: chosen[place]) : .empty
+            ) { position throws(Picture::Picture.Text.Error) in
+                guard let shown = reel.position(of: position, among: chosen), let place = reel.place(of: shown) else { return .empty }
+                return try reel.picture(at: shown, in: place)
             }
+        }
+
+        /// The reel's frame drawn at a position of `hosting(_:)` of the chosen positions, or nil beyond them.
+        func position(of position: Ordinal, among chosen: [Ordinal]?) -> Ordinal? {
+            guard let chosen else { return position }
+            let place = Int(bitPattern: position)
+            return place < chosen.count ? chosen[place] : nil
+        }
+
+        /// The reel's failure for a failure of its frames drawn as `hosting(keys)` draws them: a part whose
+        /// drawing could not be built is named by its key, and any other failure is `.frames`.
+        public func failure(_ error: Motion.Hosting.Picture.Frames.Error, of keys: [Key]? = nil) -> Motion.Reel<Key>.Error {
+            guard case .building(let failure, at: let position) = error,
+                let shown = self.position(of: position, among: keys.map { positions(of: $0) }),
+                let place = place(of: shown)
+            else { return .frames(error) }
+            return .building(place.key, failure)
         }
     }
 
@@ -233,7 +258,7 @@
             do throws(Motion.Hosting.Picture.Frames.Error) {
                 drawn = try await drawing.drawn(wanted, as: Tile.form(columns: columns, stills: stills, of: drawing))
             } catch {
-                throw .frames(error)
+                throw failure(error, of: keys)
             }
             let tile = Dictionary(uniqueKeysWithValues: zip(wanted, drawn))
             var sheets: [String: [Byte]] = [:]

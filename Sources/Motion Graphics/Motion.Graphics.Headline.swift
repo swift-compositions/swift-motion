@@ -59,7 +59,8 @@
 
         /// Where the lines stand at a moment: each line that has a moment, has begun to rise and has not wholly
         /// gone, as it was set, its baseline lowered by `(1 − risen) × rise` sizes and raised by `gone × rise`
-        /// sizes, in its slot about the line's resting baseline, in sizes, `span` wide about the center.
+        /// sizes, moved across by its offset and its moment's drift, in its slot about the line's resting
+        /// baseline, in sizes, `span` wide about the center.
         public func placements(at moment: Moment) -> [Placement] {
             let baselines = baselines(opened: moment.opened)
             var placements: [Placement] = []
@@ -72,7 +73,7 @@
                     urx: .init(place[0] + style.span / 2),
                     ury: .init(bottom)
                 )
-                let point = Picture.Plane.Point<2>([place[0] + lines[index].offset, baselines[index] + lift])
+                let point = Picture.Plane.Point<2>([place[0] + lines[index].offset + state.drift, baselines[index] + lift])
                 placements.append(Placement(text: texts[index], point: point, slot: Picture.Plane.Path(slot)))
             }
             return placements

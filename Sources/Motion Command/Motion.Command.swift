@@ -156,7 +156,7 @@
                     do throws(Motion.Hosting.Picture.Frames.Error) {
                         made = try await feed.frame(at: position)
                     } catch {
-                        throw .frames(error)
+                        throw Error(reel.failure(error, of: keys))
                     }
                     guard let made else { return written }
                     let bytes: [Byte]
@@ -212,7 +212,7 @@
                         do throws(Motion.Hosting.Picture.Frames.Error) {
                             return try await reel.frames(at: instants, of: keys, store: store)
                         } catch {
-                            throw .frames(error)
+                            throw Error(reel.failure(error, of: keys))
                         }
                     }
             #endif

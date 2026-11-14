@@ -26,6 +26,9 @@
             /// A sheet or still asked for a frame beyond the frames written.
             case outside(Ordinal)
 
+            /// The part of that name could not be built: its words did not set.
+            case building(Swift.String, Picture::Picture.Text.Error)
+
             /// The frames were not drawn.
             case frames(Motion.Hosting.Picture.Frames.Error)
 
@@ -64,6 +67,8 @@
         /// A reel's failure as a command's.
         public init<Key>(_ error: Motion.Reel<Key>.Error) {
             switch error {
+            case .building(let key, let failure): self = .building(Swift.String(describing: key), failure)
+
             case .outside(let frame): self = .outside(frame)
 
             case .frames(let failure): self = .frames(failure)
