@@ -213,6 +213,7 @@ let package = Package(
             dependencies: [
                 .target(name: "Motion"),
                 .target(name: "Motion Picture"),
+                .target(name: "Motion Take File"),
                 .target(name: "Motion Encoding"),
                 .product(name: "Picture", package: "swift-picture"),
                 .product(name: "Picture CPU", package: "swift-picture"),

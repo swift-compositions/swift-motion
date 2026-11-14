@@ -134,7 +134,9 @@
             let read = try Motion.Take(written: bytes)
             #expect(throws: Motion.Take.Error.damaged(0)) { try read.frames[0].raster() }
             let frames = Motion.Hosting.Picture.Frames(width: take.width, height: take.height, workers: 1) { _ in Picture(read, at: .zero) }
-            await #expect(throws: Motion.Hosting.Picture.Frames.Error.self) { try await frames.rasters([0]) }
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.renderer(.drawing(.init(Motion.Take.Error.damaged(0))), at: 0)) {
+                try await frames.rasters([0])
+            }
         }
     }
 #endif

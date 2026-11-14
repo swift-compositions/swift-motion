@@ -219,7 +219,8 @@
         }
 
         /// The reel's failure for a failure of its frames drawn as `hosting(keys)` draws them: a part whose
-        /// drawing could not be built is named by its key, and any other failure is `.frames`.
+        /// drawing could not be built is named by its key, and any other failure is `.frames` of it unchanged, a
+        /// renderer's error with its position and, for a drawing's own failure, its reason.
         public func failure(_ error: Motion.Hosting.Picture.Frames.Error, of keys: [Key]? = nil) -> Motion.Reel<Key>.Error {
             guard case .building(let failure, at: let position) = error,
                 let shown = self.position(of: position, among: keys.map { positions(of: $0) }),

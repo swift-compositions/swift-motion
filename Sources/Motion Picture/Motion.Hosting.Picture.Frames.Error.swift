@@ -6,7 +6,8 @@
     extension Motion.Hosting.Picture.Frames {
         /// Why frames were not drawn.
         public enum Error: Swift.Error, Sendable, Equatable {
-            /// The renderer failed at the frame at a position.
+            /// The renderer failed at the frame at a position, with its error as it came: an image's drawing that
+            /// failed for a reason of its own, such as a take's damaged frame, is `.drawing` of that reason.
             case renderer(Picture::Picture.Renderer.Error, at: Ordinal)
 
             /// The picture of the frame at a position could not be built: its words did not set.
