@@ -3,7 +3,7 @@ import Foundation
 import ITU_T_H_273
 import Motion
 import Motion_Cache
-import Motion_Encoding
+@testable import Motion_Encoding
 import Test_Apple
 import Testing
 
@@ -123,13 +123,9 @@ import Testing
         return label.hasSuffix(".cooperative") ? label : nil
     }
 
-    @Test func `reading a movie waits for its frames on a thread of its own, never one of the cooperative pool`() async throws {
-        let url = try await Self.written(rate: .thirty, frames: 2)
-        var pooled: [String] = []
-        try await Motion.Encoding.read(url) { _, _ in
-            if let label = Self.cooperative() { pooled.append(label) }
-        }
-        #expect(pooled.isEmpty)
+    @Test func `a held reader or writer is called on a queue of its own, never a thread of the cooperative pool`() async {
+        let held = Motion.Encoding.Wait.Held(0)
+        #expect(await held.pooled() == nil)
     }
 
     @Test func `a signal AVFoundation cannot name is refused, not written untagged`() async {
@@ -228,5 +224,12 @@ import Testing
         let sounds = try await Motion.Encoding.Inspection(of: joined).sounds
         #expect(sounds == 1)
         #expect(try await AVURLAsset(url: joined).load(.duration) == CMTime(value: CMTimeValue(30 * ticks), timescale: CMTimeScale(timescale)))
+    }
+}
+
+extension Motion.Encoding.Wait.Held {
+    /// The cooperative queue a call on the held object runs on, or nil outside the pool.
+    func pooled() -> String? {
+        `Encoding Tests`.cooperative()
     }
 }

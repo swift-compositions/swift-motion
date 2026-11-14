@@ -124,21 +124,22 @@ extension Motion.Encoding {
             size: CVImageSize(width: sizes.width, height: sizes.height),
             compatibility: [.cgBitmapContext, .cgImage]
         )
-        let receiver = writer.inputPixelBufferReceiver(for: input, pixelBufferAttributes: attributes)
+        let receiver = Wait.Held(writer.inputPixelBufferReceiver(for: input, pixelBufferAttributes: attributes))
+        let name = url.lastPathComponent
         try writer.start()
         writer.startSession(atSourceTime: .zero)
         var index = Ordinal.zero
         while index < Ordinal(count) {
             guard let frame = await raster(index), frame.width == width, frame.height == height else { throw Motion.Encoding.Error.frame(index) }
-            var buffer = if let pool = receiver.pixelBufferPool { try pool.makeMutablePixelBuffer() } else { try CVMutablePixelBuffer(attributes) }
-            Self.copy(frame, into: &buffer)
-            try await receiver.append(CVReadOnlyPixelBuffer(buffer), with: try time(of: index))
+            let at = try time(of: index)
+            try await Wait.answer("the writer to take frame \(index) of \(name)") {
+                try await receiver.append(frame, at: at, attributes: attributes)
+            }
             index += Cardinal.one
         }
-        receiver.finish()
+        await receiver.finish()
         writer.endSession(atSourceTime: try end(of: count))
-        await writer.finishWriting()
-        guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+        try await Self.finish(Wait.Held(writer), name)
     }
 
     /// The movie's timescale: the rate's numerator in lowest terms, so a frame lasts its denominator in ticks.
@@ -201,23 +202,41 @@ extension Motion.Encoding {
     static func join(_ silent: URL, _ sound: URL, to url: URL) async throws {
         let picture = AVURLAsset(url: silent)
         let audio = AVURLAsset(url: sound)
+        let names = "\(silent.lastPathComponent) and \(sound.lastPathComponent)"
+        let loaded = try await Wait.load(
+            "the tracks of \(names)",
+            stop: {
+                picture.cancelLoading()
+                audio.cancelLoading()
+            }
+        ) {
+            let frames = try await picture.loadTracks(withMediaType: .video).first
+            return (
+                duration: try await picture.load(.duration),
+                frames: frames,
+                scale: try await frames?.load(.naturalTimeScale),
+                samples: try await audio.loadTracks(withMediaType: .audio).first,
+                heard: try await audio.load(.duration)
+            )
+        }
+        let (duration, heard) = (loaded.duration, loaded.heard)
         let composition = AVMutableComposition()
-        let duration = try await picture.load(.duration)
         guard
-            let frames = try await picture.loadTracks(withMediaType: .video).first,
-            let samples = try await audio.loadTracks(withMediaType: .audio).first,
+            let frames = loaded.frames,
+            let scale = loaded.scale,
+            let samples = loaded.samples,
             let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
             let sound = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
         else { throw Motion.Encoding.Error.writer("\(silent.lastPathComponent) or \(sound.lastPathComponent) has no track") }
-        video.naturalTimeScale = try await frames.load(.naturalTimeScale)
+        video.naturalTimeScale = scale
         try video.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: frames, at: .zero)
-        let length = min(duration, try await audio.load(.duration))
+        let length = min(duration, heard)
         try sound.insertTimeRange(CMTimeRange(start: .zero, duration: length), of: samples, at: .zero)
         guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
             throw Motion.Encoding.Error.writer("no passthrough export session")
         }
         session.shouldOptimizeForNetworkUse = true
-        try await session.export(to: url, as: .mp4)
+        try await Wait.export("the joining of \(names)", of: session, to: url)
     }
 }
 
@@ -237,37 +256,32 @@ extension Motion.Encoding {
         }
     }
 
-    /// `body` run with a `Reader` of its own as its executor. An `AVAssetReader`
-    /// output's provider waits for its next sample by blocking the thread that asks. Asked on the cooperative
-    /// pool, as many readers as the pool has threads hold all of it, and work they wait on that needs the pool
-    /// never runs: on a three-processor Mac, three readers waited there for good while a writer's task had no
-    /// thread to go on. So every read waits on a thread of its own.
-    static func reading<T, Failure: Swift.Error>(_ body: () async throws(Failure) -> T) async throws(Failure) -> T {
-        try await withTaskExecutorPreference(Reader(), operation: body)
-    }
-
     // swift-linter:disable:next untyped throws
     // REASON: it calls AVURLAsset's loaders and AVAssetReader, which throw untyped; read(_:each:) types them.
-    /// `read(_:each:)` on a `Reader` of its own.
+    /// `read(_:each:)`, each sample asked through `Wait.sample`.
     static func decoded(_ url: URL, each: (Ordinal, Raster<Motion.Pixel>) async -> Void) async throws -> Cardinal {
-        try await reading {
-            let asset = AVURLAsset(url: url)
+        let asset = AVURLAsset(url: url)
+        let name = url.lastPathComponent
+        let stop: @Sendable () -> Void = { asset.cancelLoading() }
+        let track = try await Wait.load("the picture of \(name)", stop: stop) {
             guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-                throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has no picture")
+                throw Motion.Encoding.Error.reader("\(name) has no picture")
             }
-            let reader = try AVAssetReader(asset: asset)
-            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
-            let provider = reader.outputProvider(for: output)
-            try reader.start()
-            var frame = Ordinal.zero
-            while let buffer = try await provider.next() {
-                guard let raster = buffer.withUnsafeSampleBuffer({ sample in sample.imageBuffer.flatMap(Self.raster) }) else { continue }
-                await each(frame, raster)
-                frame += Cardinal.one
-            }
-            guard reader.status == .completed else { throw Motion.Encoding.Error.reader(reader.error?.localizedDescription ?? "not read to the end") }
-            return Cardinal(frame)
+            return track
         }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        let samples = Motion.Encoding.Wait.Held(reader.outputProvider(for: output))
+        try reader.start()
+        var frame = Ordinal.zero
+        while true {
+            guard let buffer = try await Wait.sample("the next frame of \(name)", of: samples, stop: stop) else { break }
+            guard let raster = buffer.withUnsafeSampleBuffer({ sample in sample.imageBuffer.flatMap(Self.raster) }) else { continue }
+            await each(frame, raster)
+            frame += Cardinal.one
+        }
+        guard reader.status == .completed else { throw Motion.Encoding.Error.reader(reader.error?.localizedDescription ?? "not read to the end") }
+        return Cardinal(frame)
     }
 
     /// The pixels of a decoded BGRA frame, checked and copied straight out of the locked buffer.
@@ -333,12 +347,14 @@ extension Motion.Encoding {
     // REASON: loadTracks, insertTimeRange, AVAssetReader and AVAssetWriter throw untyped; score(_:with:to:) types them.
     static func lay(_ cues: [Cue], under picture: URL, to url: URL) async throws {
         let movie = AVURLAsset(url: picture)
-        guard let frames = try await movie.loadTracks(withMediaType: .video).first, let format = try await frames.load(.formatDescriptions).first else {
-            throw Motion.Encoding.Error.reader("\(picture.lastPathComponent) has no picture")
+        let name = picture.lastPathComponent
+        let (frames, format, range, scale) = try await Wait.load("the picture of \(name)", stop: { movie.cancelLoading() }) {
+            guard let frames = try await movie.loadTracks(withMediaType: .video).first, let format = try await frames.load(.formatDescriptions).first else {
+                throw Motion.Encoding.Error.reader("\(name) has no picture")
+            }
+            return (frames, format, try await frames.load(.timeRange), try await frames.load(.naturalTimeScale))
         }
-        let range = try await frames.load(.timeRange)
-        guard let film = instant(range.end) else { throw Motion.Encoding.Error.reader("\(picture.lastPathComponent) states no length") }
-        let scale = try await frames.load(.naturalTimeScale)
+        guard let film = instant(range.end) else { throw Motion.Encoding.Error.reader("\(name) states no length") }
         let composition = AVMutableComposition()
         guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
             throw Motion.Encoding.Error.writer("no picture track could be made")
@@ -346,9 +362,14 @@ extension Motion.Encoding {
         video.naturalTimeScale = scale
         try video.insertTimeRange(CMTimeRange(start: .zero, duration: range.end), of: frames, at: .zero)
         var parameters: [AVMutableAudioMixInputParameters] = []
+        var sounds: [AVURLAsset] = []
         for (index, cue) in cues.enumerated() {
             let sound = AVURLAsset(url: cue.sound)
-            guard let samples = try await sound.loadTracks(withMediaType: .audio).first, let heard = instant(try await sound.load(.duration)) else {
+            sounds.append(sound)
+            let loaded = try await Wait.load("the sound of cue \(index), \(cue.sound.lastPathComponent)", stop: { sound.cancelLoading() }) {
+                (samples: try await sound.loadTracks(withMediaType: .audio).first, heard: instant(try await sound.load(.duration)))
+            }
+            guard let samples = loaded.samples, let heard = loaded.heard else {
                 throw Motion.Encoding.Error.cue(Ordinal(UInt(index)))
             }
             let length = Swift.min(heard - cue.offset, film - cue.entry)
@@ -363,24 +384,27 @@ extension Motion.Encoding {
         mix.inputParameters = parameters
         let reader = try AVAssetReader(asset: composition)
         let pictures = AVAssetReaderTrackOutput(track: video, outputSettings: nil)
-        let sounds = AVAssetReaderAudioMixOutput(audioTracks: composition.tracks(withMediaType: .audio), audioSettings: Self.mixed)
-        sounds.audioMix = mix
+        let mixed = AVAssetReaderAudioMixOutput(audioTracks: composition.tracks(withMediaType: .audio), audioSettings: Self.mixed)
+        mixed.audioMix = mix
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         writer.movieTimeScale = scale
         let copied = AVAssetWriterInput(mediaType: .video, outputSettings: nil, sourceFormatHint: format)
         copied.mediaTimeScale = scale
         let encoded = AVAssetWriterInput(mediaType: .audio, outputSettings: Self.aac)
-        let (pictureProvider, soundProvider) = (reader.outputProvider(for: pictures), reader.outputProvider(for: sounds))
+        let (pictureProvider, soundProvider) = (reader.outputProvider(for: pictures), reader.outputProvider(for: mixed))
         let (pictureReceiver, soundReceiver) = (writer.inputReceiver(for: copied), writer.inputReceiver(for: encoded))
+        let stop: @Sendable () -> Void = { [sounds] in
+            movie.cancelLoading()
+            sounds.forEach { $0.cancelLoading() }
+        }
         try reader.start()
         try writer.start()
         writer.startSession(atSourceTime: .zero)
-        async let picturesCopied: Void = pump(pictureProvider, into: pictureReceiver)
-        async let soundsEncoded: Void = pump(soundProvider, into: soundReceiver)
+        async let picturesCopied: Void = pump(pictureProvider, into: pictureReceiver, of: "the picture of \(name)", stop: stop)
+        async let soundsEncoded: Void = pump(soundProvider, into: soundReceiver, of: "the sound under \(name)", stop: stop)
         _ = try await (picturesCopied, soundsEncoded)
         writer.endSession(atSourceTime: range.end)
-        await writer.finishWriting()
-        guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+        try await Self.finish(Wait.Held(writer), url.lastPathComponent)
     }
 
     /// A cue's level over its stretch: its gain, reached from silence over its fade in and left for silence
@@ -402,15 +426,19 @@ extension Motion.Encoding {
     }
 
     /// Every sample a reader's output gives, appended to a writer's input in order, and the input finished.
-    /// A failure to read or to append is `.writer`.
+    /// A wait past its limit is `.unanswered`, naming `what`; any other failure to read or to append is `.writer`.
     static func pump(
         _ provider: sending AVAssetReaderOutput.Provider<CMReadySampleBuffer<CMSampleBuffer.DynamicContent>>,
-        into receiver: sending AVAssetWriterInput.SampleBufferReceiver
+        into receiver: sending AVAssetWriterInput.SampleBufferReceiver,
+        of what: String,
+        stop: @escaping @Sendable () -> Void
     ) async throws(Motion.Encoding.Error) {
         // swift-linter:disable:next do throws for typed catch
         // REASON: the provider's next() and the receiver's append throw untyped; their errors become Error.writer.
         do {
-            try await copy(provider, into: receiver)
+            try await copy(provider, into: receiver, of: what, stop: stop)
+        } catch let failure as Motion.Encoding.Error {
+            throw failure
         } catch {
             throw .writer("\(error)")
         }
@@ -418,14 +446,33 @@ extension Motion.Encoding {
 
     // swift-linter:disable:next untyped throws
     // REASON: the provider's next() and the receiver's append throw untyped; pump(_:into:) types them.
-    /// `pump(_:into:)` on a `Reader` of its own.
-    static func copy(_ provider: sending Samples, into receiver: sending AVAssetWriterInput.SampleBufferReceiver) async throws {
-        try await reading {
-            while let buffer = try await provider.next() {
-                try await receiver.append(buffer)
+    /// `pump(_:into:of:stop:)`: the provider and the receiver each held on a queue of their own.
+    static func copy(
+        _ provider: sending Samples,
+        into receiver: sending AVAssetWriterInput.SampleBufferReceiver,
+        of what: String,
+        stop: @escaping @Sendable () -> Void
+            // swift-linter:disable:next untyped throws
+            // REASON: the provider's next() and the receiver's append throw untyped; pump(_:into:of:stop:) types them.
+    ) async throws {
+        let (samples, taking) = (Wait.Held(provider), Wait.Held(receiver))
+        while true {
+            guard let buffer = try await Wait.sample("the next sample of \(what)", of: samples, stop: stop) else { break }
+            try await Wait.answer("the writer to take a sample of \(what)") {
+                try await taking.append(buffer)
             }
-            receiver.finish()
         }
+        await taking.finish()
+    }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: it waits through Wait.answer, which throws untyped; write and score type it.
+    /// Finishes a writer within the limit, and fails with `.writer` unless it completed.
+    static func finish(_ writer: Wait.Held<AVAssetWriter>, _ name: String) async throws {
+        let failure = try await Wait.answer("the writer to finish \(name)") {
+            await writer.finish()
+        }
+        if let failure { throw Motion.Encoding.Error.writer(failure) }
     }
 
     /// What an `AVAssetReader` output's provider gives: its samples, ready.
@@ -543,13 +590,17 @@ extension Motion.Encoding {
     // REASON: loadTracks, AVAssetReader and AVAssetWriter throw untyped; reduced(_:to:width:height:bits:) types them.
     static func shrink(_ movie: URL, to url: URL, width: Int, height: Int, bits: Int) async throws {
         let asset = AVURLAsset(url: movie)
-        guard let frames = try await asset.loadTracks(withMediaType: .video).first, let format = try await frames.load(.formatDescriptions).first else {
-            throw Motion.Encoding.Error.reader("\(movie.lastPathComponent) has no picture")
+        let name = movie.lastPathComponent
+        let stop: @Sendable () -> Void = { asset.cancelLoading() }
+        let (frames, format, sounds, range, scale, hint) = try await Wait.load("the picture and sound of \(name)", stop: stop) {
+            guard let frames = try await asset.loadTracks(withMediaType: .video).first, let format = try await frames.load(.formatDescriptions).first else {
+                throw Motion.Encoding.Error.reader("\(name) has no picture")
+            }
+            let sounds = try await asset.loadTracks(withMediaType: .audio)
+            guard sounds.count <= 1 else { throw Motion.Encoding.Error.reader("\(name) has more than one sound") }
+            let hint = try await sounds.first?.load(.formatDescriptions).first
+            return (frames, format, sounds, try await frames.load(.timeRange), try await frames.load(.naturalTimeScale), hint)
         }
-        let sounds = try await asset.loadTracks(withMediaType: .audio)
-        guard sounds.count <= 1 else { throw Motion.Encoding.Error.reader("\(movie.lastPathComponent) has more than one sound") }
-        let range = try await frames.load(.timeRange)
-        let scale = try await frames.load(.naturalTimeScale)
         let reader = try AVAssetReader(asset: asset)
         let decoded = AVAssetReaderTrackOutput(track: frames, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
@@ -571,25 +622,24 @@ extension Motion.Encoding {
         encoded.mediaTimeScale = scale
         if let sound = sounds.first {
             let copied = AVAssetReaderTrackOutput(track: sound, outputSettings: nil)
-            let copy = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: try await sound.load(.formatDescriptions).first)
+            let copy = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: hint)
             let (pictureProvider, pictureReceiver) = (reader.outputProvider(for: decoded), writer.inputReceiver(for: encoded))
             let (soundProvider, soundReceiver) = (reader.outputProvider(for: copied), writer.inputReceiver(for: copy))
             try reader.start()
             try writer.start()
             writer.startSession(atSourceTime: range.start)
-            async let picturesEncoded: Void = pump(pictureProvider, into: pictureReceiver)
-            async let soundCopied: Void = pump(soundProvider, into: soundReceiver)
+            async let picturesEncoded: Void = pump(pictureProvider, into: pictureReceiver, of: "the picture of \(name)", stop: stop)
+            async let soundCopied: Void = pump(soundProvider, into: soundReceiver, of: "the sound of \(name)", stop: stop)
             _ = try await (picturesEncoded, soundCopied)
         } else {
             let (pictureProvider, pictureReceiver) = (reader.outputProvider(for: decoded), writer.inputReceiver(for: encoded))
             try reader.start()
             try writer.start()
             writer.startSession(atSourceTime: range.start)
-            try await pump(pictureProvider, into: pictureReceiver)
+            try await pump(pictureProvider, into: pictureReceiver, of: "the picture of \(name)", stop: stop)
         }
         writer.endSession(atSourceTime: range.end)
-        await writer.finishWriting()
-        guard writer.status == .completed else { throw Motion.Encoding.Error.writer(writer.error?.localizedDescription ?? "not completed") }
+        try await Self.finish(Wait.Held(writer), url.lastPathComponent)
     }
 }
 
@@ -635,11 +685,17 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: loadTracks and load throw untyped; their errors become Error.reader.
         do {
-            var total: Int64 = 0
-            for track in try await AVURLAsset(url: url).loadTracks(withMediaType: .audio) {
-                total += try await track.load(.totalSampleDataLength)
+            let asset = AVURLAsset(url: url)
+            let total = try await Wait.load("the sound of \(url.lastPathComponent)", stop: { asset.cancelLoading() }) {
+                var total: Int64 = 0
+                for track in try await asset.loadTracks(withMediaType: .audio) {
+                    total += try await track.load(.totalSampleDataLength)
+                }
+                return total
             }
             return Cardinal(UInt(Swift.max(total, 0)))
+        } catch let failure as Motion.Encoding.Error {
+            throw failure
         } catch {
             throw .reader("\(error)")
         }

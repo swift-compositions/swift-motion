@@ -19,6 +19,9 @@ extension Motion.Encoding {
         case reader(String)
         /// An instant AVFoundation cannot be told exactly: its numerator or denominator does not fit a `CMTime`.
         case instant(Rational)
+        /// AVFoundation did not answer a wait within `Motion.Encoding.Wait.limit`: the text names what was waited
+        /// for and the limit.
+        case unanswered(String)
         /// The cue at this position lays no sound under the picture: it enters at or after the picture's end,
         /// starts at or after its sound's end, or its sound has no audio.
         case cue(Ordinal)

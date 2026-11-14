@@ -69,44 +69,46 @@ extension Motion.Decoding {
     /// The frames shown at instants given in ascending order, by instant, read in one pass from the sync frame
     /// before the first.
     func decode(_ wanted: [Rational], from first: Rational) async throws -> [Rational: Raster<Motion.Pixel>] {
-        try await Motion.Encoding.reading {
-            let asset = AVURLAsset(url: url)
+        let asset = AVURLAsset(url: url)
+        let name = url.lastPathComponent
+        let stop: @Sendable () -> Void = { asset.cancelLoading() }
+        let (track, scale, limit) = try await Motion.Encoding.Wait.load("the picture of \(name)", stop: stop) {
             guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-                throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has no picture")
+                throw Motion.Encoding.Error.reader("\(name) has no picture")
             }
-            let scale = try await track.load(.naturalTimeScale)
-            let limit = Motion.Encoding.instant(try await track.load(.timeRange).end)
-            let reader = try AVAssetReader(asset: asset)
-            let ticks = ((first * Rational(Integer(scale))).floor - Integer(scale)).exactly(CMTimeValue.self) ?? .max
-            reader.timeRange = CMTimeRange(start: CMTime(value: Swift.max(ticks, 0), timescale: scale), duration: .positiveInfinity)
-            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
-            let provider = reader.outputProvider(for: output)
-            try reader.start()
-            var shown: [Rational: Raster<Motion.Pixel>] = [:]
-            var next = wanted.startIndex
-            var held: (start: Rational, end: Rational?, raster: Raster<Motion.Pixel>?)?
-            while next < wanted.endIndex, let buffer = try await provider.next() {
-                let timing = buffer.withUnsafeSampleBuffer { sample in (sample.presentationTimeStamp, sample.duration) }
-                guard let begins = Motion.Encoding.instant(timing.0) else { continue }
-                if let frame = held {
-                    while next < wanted.endIndex, wanted[next] < begins {
-                        if wanted[next] >= frame.start { shown[wanted[next]] = frame.raster }
-                        next += 1
-                    }
-                }
-                // WHY: a decoded frame may state no duration; the last one then lasts until the picture's end.
-                let ends = Motion.Encoding.instant(timing.1).flatMap { $0 > .zero ? begins + $0 : nil } ?? limit
-                // WHY: only a frame that can show at the next instant asked for becomes a raster.
-                let needed = next < wanted.endIndex && ends.map { wanted[next] < $0 } ?? true
-                held = (begins, ends, needed ? buffer.withUnsafeSampleBuffer { sample in sample.imageBuffer.flatMap(Motion.Encoding.raster) } : nil)
-            }
-            if let frame = held {
-                for instant in wanted[next...] where instant >= frame.start && frame.end.map({ instant < $0 }) ?? false {
-                    shown[instant] = frame.raster
-                }
-            }
-            reader.cancelReading()
-            return shown
+            return (track, try await track.load(.naturalTimeScale), Motion.Encoding.instant(try await track.load(.timeRange).end))
         }
+        let reader = try AVAssetReader(asset: asset)
+        let ticks = ((first * Rational(Integer(scale))).floor - Integer(scale)).exactly(CMTimeValue.self) ?? .max
+        reader.timeRange = CMTimeRange(start: CMTime(value: Swift.max(ticks, 0), timescale: scale), duration: .positiveInfinity)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+        let samples = Motion.Encoding.Wait.Held(reader.outputProvider(for: output))
+        try reader.start()
+        var shown: [Rational: Raster<Motion.Pixel>] = [:]
+        var next = wanted.startIndex
+        var held: (start: Rational, end: Rational?, raster: Raster<Motion.Pixel>?)?
+        while next < wanted.endIndex {
+            guard let buffer = try await Motion.Encoding.Wait.sample("the next frame of \(name)", of: samples, stop: stop) else { break }
+            let timing = buffer.withUnsafeSampleBuffer { sample in (sample.presentationTimeStamp, sample.duration) }
+            guard let begins = Motion.Encoding.instant(timing.0) else { continue }
+            if let frame = held {
+                while next < wanted.endIndex, wanted[next] < begins {
+                    if wanted[next] >= frame.start { shown[wanted[next]] = frame.raster }
+                    next += 1
+                }
+            }
+            // WHY: a decoded frame may state no duration; the last one then lasts until the picture's end.
+            let ends = Motion.Encoding.instant(timing.1).flatMap { $0 > .zero ? begins + $0 : nil } ?? limit
+            // WHY: only a frame that can show at the next instant asked for becomes a raster.
+            let needed = next < wanted.endIndex && ends.map { wanted[next] < $0 } ?? true
+            held = (begins, ends, needed ? buffer.withUnsafeSampleBuffer { sample in sample.imageBuffer.flatMap(Motion.Encoding.raster) } : nil)
+        }
+        if let frame = held {
+            for instant in wanted[next...] where instant >= frame.start && frame.end.map({ instant < $0 }) ?? false {
+                shown[instant] = frame.raster
+            }
+        }
+        reader.cancelReading()
+        return shown
     }
 }

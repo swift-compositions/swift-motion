@@ -26,41 +26,50 @@ extension Motion.Encoding {
             // REASON: AVURLAsset's loaders and AVAssetReader throw untyped; their errors become Error.reader.
             do {
                 let asset = AVURLAsset(url: url)
-                guard let track = try await asset.loadTracks(withMediaType: .video).first, let format = try await track.load(.formatDescriptions).first else {
-                    throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has no picture")
+                self = try await Motion.Encoding.Wait.load("what \(url.lastPathComponent) holds", stop: { asset.cancelLoading() }) {
+                    try await Self(reading: asset, named: url.lastPathComponent)
                 }
-                let size = format.dimensions
-                let length = try await asset.load(.duration)
-                guard let width = UInt(exactly: size.width), let height = UInt(exactly: size.height), length.timescale > 0 else {
-                    throw Motion.Encoding.Error.reader("\(url.lastPathComponent) states no size or length")
-                }
-                guard try await track.load(.canProvideSampleCursors) else {
-                    throw Motion.Encoding.Error.reader("\(url.lastPathComponent) has a picture whose samples cannot be stepped through")
-                }
-                // WHY: The count walks the track's sample table and reads no sample data. An AVAssetReader
-                // waits on CoreMedia's shared read queue, and three movies read at once have waited there for good.
-                var frames = Cardinal.zero
-                if let cursor = track.makeSampleCursorAtFirstSampleInDecodeOrder() {
-                    frames += Cardinal.one
-                    while cursor.stepInDecodeOrder(byCount: 1) == 1 { frames += Cardinal.one }
-                }
-                let shortest = try await track.load(.minFrameDuration)
-                let code = format.mediaSubType.rawValue
-                self.init(
-                    codec: String(decoding: [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: code >> $0) }, as: UTF8.self),
-                    width: Cardinal(width),
-                    height: Cardinal(height),
-                    frames: frames,
-                    duration: try Rational(numerator: Integer(length.value), denominator: Integer(length.timescale)),
-                    signal: Self.signal(format),
-                    sounds: Cardinal(UInt(try await asset.loadTracks(withMediaType: .audio).count)),
-                    rate: Self.rate(shortest)
-                )
             } catch let failure as Motion.Encoding.Error {
                 throw failure
             } catch {
                 throw .reader("\(error)")
             }
+        }
+
+        // swift-linter:disable:next untyped throws
+        // REASON: AVURLAsset's loaders throw untyped; init(of:) types them.
+        /// What a movie holds, loaded from its asset; `name` names it in a failure.
+        init(reading asset: AVURLAsset, named name: String) async throws {
+            guard let track = try await asset.loadTracks(withMediaType: .video).first, let format = try await track.load(.formatDescriptions).first else {
+                throw Motion.Encoding.Error.reader("\(name) has no picture")
+            }
+            let size = format.dimensions
+            let length = try await asset.load(.duration)
+            guard let width = UInt(exactly: size.width), let height = UInt(exactly: size.height), length.timescale > 0 else {
+                throw Motion.Encoding.Error.reader("\(name) states no size or length")
+            }
+            guard try await track.load(.canProvideSampleCursors) else {
+                throw Motion.Encoding.Error.reader("\(name) has a picture whose samples cannot be stepped through")
+            }
+            // WHY: The count walks the track's sample table and reads no sample data. An AVAssetReader
+            // waits on CoreMedia's shared read queue, and three movies read at once have waited there for good.
+            var frames = Cardinal.zero
+            if let cursor = track.makeSampleCursorAtFirstSampleInDecodeOrder() {
+                frames += Cardinal.one
+                while cursor.stepInDecodeOrder(byCount: 1) == 1 { frames += Cardinal.one }
+            }
+            let shortest = try await track.load(.minFrameDuration)
+            let code = format.mediaSubType.rawValue
+            self.init(
+                codec: String(decoding: [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: code >> $0) }, as: UTF8.self),
+                width: Cardinal(width),
+                height: Cardinal(height),
+                frames: frames,
+                duration: try Rational(numerator: Integer(length.value), denominator: Integer(length.timescale)),
+                signal: Self.signal(format),
+                sounds: Cardinal(UInt(try await asset.loadTracks(withMediaType: .audio).count)),
+                rate: Self.rate(shortest)
+            )
         }
 
         init(
