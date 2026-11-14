@@ -64,6 +64,28 @@ import Testing
         #expect(shown == expected)
     }
 
+    @Test func `outside its frames a take shows nothing by default, and its nearest frame held when it extends`() throws {
+        let take = try Motion.Take((0..<4).map { try Self.raster(width: 2, height: 2, seed: $0) }, rate: .ntsc)
+        let rate = Rate.ntsc
+        let before = Rational.zero - rate.period * .half
+        #expect(take.position(at: before) == nil && take.position(at: before, outside: .empty) == nil)
+        #expect(take.position(at: before, outside: .extend) == .zero)
+        #expect(take.position(at: -1000, outside: .extend) == .zero)
+        #expect(take.position(at: rate.start(of: 4), outside: .extend) == 3)
+        #expect(take.position(at: 1000, outside: .extend) == 3)
+        #expect(take.frame(at: rate.start(of: 4), outside: .extend) == take.frames[3])
+        #expect(take.frame(at: before, outside: .extend) == take.frames[0])
+        (0..<4).forEach { k in
+            #expect(take.position(at: rate.centre(of: Integer(k)), outside: .extend) == Ordinal(UInt(k)))
+        }
+        let empty = try Motion.Take([Raster<Motion.Pixel>](), rate: .ntsc)
+        for edge in Motion.Take.Edge.allCases {
+            for instant in [before, .zero, 1] {
+                #expect(empty.position(at: instant, outside: edge) == nil && empty.frame(at: instant, outside: edge) == nil)
+            }
+        }
+    }
+
     static let seeds = [0, 1, 0, 2, 2, 0]
 
     /// A take of non-opaque frames at 29.97 whose first frame comes back twice and whose third comes back once more.

@@ -79,6 +79,17 @@
             #expect(Picture(take, at: Rate.thirty.start(of: 1)) == Picture(take.frames[1]))
         }
 
+        @Test func `a take outside its frames holds its first and last frame when asked to extend, and an empty take shows nothing`() throws {
+            let take = try Self.take([0, 1])
+            #expect(Picture(take, at: Rational.zero - Rate.thirty.period * .half, outside: .extend) == Picture(take.frames[0]))
+            #expect(Picture(take, at: Rate.thirty.start(of: 2), outside: .extend) == Picture(take.frames[1]))
+            #expect(Picture(take, at: 100, outside: .extend) == Picture(take.frames[1]))
+            #expect(Picture(take, at: Rate.thirty.start(of: 0), outside: .extend) == Picture(take.frames[0]))
+            #expect(Picture(take, at: Rate.thirty.start(of: 2), outside: .empty) == [])
+            let empty = try Motion.Take([Raster<Motion.Pixel>](), rate: .thirty)
+            #expect(Picture(empty, at: .zero, outside: .extend) == [])
+        }
+
         @Test func `equal takes give equal pictures and one stored entry; one differing pixel gives another`() async throws {
             let first = try Self.take([7])
             let second = try Self.take([7])

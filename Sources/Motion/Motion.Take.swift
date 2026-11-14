@@ -49,16 +49,20 @@ extension Motion {
 
 extension Motion.Take {
     /// The frame shown at an instant in seconds from the take's start: the one at `rate.index(at:)` of it, so at
-    /// a frame's start and center alike that frame, at any rate; nil before zero and from the end of the last
-    /// frame on.
-    public func position(at instant: Rational) -> Ordinal? {
-        guard instant >= .zero, let index = rate.index(at: instant).exactly(UInt.self), index < UInt(frames.count) else { return nil }
+    /// a frame's start and center alike that frame, at any rate. Outside the frames, before zero and from the end
+    /// of the last frame on, it is what `outside` says: nil for `.empty`, the default, and the first or the last
+    /// frame for `.extend`. A take of no frames shows none anywhere.
+    public func position(at instant: Rational, outside: Edge = .empty) -> Ordinal? {
+        guard let end = frames.indices.last else { return nil }
+        let last = UInt(end)
+        guard instant >= .zero else { return outside == .extend ? .zero : nil }
+        guard let index = rate.index(at: instant).exactly(UInt.self), index <= last else { return outside == .extend ? Ordinal(last) : nil }
         return Ordinal(index)
     }
 
-    /// The frame `position(at:)` gives, or nil.
-    public func frame(at instant: Rational) -> Frame? {
-        position(at: instant).map { frames[Int(bitPattern: $0)] }
+    /// The frame `position(at:outside:)` gives, or nil.
+    public func frame(at instant: Rational, outside: Edge = .empty) -> Frame? {
+        position(at: instant, outside: outside).map { frames[Int(bitPattern: $0)] }
     }
 }
 
