@@ -16,7 +16,7 @@
                 least: 4,
                 color: .white,
                 finish: Picture.Color(hex: 0xB9F8DA),
-                fall: 2,
+                fall: .power(2),
                 trail: .init(count: 3, lag: 0.06, fade: 0.6),
                 glow: .init(deviation: 12, strength: 1)
             )
@@ -33,8 +33,6 @@
                     least: 4,
                     color: .white,
                     finish: .white,
-                    fall: 1,
-                    trail: .init(count: 0, lag: 0, fade: 1),
                     glow: glow
                 )
             )
@@ -112,6 +110,49 @@
             let glowing = Picture(Self.single(glow: .init(deviation: 8, strength: 1)), at: .init(spread: 0.4))
             guard case .layer(let lit) = glowing.elements.first else { return }
             #expect(lit.content.elements.count == 2)
+        }
+
+        @Test func `a soft ring is blurred by its softness, mixed by spread as its pen is, and lights a thing as the hard ring does`() throws {
+            var style = Self.single().style
+            style.soft = 2
+            style.softened = 10
+            let soft = Motion.Graphics.Shockwave(at: Self.single().centre, style: style)
+            let ring = try #require(soft.rings(at: .init(spread: 0.25)).first)
+            let hard = try #require(Self.single().rings(at: .init(spread: 0.25)).first)
+            #expect(ring.softness == 4 && hard.softness == 0)
+            #expect(ring.radius == hard.radius && ring.pen == hard.pen && ring.light == hard.light && ring.color == hard.color)
+            for distance in [0.0, 150, 170, 180, 185, 200] {
+                #expect(ring.light(at: distance) == hard.light(at: distance))
+            }
+            guard case .layer(let lit) = Picture(soft, at: .init(spread: 0.25)).elements.first,
+                case .layer(let blurred) = lit.content.elements.first,
+                case .layer(let plain) = Picture(Self.single(), at: .init(spread: 0.25)).elements.first
+            else {
+                Issue.record("a soft ring is a blurred layer among the rings' light")
+                return
+            }
+            #expect(blurred.effects == [.blur(Picture.Effect.Blur(deviation: 4))])
+            #expect(blurred.content.elements == plain.content.elements)
+            guard case .shape = plain.content.elements.first else {
+                Issue.record("a ring without softness is a hard stroke")
+                return
+            }
+        }
+
+        @Test func `without a trail the lead ring is the only one`() {
+            #expect(Self.single().style.trail == nil)
+            #expect(Self.single().rings(at: .init(spread: 0.5)).count == 1)
+            #expect(Self.shockwave.rings(at: .init(spread: 0.5)).count == 4)
+        }
+
+        @Test func `a ring's light is the fall at what is left of its spread, times the trail's fade for each step behind`() {
+            let rings = Self.shockwave.rings(at: .init(spread: 0.5))
+            let lead = 0.5 * 1.18
+            for (step, ring) in rings.enumerated() {
+                let left = 1 - (lead - Double(step) * 0.06)
+                let fade = (0..<step).reduce(1.0) { light, _ in light * 0.6 }
+                #expect(Swift.abs(ring.light - fade * left * left) < 1e-12)
+            }
         }
     }
 #endif

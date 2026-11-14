@@ -37,7 +37,7 @@
             let room = columns.map { Swift.max(Int(clamping: $0) - lead, 1) }
             var glyphs: [[UInt8]] = []
             for byte in text.utf8 {
-                if byte & 0xc0 == 0x80, !glyphs.isEmpty { glyphs[glyphs.count - 1].append(byte) } else { glyphs.append([byte]) }
+                if byte & 0xc0 == 0x80, let last = glyphs.indices.last { glyphs[last].append(byte) } else { glyphs.append([byte]) }
             }
             var rows: [(start: Int, words: Swift.String)] = []
             var start = 0

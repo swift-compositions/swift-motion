@@ -3,6 +3,7 @@
     import Picture
     import Standard_Library_Extensions
     import Testing
+    import Timeline
 
     @testable import Motion_Graphics
 
@@ -117,7 +118,15 @@
                 )
             )
             drawn.append(("checklist resting", Picture(checklist, at: .resting(3))))
-            drawn.append(("checklist settling", Picture(checklist, at: .init(shown: 1, settled: 1, headed: 0.4, toned: 0.3, stated: 0.7, rows: [.resting, .init(box: .init(box: 1, filled: 1, stroke: 0.4), named: 0.5, tagged: 0.5)]))))
+            drawn.append(
+                (
+                    "checklist settling",
+                    Picture(
+                        checklist,
+                        at: .init(shown: 1, settled: 1, headed: 0.4, toned: 0.3, stated: 0.7, rows: [.resting, .init(box: .init(box: 1, filled: 1, stroke: 0.4), named: 0.5, tagged: 0.5)])
+                    )
+                )
+            )
             drawn.append(("checklist plate", Picture(checklist, at: .init(shown: 0.6, settled: 1, headed: 0, toned: 0, stated: 0, rows: []))))
             drawn.append(("row alone", Picture(checklist.rows[1], at: .init(box: .ticked, named: 0.6, tagged: 0.5))))
 
@@ -147,10 +156,10 @@
                 at: Picture.Plane.Point<2>([100, 80]),
                 radius: 40,
                 style: .init(
-                pen: 8,
-                track: .init(color: Picture.Color(gray: 1, alpha: 0.2)),
-                arc: .init(color: Picture.Color(hex: 0xFF8800), glow: .init(deviation: 6, strength: 0.4, flash: 0.6))
-            )
+                    pen: 8,
+                    track: .init(color: Picture.Color(gray: 1, alpha: 0.2)),
+                    arc: .init(color: Picture.Color(hex: 0xFF8800), glow: .init(deviation: 6, strength: 0.4, flash: 0.6))
+                )
             )
             drawn.append(("spinner resting", Picture(spinner, at: .resting)))
             drawn.append(("spinner turning", Picture(spinner, at: .init(shown: 0.7, turn: 0.3, filled: 0.4, flash: 0.5))))
@@ -164,7 +173,7 @@
                     least: 4,
                     color: .white,
                     finish: Picture.Color(hex: 0xB9F8DA),
-                    fall: 2,
+                    fall: .power(2),
                     trail: .init(count: 3, lag: 0.06, fade: 0.6),
                     glow: .init(deviation: 12, strength: 1)
                 )
@@ -222,36 +231,36 @@
         }
 
         static let recorded: [Swift.String: UInt64] = [
-            "transcript resting": 1919760481970589639,
-            "transcript typing": 11523613729735406970,
-            "caption resting": 8429288844122138288,
-            "caption rising": 8863960655988885005,
-            "headline resting": 15828366711042191950,
-            "headline opening": 7580291359931506163,
-            "headline leaving": 15250019066242027754,
-            "title resting": 12822106672574920797,
-            "title entering": 6324645190859423714,
-            "checkbox ticked": 4054222210072137773,
-            "checkbox landing": 15721711492491461991,
-            "checklist resting": 4928820507560810073,
-            "checklist settling": 6693876776337783748,
-            "checklist plate": 12417106206488176875,
-            "row alone": 11912487948997202091,
-            "readout resting": 1622257752498448375,
-            "readout hot": 17624206923849450172,
-            "spinner resting": 15722627935968664532,
-            "spinner turning": 9536805180807334502,
-            "shockwave thrown": 1887592213302261793,
-            "shockwave spreading": 17792535308157161699,
-            "shockwave late": 8431779107115395295,
-            "marquee travelling": 12688707738795288682,
-            "marquee rising": 10248491775882240363,
-            "glint middle": 12905211751768423078,
-            "glint dim": 6613518248332825968,
-            "twinkle whole": 15535941851742026172,
-            "twinkle early": 8873414907332832819,
-            "window resting": 17240529586727784075,
-            "window fading": 12809553089827188103,
+            "transcript resting": 1_919_760_481_970_589_639,
+            "transcript typing": 11_523_613_729_735_406_970,
+            "caption resting": 8_429_288_844_122_138_288,
+            "caption rising": 8_863_960_655_988_885_005,
+            "headline resting": 15_828_366_711_042_191_950,
+            "headline opening": 7_580_291_359_931_506_163,
+            "headline leaving": 15_250_019_066_242_027_754,
+            "title resting": 12_822_106_672_574_920_797,
+            "title entering": 6_324_645_190_859_423_714,
+            "checkbox ticked": 4_054_222_210_072_137_773,
+            "checkbox landing": 15_721_711_492_491_461_991,
+            "checklist resting": 4_928_820_507_560_810_073,
+            "checklist settling": 6_693_876_776_337_783_748,
+            "checklist plate": 12_417_106_206_488_176_875,
+            "row alone": 11_912_487_948_997_202_091,
+            "readout resting": 1_622_257_752_498_448_375,
+            "readout hot": 17_624_206_923_849_450_172,
+            "spinner resting": 15_722_627_935_968_664_532,
+            "spinner turning": 9_536_805_180_807_334_502,
+            "shockwave thrown": 1_887_592_213_302_261_793,
+            "shockwave spreading": 17_792_535_308_157_161_699,
+            "shockwave late": 8_431_779_107_115_395_295,
+            "marquee travelling": 12_688_707_738_795_288_682,
+            "marquee rising": 10_248_491_775_882_240_363,
+            "glint middle": 12_905_211_751_768_423_078,
+            "glint dim": 6_613_518_248_332_825_968,
+            "twinkle whole": 15_535_941_851_742_026_172,
+            "twinkle early": 8_873_414_907_332_832_819,
+            "window resting": 17_240_529_586_727_784_075,
+            "window fading": 12_809_553_089_827_188_103,
         ]
 
         @Test func `each component draws the picture recorded for it`() throws {
