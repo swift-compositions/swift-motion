@@ -113,40 +113,42 @@ extension `Encoding Tests` {
             try #require(try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int)
         }
 
-        @Test func `a movie reduced to a limit is within it on file and keeps its shape, frames, rate, tag and sound`() async throws {
-            let movie = try await Self.scored()
-            let sound = try #require(try await AVURLAsset(url: movie).loadTracks(withMediaType: .audio).first)
-            let heard = Int(try await sound.load(.totalSampleDataLength))
-            let limit = heard + (try Self.size(movie) - heard) / 2
-            let small = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-            try await Motion.Encoding.reduced(movie, to: small, within: Cardinal(UInt(limit)))
-            #expect(try Self.size(small) <= limit)
-            let before = try await Motion.Encoding.Inspection(of: movie)
-            let after = try await Motion.Encoding.Inspection(of: small)
-            #expect(after.frames == before.frames && after.rate == before.rate && after.duration == before.duration)
-            #expect(after.signal == before.signal && after.sounds == 1 && after.codec == "avc1")
-            let (wide, tall) = (Int(clamping: after.width), Int(clamping: after.height))
-            #expect(abs(wide * 180 - tall * 320) <= 2 * 320, "\(wide) × \(tall) is not the shape of 320 × 180")
-            #expect(wide <= 320 && tall <= 180 && wide % 2 == 0 && tall % 2 == 0)
-        }
-
-        @Test func `a movie already within the limit is copied as it is`() async throws {
-            let movie = try await Self.scored()
-            let copy = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-            try await Motion.Encoding.reduced(movie, to: copy, within: Cardinal(UInt(try Self.size(movie))))
-            #expect(FileManager.default.contentsEqual(atPath: movie.path, andPath: copy.path))
-        }
-
-        @Test func `a limit no movie can meet at the smallest size is refused with the fewest bytes written, and nothing is left`() async throws {
-            let movie = try await Self.scored()
-            let small = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
-            await #expect {
-                try await Motion.Encoding.reduced(movie, to: small, within: 2000)
-            } throws: { error in
-                guard case .limit(let limit, let fewest) = error as? Motion.Encoding.Error else { return false }
-                return limit == 2000 && fewest > 2000
+        #if File
+            @Test func `a movie reduced to a limit is within it on file and keeps its shape, frames, rate, tag and sound`() async throws {
+                let movie = try await Self.scored()
+                let sound = try #require(try await AVURLAsset(url: movie).loadTracks(withMediaType: .audio).first)
+                let heard = Int(try await sound.load(.totalSampleDataLength))
+                let limit = heard + (try Self.size(movie) - heard) / 2
+                let small = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+                try await Motion.Encoding.reduced(movie, to: small, within: Cardinal(UInt(limit)))
+                #expect(try Self.size(small) <= limit)
+                let before = try await Motion.Encoding.Inspection(of: movie)
+                let after = try await Motion.Encoding.Inspection(of: small)
+                #expect(after.frames == before.frames && after.rate == before.rate && after.duration == before.duration)
+                #expect(after.signal == before.signal && after.sounds == 1 && after.codec == "avc1")
+                let (wide, tall) = (Int(clamping: after.width), Int(clamping: after.height))
+                #expect(abs(wide * 180 - tall * 320) <= 2 * 320, "\(wide) × \(tall) is not the shape of 320 × 180")
+                #expect(wide <= 320 && tall <= 180 && wide % 2 == 0 && tall % 2 == 0)
             }
-            #expect(!FileManager.default.fileExists(atPath: small.path))
-        }
+
+            @Test func `a movie already within the limit is copied as it is`() async throws {
+                let movie = try await Self.scored()
+                let copy = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+                try await Motion.Encoding.reduced(movie, to: copy, within: Cardinal(UInt(try Self.size(movie))))
+                #expect(FileManager.default.contentsEqual(atPath: movie.path, andPath: copy.path))
+            }
+
+            @Test func `a limit no movie can meet at the smallest size is refused with the fewest bytes written, and nothing is left`() async throws {
+                let movie = try await Self.scored()
+                let small = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+                await #expect {
+                    try await Motion.Encoding.reduced(movie, to: small, within: 2000)
+                } throws: { error in
+                    guard case .limit(let limit, let fewest) = error as? Motion.Encoding.Error else { return false }
+                    return limit == 2000 && fewest > 2000
+                }
+                #expect(!FileManager.default.fileExists(atPath: small.path))
+            }
+        #endif
     }
 }

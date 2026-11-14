@@ -3,9 +3,10 @@ import Foundation
 import ITU_T_H_273
 import Motion
 import Motion_Cache
-@testable import Motion_Encoding
 import Test_Apple
 import Testing
+
+@testable import Motion_Encoding
 
 /// AVFoundation's readers and writers wait on CoreMedia's shared queues, and many at once in one process have
 /// waited there for good on a small machine, so these tests, and the suites nested in them, run one at a time.

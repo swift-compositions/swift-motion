@@ -26,7 +26,7 @@ let package = Package(
     traits: [
         .trait(name: "Picture", description: "Motion Picture: frames and reels drawn from pictures of swift-picture"),
         .trait(name: "File", description: "Motion Take File: takes kept in files through swift-file-system"),
-        .trait(name: "Command", description: "Motion Command: a reel's proofs written from the command line", enabledTraits: ["Picture"]),
+        .trait(name: "Command", description: "Motion Command: a reel's proofs written from the command line", enabledTraits: ["Picture", "File"]),
         .trait(name: "Graphics", description: "Motion Graphics: on-screen components drawn as pictures of swift-picture", enabledTraits: ["Picture"]),
     ],
     dependencies: [
@@ -129,6 +129,7 @@ let package = Package(
             dependencies: [
                 .target(name: "Motion"),
                 .product(name: "ITU-T H 273", package: "swift-itu-t-h-273"),
+                .product(name: "File System", package: "swift-file-system", condition: .when(traits: ["File"])),
             ]
         ),
         .target(

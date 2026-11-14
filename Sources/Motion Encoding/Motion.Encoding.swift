@@ -508,66 +508,6 @@ extension Motion.Encoding {
         try await reduced(movie, to: url, width: size.width, height: size.height, bits: bits(width: size.width, height: size.height))
     }
 
-    /// The best movie that is at most `limit` bytes on file, or `.limit` when none can be.
-    ///
-    /// A movie whose file is already within the limit is copied as it is. Otherwise its picture is encoded
-    /// again, its frames, their durations and its sound kept, at sizes of its shape from its own down: each
-    /// side three quarters of the size before, rounded down to an even number of pixels, while the shorter
-    /// side is at least `side`, and last the size whose shorter side is `side`. At each size the bit rate is
-    /// what the limit leaves the picture over the movie's length, less the sound's bytes and an allowance for
-    /// the file's index, and at most four bits per pixel per second; a size at which that is less than half
-    /// a bit per pixel per second is passed over for the next. A movie written larger than the limit is
-    /// written again at that size, up to three times in all, its bit rate cut by how far the picture went
-    /// over and a tenth more. The first that is within the limit is kept: the largest size and, at it, the
-    /// most bits the limit allows. Each size is measured on the written file, never predicted. When even the
-    /// smallest size at half a bit per pixel per second is over the limit, it fails with `.limit` and the
-    /// fewest bytes a movie was written in. A file already at `url` fails with `.writer` before anything is
-    /// written.
-    public static func reduced(_ movie: URL, to url: URL, within limit: Cardinal) async throws(Motion.Encoding.Error) {
-        guard !exists(url) else { throw .writer("a file is already at \(url.lastPathComponent)") }
-        let source = try await Inspection(of: movie)
-        let length = try bytes(of: movie)
-        guard length > limit else {
-            guard unsafe copyfile(movie.path, url.path, nil, copyfile_flags_t(COPYFILE_ALL | COPYFILE_EXCL)) == 0 else {
-                throw .writer("\(movie.lastPathComponent) could not be copied to \(url.lastPathComponent)")
-            }
-            return
-        }
-        let sound = try await soundBytes(of: movie)
-        let room = Int(clamping: limit) - Int(clamping: sound) - Self.allowance(frames: source.frames)
-        let seconds = Swift.max(source.duration.approximation, 1e-9)
-        let sizes = ladder(width: source.width, height: source.height)
-        var fewest: Cardinal?
-        for (rung, size) in sizes.enumerated() {
-            let last = rung == sizes.indices.last
-            let most = Int(clamping: bits(width: size.width, height: size.height))
-            let least = Swift.max(most / 8, 1)
-            var rate = Swift.min(most, Int(Double(Swift.max(room, 0)) * 8 / seconds))
-            if rate < least {
-                guard last else { continue }
-                rate = least
-            }
-            for again in 0..<3 {
-                let attempt = url.deletingLastPathComponent().appending(path: ".\(url.lastPathComponent).\(getpid()).\(rung).\(again).mp4")
-                defer { _ = unsafe unlink(attempt.path) }
-                try await reduced(movie, to: attempt, width: size.width, height: size.height, bits: Cardinal(UInt(rate)))
-                let written = try bytes(of: attempt)
-                fewest = Swift.min(fewest ?? written, written)
-                if written <= limit {
-                    guard unsafe renamex_np(attempt.path, url.path, UInt32(RENAME_EXCL)) == 0 else {
-                        throw .writer("a file is already at \(url.lastPathComponent)")
-                    }
-                    return
-                }
-                let picture = Swift.max(Double(Int(clamping: written) - Int(clamping: sound)), 1)
-                let allowed = Double(Int(clamping: limit) - Int(clamping: sound))
-                rate = Int(Double(rate) * allowed / picture * 0.9)
-                guard rate >= least else { break }
-            }
-        }
-        throw .limit(limit, fewest: fewest ?? length)
-    }
-
     /// The movie's picture encoded again as H.264 at `width` by `height` and `bits` per second, its frames
     /// and their durations, its timescale and its colour tag kept, and its sound, a track at most, copied
     /// sample for sample, written at `url`, where no file may be.
@@ -667,18 +607,6 @@ extension Motion.Encoding {
 
     /// The bytes a file's index is allowed besides the samples: 2 KiB and 16 bytes a frame.
     static func allowance(frames: Cardinal) -> Int { 2048 + 16 * Int(clamping: frames) }
-
-    /// How many bytes a file holds, or `.reader`.
-    static func bytes(of url: URL) throws(Motion.Encoding.Error) -> Cardinal {
-        var info = stat()
-        guard unsafe stat(url.path, &info) == 0, let size = UInt(exactly: info.st_size) else {
-            throw .reader("\(url.lastPathComponent) cannot be measured")
-        }
-        return Cardinal(size)
-    }
-
-    /// Whether anything is at `url`.
-    static func exists(_ url: URL) -> Bool { unsafe access(url.path, F_OK) == 0 }
 
     /// The bytes of a movie's sound samples, all tracks together.
     static func soundBytes(of url: URL) async throws(Motion.Encoding.Error) -> Cardinal {

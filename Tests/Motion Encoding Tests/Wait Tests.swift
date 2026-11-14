@@ -100,12 +100,14 @@ extension `Encoding Tests` {
                 } catch {
                     #expect(Self.unanswered(error), "\(error)")
                 }
-                do throws(Motion.Encoding.Error) {
-                    try await Motion.Encoding.reduced(movie, to: output(), within: 1000)
-                    Issue.record("a movie was reduced to a limit without waiting")
-                } catch {
-                    #expect(Self.unanswered(error), "\(error)")
-                }
+                #if File
+                    do throws(Motion.Encoding.Error) {
+                        try await Motion.Encoding.reduced(movie, to: output(), within: 1000)
+                        Issue.record("a movie was reduced to a limit without waiting")
+                    } catch {
+                        #expect(Self.unanswered(error), "\(error)")
+                    }
+                #endif
                 do throws(Motion.Encoding.Error) {
                     try await Motion.Encoding.mux(movie, sound, to: output())
                     Issue.record("a movie was joined without waiting")
