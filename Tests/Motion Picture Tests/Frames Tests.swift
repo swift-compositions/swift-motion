@@ -5,6 +5,7 @@
     import Picture_CPU
     import Picture_Store
     import File_System
+    import RFC_1951
     import Test_Apple
     import Testing
 
@@ -46,10 +47,26 @@
             let sheet = try await plain.sheet(positions, columns: 2)
             #expect(try await kept.sheet(positions, columns: 2) == sheet)
             #expect(try await never.sheet(positions, columns: 2) == sheet)
-            let key = try #require(store.key(Self.picture(0), width: Self.width, height: Self.height, over: Self.paper.pixel, form: "Motion.Pixel"))
+            let key = try #require(store.key(Self.picture(0), width: Self.width, height: Self.height, over: Self.paper.pixel, form: "Motion.Pixel deflate fast"))
             let entry = try #require(store.bytes(for: key))
-            #expect(entry.count == 16 + 4 * Int(clamping: Self.width) * Int(clamping: Self.height))
+            #expect(try RFC_1951.decompress(entry).count == 16 + 4 * Int(clamping: Self.width) * Int(clamping: Self.height))
             await #expect(throws: Motion.Hosting.Picture.Frames.Error.self) { try await never.rasters([7]) }
+        }
+
+        @Test func `the deflated movie form reads back the frame the raw one does, value for value, and refuses what is not its own`() async throws {
+            let raw = Motion.Hosting.Picture.Frames.Form<Raster<Motion.Pixel>>.movie
+            let deflated = Motion.Hosting.Picture.Frames.Form<Raster<Motion.Pixel>>.deflated
+            for raster in try await Self.frames(workers: 2).rasters([0, 1, 2, 3]) {
+                let bytes = try #require(raw.bytes(raster))
+                let kept = try #require(raw.frame(bytes))
+                let packed = try #require(deflated.bytes(raster))
+                let inflated = try #require(deflated.frame(packed))
+                #expect(inflated == kept)
+                #expect(kept == raster)
+                #expect(packed.count < bytes.count)
+                #expect(deflated.frame(bytes) == nil)
+            }
+            #expect(raw.name?(0) != deflated.name?(0))
         }
 
         @Sendable static func picture(_ position: Ordinal) -> Picture {

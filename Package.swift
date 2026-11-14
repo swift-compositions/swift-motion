@@ -46,6 +46,7 @@ let package = Package(
         .package(url: "https://github.com/swift-compositions/swift-file-system.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-process.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-standard-library-extensions.git", branch: "main"),
+        .package(url: "https://github.com/swift-ietf/swift-rfc-1951.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -72,6 +73,7 @@ let package = Package(
                 .product(name: "Thread Pool", package: "swift-threads", condition: .when(traits: ["Picture"])),
                 .product(name: "Witnesses", package: "swift-witnesses", condition: .when(traits: ["Picture"])),
                 .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Picture"])),
+                .product(name: "RFC 1951", package: "swift-rfc-1951", condition: .when(traits: ["Picture"])),
             ]
         ),
         .target(
@@ -188,6 +190,7 @@ let package = Package(
                 .product(name: "Picture Store", package: "swift-picture"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Test Apple", package: "swift-test-apple"),
+                .product(name: "RFC 1951", package: "swift-rfc-1951"),
             ]
         ),
         .testTarget(

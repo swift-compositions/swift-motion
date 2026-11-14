@@ -41,7 +41,7 @@ extension Raster where Pixel == Motion.Pixel {
             let wide = Int(exactly: width),
             let tall = Int(exactly: height),
             let space = CGColorSpace(name: CGColorSpace.sRGB),
-            let provider = CGDataProvider(data: Data(bytes) as CFData)
+            let provider = CGDataProvider(data: pixels.withUnsafeBytes { unsafe Data($0) } as CFData)
         else { return nil }
         return unsafe CGImage(
             width: wide,

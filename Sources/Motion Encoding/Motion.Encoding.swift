@@ -154,13 +154,19 @@ extension Motion.Encoding {
         return CMTime(value: ticks, timescale: scale)
     }
 
+    /// Copies a frame's pixels into a pixel buffer's plane straight from their memory: in one piece when the
+    /// plane's rows are packed as the raster's are, and row by row past the padding otherwise.
     static func copy(_ raster: Raster<Motion.Pixel>, into buffer: inout CVMutablePixelBuffer) {
         unsafe buffer.accessUnsafeMutableRawPlaneBytes { planes in
             guard let plane = unsafe planes.first else { return }
             guard let columns = Int(exactly: raster.width), let rows = Int(exactly: raster.height) else { return }
             let row = columns * 4
             let stride = unsafe plane.properties.bytesPerRow
-            raster.bytes.withUnsafeBytes { source in
+            raster.pixels.withUnsafeBytes { source in
+                if stride == row {
+                    unsafe UnsafeMutableRawBufferPointer(rebasing: plane.bytes[0..<source.count]).copyMemory(from: source)
+                    return
+                }
                 (0..<rows).forEach { line in
                     let start = line * row
                     unsafe UnsafeMutableRawBufferPointer(rebasing: plane.bytes[(line * stride)..<(line * stride + row)])
@@ -241,7 +247,7 @@ extension Motion.Encoding {
         }
     }
 
-    /// The pixels of a decoded BGRA frame.
+    /// The pixels of a decoded BGRA frame, checked and copied straight out of the locked buffer.
     static func raster(_ buffer: CVPixelBuffer) -> Raster<Motion.Pixel>? {
         CVPixelBufferLockBaseAddress(buffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
@@ -250,9 +256,9 @@ extension Motion.Encoding {
             let height = UInt(exactly: CVPixelBufferGetHeight(buffer)),
             let stride = UInt(exactly: CVPixelBufferGetBytesPerRow(buffer))
         else { return nil }
-        let bytes = unsafe [UInt8](UnsafeRawBufferPointer(start: base, count: CVPixelBufferGetBytesPerRow(buffer) * CVPixelBufferGetHeight(buffer)))
+        let memory = unsafe UnsafeRawBufferPointer(start: base, count: CVPixelBufferGetBytesPerRow(buffer) * CVPixelBufferGetHeight(buffer))
         do throws(Motion.Pixel.Error) {
-            return try Raster<Motion.Pixel>(width: Cardinal(width), height: Cardinal(height), stride: Cardinal(stride), bytes: bytes)
+            return try Raster<Motion.Pixel>(width: Cardinal(width), height: Cardinal(height), stride: Cardinal(stride), bytes: unsafe RawSpan(_unsafeBytes: memory))
         } catch {
             return nil
         }

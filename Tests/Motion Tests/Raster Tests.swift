@@ -39,6 +39,36 @@ import Testing
         #expect(padded.width == 0 && padded.height == 2 && padded.pixels.isEmpty)
     }
 
+    @Test func `every level above its alpha is refused at its own pixel, in any channel, at any stride`() throws {
+        let alphas = Array(0...255)
+        for alpha in alphas {
+            for channel in [0, 1, 2] {
+                var row = [UInt8](repeating: 0, count: 256 * 4)
+                alphas.forEach { level in
+                    row[level * 4 + channel] = UInt8(level)
+                    row[level * 4 + 3] = UInt8(alpha)
+                }
+                let rows = [UInt8](repeating: 0, count: 256 * 4 + 8) + row + [9, 9, 9, 9, 9, 9, 9, 9]
+                if alpha == 255 {
+                    let raster = try Raster<Motion.Pixel>(width: 256, height: 2, stride: 1032, bytes: rows)
+                    #expect(raster.pixels.allSatisfy { (pixel: Motion.Pixel) in pixel.alpha == 0 || pixel.alpha == 255 })
+                } else {
+                    #expect(throws: Motion.Pixel.Error.premultiplied(x: Ordinal(UInt(alpha + 1)), y: 0)) { try Raster<Motion.Pixel>(width: 256, height: 1, bytes: row) }
+                    #expect(throws: Motion.Pixel.Error.premultiplied(x: Ordinal(UInt(alpha + 1)), y: 1)) {
+                        try Raster<Motion.Pixel>(width: 256, height: 2, stride: 1032, bytes: rows)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test func `bytes in memory read as the same raster as an array of them`() throws {
+        let bytes: [UInt8] = [10, 20, 30, 255, 9, 9, 9, 9, 0, 0, 0, 0, 7, 7, 7, 7]
+        let array = try Raster<Motion.Pixel>(width: 1, height: 2, stride: 8, bytes: bytes)
+        #expect(try Raster<Motion.Pixel>(width: 1, height: 2, stride: 8, bytes: bytes.span.bytes) == array)
+        #expect(throws: Motion.Pixel.Error.size(16, needed: 8)) { try Raster<Motion.Pixel>(width: 1, height: 2, bytes: bytes.span.bytes) }
+    }
+
     @Test func `PSNR of one channel off by one in 1920x1080 is 116.07 dB, alpha aside`() throws {
         var bytes = [UInt8](repeating: 255, count: 1920 * 1080 * 4)
         let a = try Raster<Motion.Pixel>(width: 1920, height: 1080, bytes: bytes)

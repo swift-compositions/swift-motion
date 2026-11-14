@@ -3,6 +3,7 @@
     public import Motion
     public import Picture
     public import Picture_PNG_Integration
+    import RFC_1951
 
     extension Motion.Hosting.Picture.Frames {
         /// What is made of each drawn raster, and how it is kept in a store: by a name that says what it is, which
@@ -38,23 +39,33 @@
 
     extension Motion.Hosting.Picture.Frames.Form where Frame == Raster<Motion.Pixel> {
         /// The movie's frame, kept as its width, its height and its pixels' bytes: four a pixel.
+        ///
+        /// Kept, the pixels' memory is copied once, behind the width and the height. Read back, it is copied once
+        /// into the frame's pixels, and every pixel is checked to be premultiplied on the way, as for bytes from
+        /// anywhere: the store's Adler-32 finds damage by chance, not for certain, and an entry is a file anyone
+        /// can write, so its bytes are not known to be what this form wrote.
         public static var movie: Self {
             Self(
                 name: { _ in "Motion.Pixel" },
                 make: { _, raster in raster.map { pixel in Motion.Pixel(pixel) } },
-                bytes: { raster in
-                    var head: [UInt8] = []
-                    Motion.Hosting.Picture.Frames.number(UInt64(Int(clamping: raster.width)), into: &head)
-                    Motion.Hosting.Picture.Frames.number(UInt64(Int(clamping: raster.height)), into: &head)
-                    return Motion.Hosting.Picture.Frames.bytes(head + raster.bytes)
-                },
+                bytes: { raster in Motion.Hosting.Picture.Frames.kept(raster) },
+                frame: { bytes in Motion.Hosting.Picture.Frames.movie(unsafe bytes.span.bytes) }
+            )
+        }
+
+        /// The movie's frame as `movie` keeps it, compressed by DEFLATE (RFC 1951) at its fast level, and read back
+        /// as `movie` reads it once inflated: the same frame, value for value, in about a sixth of the bytes of a
+        /// film's frame, for about 30 ms more when kept and some milliseconds more when read.
+        /// Bytes that do not inflate are a miss.
+        public static var deflated: Self {
+            Self(
+                name: { _ in "Motion.Pixel deflate fast" },
+                make: { _, raster in raster.map { pixel in Motion.Pixel(pixel) } },
+                bytes: { raster in RFC_1951.compress(Motion.Hosting.Picture.Frames.kept(raster), level: .fast) },
                 frame: { bytes in
-                    guard bytes.count >= 16 else { return nil }
-                    let width = Motion.Hosting.Picture.Frames.number(bytes, at: 0)
-                    let height = Motion.Hosting.Picture.Frames.number(bytes, at: 8)
-                    let raw = Motion.Hosting.Picture.Frames.raw(bytes, from: 16)
-                    do throws(Motion.Pixel.Error) {
-                        return try Raster(width: Cardinal(UInt(width)), height: Cardinal(UInt(height)), bytes: raw)
+                    do throws(RFC_1951.Error) {
+                        let inflated = try RFC_1951.decompress(bytes)
+                        return Motion.Hosting.Picture.Frames.movie(unsafe inflated.span.bytes)
                     } catch {
                         return nil
                     }
@@ -120,25 +131,36 @@
             }
         }
 
-        /// `Byte`s from an offset on as bytes, copied in one piece.
-        static func raw(_ bytes: [Byte], from offset: Int) -> [UInt8] {
-            guard offset <= bytes.count else { return [] }
-            return bytes.withUnsafeBytes { source in
-                let tail = unsafe UnsafeRawBufferPointer(rebasing: source[offset...])
-                return unsafe [UInt8](unsafeUninitializedCapacity: tail.count) { target, count in
-                    unsafe UnsafeMutableRawBufferPointer(target).copyMemory(from: tail)
-                    count = tail.count
+        /// A raster as its width and its height, eight bytes each, little-endian, and its pixels' memory, copied
+        /// once.
+        static func kept<Pixel>(_ raster: Raster<Pixel>) -> [Byte] {
+            raster.pixels.withUnsafeBytes { memory in
+                unsafe [Byte](unsafeUninitializedCapacity: 16 + memory.count) { target, count in
+                    let into = UnsafeMutableRawBufferPointer(target)
+                    unsafe into.storeBytes(of: UInt64(Int(clamping: raster.width)).littleEndian, toByteOffset: 0, as: UInt64.self)
+                    unsafe into.storeBytes(of: UInt64(Int(clamping: raster.height)).littleEndian, toByteOffset: 8, as: UInt64.self)
+                    unsafe UnsafeMutableRawBufferPointer(rebasing: into[16...]).copyMemory(from: memory)
+                    count = 16 + memory.count
                 }
+            }
+        }
+
+        /// A movie's frame `kept(_:)` wrote, or nil when the bytes are not one.
+        static func movie(_ bytes: borrowing RawSpan) -> Raster<Motion.Pixel>? {
+            guard bytes.byteCount >= 16 else { return nil }
+            let width = UInt64(littleEndian: unsafe bytes.unsafeLoadUnaligned(fromByteOffset: 0, as: UInt64.self))
+            let height = UInt64(littleEndian: unsafe bytes.unsafeLoadUnaligned(fromByteOffset: 8, as: UInt64.self))
+            guard let columns = UInt(exactly: width), let rows = UInt(exactly: height) else { return nil }
+            do throws(Motion.Pixel.Error) {
+                return try Raster(width: Cardinal(columns), height: Cardinal(rows), bytes: bytes.extracting(droppingFirst: 16))
+            } catch {
+                return nil
             }
         }
 
         /// A raster of working pixels as its width, its height and its pixels' memory.
         static func working(_ raster: Raster<Picture::Picture.Pixel>) -> [Byte] {
-            var head: [UInt8] = []
-            number(UInt64(Int(clamping: raster.width)), into: &head)
-            number(UInt64(Int(clamping: raster.height)), into: &head)
-            let pixels = raster.pixels.withUnsafeBytes { unsafe [UInt8]($0) }
-            return bytes(head + pixels)
+            kept(raster)
         }
 
         /// A raster of working pixels written by `working(_:)` at an offset, and the offset after it, or nil.

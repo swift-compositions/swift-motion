@@ -127,9 +127,10 @@
             return frames.compactMap { $0 }
         }
 
-        /// The frames at some positions as a movie's frames, in the order of the positions.
+        /// The frames at some positions as a movie's frames, in the order of the positions, kept in the store
+        /// `Form.deflated`.
         public func rasters(_ positions: [Ordinal]) async throws(Error) -> [Raster<Motion.Pixel>] {
-            try await drawn(positions, as: .movie)
+            try await drawn(positions, as: .deflated)
         }
 
         /// A contact sheet: the frames at some positions, each made `columns` times as small along each side by
@@ -182,9 +183,9 @@
         }
 
         /// The first `count` frames as a movie's frames, to be asked for one after another, which is how
-        /// `Motion.Encoding.write(frames:to:raster:)` asks.
+        /// `Motion.Encoding.write(frames:to:raster:)` asks; kept in the store `Form.deflated`.
         public func feed(first count: Cardinal, ahead: Cardinal? = nil) -> Feed<Raster<Motion.Pixel>> {
-            feed(first: count, ahead: ahead, as: .movie)
+            feed(first: count, ahead: ahead, as: .deflated)
         }
     }
 #endif
