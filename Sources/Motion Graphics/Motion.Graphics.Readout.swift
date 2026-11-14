@@ -50,11 +50,11 @@
                 let figures = style.figures == .proportional ? .tabular : style.figures
                 let zeros = Self.figures(of: .zero, total: total)
                 let closing = word + Formatter.Number().format(Double(Int(clamping: total)))
-                self.line = try Picture.Text(label + " " + zeros + " " + closing, font: ink.font, size: ink.size, figures: figures)
-                self.opening = try Picture.Text(label, font: ink.font, size: ink.size, figures: figures)
-                self.closing = try Picture.Text(closing, font: ink.font, size: ink.size, figures: figures)
-                self.digits = try Picture.Text("0123456789", font: ink.font, size: ink.size, figures: figures).glyphs.map(\.outline)
-                self.origins = try Picture.Text(zeros, font: ink.font, size: ink.size, figures: figures).glyphs.map { $0.origin[0] }
+                self.line = try ink.text(label + " " + zeros + " " + closing, figures: figures)
+                self.opening = try ink.text(label, figures: figures)
+                self.closing = try ink.text(closing, figures: figures)
+                self.digits = try ink.text("0123456789", figures: figures).glyphs.map(\.outline)
+                self.origins = try ink.text(zeros, figures: figures).glyphs.map { $0.origin[0] }
             }
         }
     }
@@ -82,13 +82,13 @@
         }
 
         /// The plate at rest, before the readout grows, turns or drops: as wide as the line and two insets,
-        /// `plate.height` tall, its top edge through `place` at its left end, its middle or its right end as
+        /// `height` tall, its top edge through `place` at its left end, its middle or its right end as
         /// `anchor` says. Since the count's digits share one advance, it is the same whatever the count reads.
         public var plate: Picture.Plane.Rectangle {
-            let wide = line.width + 2 * style.plate.inset
+            let wide = line.width + 2 * style.inset
             let left = place[0] - anchor.indent(of: 0, in: wide)
             let top = place[1]
-            return Picture.Plane.Rectangle(llx: .init(left), lly: .init(top), urx: .init(left + wide), ury: .init(top + style.plate.height))
+            return Picture.Plane.Rectangle(llx: .init(left), lly: .init(top), urx: .init(left + wide), ury: .init(top + style.height))
         }
 
         /// Where the readout stands at a moment: grown about the plate's middle from `1 − grow` of its size by how

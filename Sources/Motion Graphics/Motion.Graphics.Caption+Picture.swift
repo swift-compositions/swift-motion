@@ -10,8 +10,7 @@
                 self = .empty
                 return
             }
-            let style = caption.style.plate
-            let plate = style.surface.elements(caption.plate, corners: style.corners)
+            let plate = caption.style.plate.elements(caption.plate)
             let line = Picture(caption.transcript, at: Motion.Graphics.Transcript.Moment([moment.line]))
             let content = Picture(plate + line.elements)
             let faded: Picture = moment.shown < 1 ? [.layer(Picture.Layer(content, opacity: Float(moment.shown)))] : content

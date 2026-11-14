@@ -37,8 +37,8 @@
                 self.place = place
                 self.anchor = anchor
                 self.style = style
-                self.text = try Picture.Text(runs.joined(), font: style.font, size: style.size)
-                self.cap = try Picture.Text.Metrics(font: style.font, size: style.size).cap
+                self.text = try style.ink.text(runs.joined())
+                self.cap = try Picture.Text.Metrics(font: style.ink.font, size: style.ink.size).cap
                 var looks: [Int] = []
                 for (run, words) in runs.enumerated() {
                     looks += Swift.Array(repeating: style.runs.isEmpty ? 0 : run % style.runs.count, count: Picture.Text.length(of: words))
@@ -66,11 +66,11 @@
                 let look = style.runs[position < looks.count ? looks[position] : (looks.last ?? 0)]
                 let middle = (x: (box.llx.underlying + box.urx.underlying) / 2, y: -cap / 2)
                 let due = 1 - entered
-                let transform = Picture.Transform.translation(x: start + middle.x, y: baseline + middle.y + due * look.rise * style.size)
+                let transform = Picture.Transform.translation(x: start + middle.x, y: baseline + middle.y + due * look.rise * style.ink.size)
                     .multiplied(by: .scale(Swift.max(1 + look.grow * due, 0), about: Picture.Plane.Point<2>([0.0, 0.0])))
                     .multiplied(by: .translation(x: -middle.x, y: -middle.y))
                 let opacity = Swift.min(Swift.max(look.fade * entered, look.floor, 0), 1)
-                letters.append(Letter(glyph: glyph, transform: transform, color: look.color, opacity: opacity))
+                letters.append(Letter(glyph: glyph, transform: transform, color: look.color ?? style.ink.color, opacity: opacity))
             }
             return letters
         }

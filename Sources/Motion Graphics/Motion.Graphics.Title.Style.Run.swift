@@ -8,13 +8,14 @@
         /// faster than it enters it comes up from clear; and the least opacity a letter that has begun to enter
         /// shows, 0 by default, so it comes up from clear.
         public struct Run: Sendable, Hashable {
-            public var color: Picture.Color
+            /// The run's colour; nil for the ink's.
+            public var color: Picture.Color?
             public var rise: Double
             public var grow: Double
             public var fade: Double
             public var floor: Double
 
-            public init(color: Picture.Color, rise: Double, grow: Double, fade: Double, floor: Double = 0) {
+            public init(color: Picture.Color? = nil, rise: Double, grow: Double, fade: Double, floor: Double = 0) {
                 self.color = color
                 self.rise = rise
                 self.grow = grow

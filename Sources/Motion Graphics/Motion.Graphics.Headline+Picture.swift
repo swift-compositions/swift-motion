@@ -9,7 +9,7 @@
             let style = headline.style
             self.init(
                 headline.placements(at: moment).map { placement in
-                    var content: Picture = [placement.text.placed(.init(.solid(style.ink)), at: placement.point, anchor: .center)]
+                    var content: Picture = [placement.text.placed(.init(.solid(style.ink.color)), at: placement.point, anchor: .center)]
                     if let region = headline.region {
                         let inked: Picture = [placement.text.placed(.init(.solid(style.second)), at: placement.point, anchor: .center)]
                         content.elements.append(.group(Picture.Group(inked, clip: Picture.Clip(region))))

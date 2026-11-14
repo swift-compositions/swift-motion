@@ -47,7 +47,11 @@
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
                     transcript: Self.transcript,
-                    plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8), ascent: 16, descent: 5, horizontal: 16, vertical: 12),
+                    plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8)),
+                    ascent: 16,
+                    descent: 5,
+                    horizontal: 16,
+                    vertical: 12,
                     rise: 20
                 )
             )
@@ -58,7 +62,15 @@
                 [.init("A CIRCLE."), .init("FOR NOW, AND LONGER", offset: 12)],
                 about: Picture.Plane.Point<2>([500, 300]),
                 region: Picture.Plane.Path(Picture.Plane.Rectangle(llx: 300, lly: 200, urx: 600, ury: 400)),
-                style: .init(font: sans, size: 400, measure: 640, pitch: 0.9, rise: 0.95, slot: .init(above: 0.8, height: 0.9), span: 1000, ink: .white, second: .black)
+                style: .init(
+                    ink: .init(font: sans, size: 400, color: .white),
+                    second: .black,
+                    measure: 640,
+                    pitch: 0.9,
+                    rise: 0.95,
+                    slot: .init(above: 0.8, below: 0.1),
+                    span: 1000
+                )
             )
             drawn.append(("headline resting", Picture(headline, at: .init([.resting, .resting]))))
             drawn.append(("headline opening", Picture(headline, at: .init([.init(risen: 0.5), .hidden], opened: 0.3))))
@@ -69,8 +81,7 @@
                 at: Picture.Plane.Point<2>([600, 400]),
                 anchor: .center,
                 style: .init(
-                    font: sans,
-                    size: 100,
+                    ink: .init(font: sans, size: 100, color: .white),
                     runs: [
                         .init(color: Picture.Color(hex: 0xFF0000), rise: 0.42, grow: 0, fade: 1.8),
                         .init(color: Picture.Color(hex: 0x0000FF), rise: -0.5, grow: 1.9, fade: 1.2, floor: 0.2),
@@ -103,18 +114,16 @@
                 items: [.init("Shape", tag: "Bezier"), .init("Type", tag: "OpenType"), .init("Colour")],
                 layout: .init(left: 40, right: 400, heading: 60, statement: 110, first: 170, pitch: 44, plate: Picture.Plane.Rectangle(llx: 20, lly: 20, urx: 420, ury: 320)),
                 style: .init(
-                    heading: .init(ink: ink(sans, 14), tracking: 0.3, toned: Picture.Color(hex: 0xFF0000), slide: 20),
-                    statement: .init(ink: ink(sans, 36), indent: -2, rise: 40, above: 32, height: 44),
+                    heading: .init(ink: Motion.Graphics.Ink(font: sans, size: 14, color: .white, tracking: 0.3), toned: Picture.Color(hex: 0xFF0000), slide: 20),
+                    statement: .init(ink: ink(sans, 36), indent: -2, rise: 40, slot: .init(above: 32.0 / 36, below: 12.0 / 36)),
                     row: .init(box: box, rise: 8, name: ink(sans, 20), gap: 26, slide: 12, tag: ink(sans, 14, Picture.Color(hex: 0xFFFF00)), drop: -1),
                     plate: .init(
                         surface: .frosted(deviation: 12, coat: .clear),
                         corners: .continuous(16, exponent: 5),
-                        top: Picture.Color(gray: 0.1, alpha: 0.4),
-                        foot: Picture.Color(gray: 0.1, alpha: 0.6),
-                        edge: .white,
-                        pen: 1.5,
-                        settle: 0.07
-                    )
+                        edge: .init(color: .white, pen: 1.5),
+                        coat: Picture.Gradient([.init(offset: 0, color: Picture.Color(gray: 0.1, alpha: 0.4)), .init(offset: 1, color: Picture.Color(gray: 0.1, alpha: 0.6))])
+                    ),
+                    settle: 0.07
                 )
             )
             drawn.append(("checklist resting", Picture(checklist, at: .resting(3))))
@@ -140,7 +149,12 @@
                     ink: ink(sans, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],
                     finish: Picture.Color(hex: 0x0000FF),
-                    plate: .init(surface: .fill(.black), corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, flash: 0.5),
+                    plate: .init(surface: .fill(.black), corners: .circular(10), edge: .init(color: .white, pen: 2)),
+                    height: 60,
+                    inset: 16,
+                    baseline: 34,
+                    edge: 0.2,
+                    flash: 0.5,
                     bar: .init(top: 44, height: 4, track: Picture.Color(gray: 0.3)),
                     glow: .init(deviation: 5, strength: 0.3, flash: 0.5),
                     heat: .init(edge: 0.5, glow: 0.5),
@@ -216,12 +230,10 @@
                 title: "~/film zsh",
                 style: .init(
                     title: ink(sans, 14),
-                    corners: .continuous(14, exponent: 5),
+                    plate: .init(surface: .fill(Picture.Color(gray: 0.1)), corners: .continuous(14, exponent: 5), edge: .init(color: .white, pen: 2)),
                     bar: 30,
-                    line: 2,
-                    edge: .white,
                     rule: .white,
-                    surface: .fill(Picture.Color(gray: 0.1)),
+                    line: 2,
                     lights: .init(count: 3, radius: 5, inset: 20, step: 16, color: Picture.Color(hex: 0xFF0000))
                 )
             )

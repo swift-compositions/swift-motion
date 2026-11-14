@@ -61,7 +61,7 @@
             }
         }
 
-        static func styled(_ font: ISO_14496_22.FontFile, rise: Double? = nil, slot: Motion.Graphics.Marquee.Style.Slot? = nil, starts: [Double] = []) throws -> Motion.Graphics.Marquee {
+        static func styled(_ font: ISO_14496_22.FontFile, rise: Double? = nil, slot: Motion.Graphics.Slot? = nil, starts: [Double] = []) throws -> Motion.Graphics.Marquee {
             try Motion.Graphics.Marquee(
                 ["SHAPE TYPE COLOUR", "MOTION"],
                 in: Picture.Plane.Rectangle(llx: 0, lly: 100, urx: 1200, ury: 600),

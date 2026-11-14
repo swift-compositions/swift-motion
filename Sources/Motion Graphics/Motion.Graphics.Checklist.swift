@@ -31,8 +31,7 @@
                     rows.append(try Row(item, left: layout.left, right: layout.right, baseline: layout.first + Double(place) * layout.pitch, style: style.row))
                 }
                 self.rows = rows
-                let ink = style.heading.ink
-                self.headed = try Picture.Text(heading, font: ink.font, size: ink.size, tracking: style.heading.tracking)
+                self.headed = try style.heading.ink.text(heading)
                 self.stated = try style.statement.ink.text(statement)
             }
         }

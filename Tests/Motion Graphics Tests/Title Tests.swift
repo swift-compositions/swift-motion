@@ -17,8 +17,7 @@
                 at: Picture.Plane.Point<2>([600, 400]),
                 anchor: .center,
                 style: .init(
-                    font: font,
-                    size: 100,
+                    ink: .init(font: font, size: 100, color: .white),
                     runs: [.init(color: red, rise: 0.42, grow: 0, fade: 1.8), .init(color: blue, rise: -0.5, grow: 1.9, fade: 1.2)]
                 )
             )
@@ -62,7 +61,10 @@
                 ["AB"],
                 at: Picture.Plane.Point<2>([600, 400]),
                 anchor: .center,
-                style: .init(font: Fonts.sans, size: 100, runs: [.init(color: Self.red, rise: 0.4, grow: 0, fade: 1, floor: 0.35)])
+                style: .init(
+                    ink: .init(font: Fonts.sans, size: 100, color: .white),
+                    runs: [.init(color: Self.red, rise: 0.4, grow: 0, fade: 1, floor: 0.35)]
+                )
             )
             #expect(floored.letters(at: .init([0.1, 0.5])).map(\.opacity) == [0.35, 0.5])
             #expect(floored.letters(at: .init([0, 1])).map(\.opacity) == [1])
@@ -74,7 +76,15 @@
             #expect(title.text == (try Picture.Text("AB CD", font: Fonts.sans, size: 100)))
             #expect(title.looks == [0, 0, 0, 1, 1])
             #expect(throws: Picture.Text.Error.size) {
-                try Motion.Graphics.Title(["A"], at: Picture.Plane.Point<2>([0, 0]), anchor: .left, style: .init(font: Fonts.sans, size: 0, runs: []))
+                try Motion.Graphics.Title(
+                    ["A"],
+                    at: Picture.Plane.Point<2>([0, 0]),
+                    anchor: .left,
+                    style: .init(
+                        ink: .init(font: Fonts.sans, size: 0, color: .white),
+                        runs: []
+                    )
+                )
             }
         }
     }

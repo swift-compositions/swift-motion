@@ -54,7 +54,12 @@
                     ink: ink(font, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],
                     finish: Picture.Color(hex: 0x0000FF),
-                    plate: .init(surface: surface, corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, flash: 0.5),
+                    plate: .init(surface: surface, corners: .circular(10), edge: .init(color: .white, pen: 2)),
+                    height: 60,
+                    inset: 16,
+                    baseline: 34,
+                    edge: 0.2,
+                    flash: 0.5,
                     bar: .init(top: 44, height: 4, track: Picture.Color(gray: 0.3)),
                     glow: .init(deviation: 5, strength: 0.3, flash: 0.5),
                     heat: .init(edge: 0.5, glow: 0.5),
@@ -96,18 +101,16 @@
                     plate: Picture.Plane.Rectangle(llx: 20, lly: 20, urx: 420, ury: 320)
                 ),
                 style: .init(
-                    heading: .init(ink: ink(font, 14), tracking: 0.3, toned: Picture.Color(hex: 0xFF0000), slide: 20),
-                    statement: .init(ink: ink(font, 36), indent: -2, rise: 40, above: 32, height: 44),
+                    heading: .init(ink: Motion.Graphics.Ink(font: font, size: 14, color: .white, tracking: 0.3), toned: Picture.Color(hex: 0xFF0000), slide: 20),
+                    statement: .init(ink: ink(font, 36), indent: -2, rise: 40, slot: .init(above: 32.0 / 36, below: 12.0 / 36)),
                     row: .init(box: box(), rise: 8, name: ink(font, 20), gap: 26, slide: 12, tag: ink(font, 14, Picture.Color(hex: 0xFFFF00)), drop: -1),
                     plate: .init(
                         surface: surface,
                         corners: .continuous(16, exponent: 5),
-                        top: Picture.Color(gray: 0.1, alpha: 0.4),
-                        foot: Picture.Color(gray: 0.1, alpha: 0.6),
-                        edge: .white,
-                        pen: 1.5,
-                        settle: 0.07
-                    )
+                        edge: .init(color: .white, pen: 1.5),
+                        coat: Picture.Gradient([.init(offset: 0, color: Picture.Color(gray: 0.1, alpha: 0.4)), .init(offset: 1, color: Picture.Color(gray: 0.1, alpha: 0.6))])
+                    ),
+                    settle: 0.07
                 )
             )
         }
@@ -172,7 +175,15 @@
             let headline = try Motion.Graphics.Headline(
                 [.init("A CIRCLE."), .init("FOR NOW, AND LONGER")],
                 about: Picture.Plane.Point<2>([500, 300]),
-                style: .init(font: Fonts.sans, size: 400, measure: 640, pitch: 0.9, rise: 0.95, slot: .init(above: 0.8, height: 0.9), span: 1000, ink: .white, second: .black)
+                style: .init(
+                    ink: .init(font: Fonts.sans, size: 400, color: .white),
+                    second: .black,
+                    measure: 640,
+                    pitch: 0.9,
+                    rise: 0.95,
+                    slot: .init(above: 0.8, below: 0.1),
+                    span: 1000
+                )
             )
             let placed = headline.placements(at: .init([.resting, .resting]))
             #expect(placed.count == 2)
@@ -264,7 +275,11 @@
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
                     transcript: Self.transcript(Fonts.mono),
-                    plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8), ascent: 16, descent: 5, horizontal: 16, vertical: 12),
+                    plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8)),
+                    ascent: 16,
+                    descent: 5,
+                    horizontal: 16,
+                    vertical: 12,
                     rise: 20
                 )
             )
@@ -284,12 +299,10 @@
                 title: "~/film — zsh",
                 style: .init(
                     title: Self.ink(Fonts.sans, 14),
-                    corners: .circular(12),
+                    plate: .init(surface: .fill(.clear), corners: .circular(12), edge: .init(color: .white, pen: 2)),
                     bar: 30,
-                    line: 2,
-                    edge: .white,
                     rule: .white,
-                    surface: .fill(.clear),
+                    line: 2,
                     lights: .init(count: 3, radius: 5, inset: 20, step: 16, color: Picture.Color(hex: 0xFF0000))
                 )
             )
@@ -310,6 +323,40 @@
                 guard let start = segment.startPoint else { continue }
                 #expect(Swift.abs(region.distance(to: start)) < 1e-9)
             }
+        }
+
+        @Test func `a plate is its surface, then one shape of its outline filled with its coat from top to foot and stroked with its edge`() {
+            let frame = Picture.Plane.Rectangle(llx: 10, lly: 20, urx: 210, ury: 80)
+            let corners = Motion.Graphics.Corners.continuous(20, exponent: 5)
+            let surface = Motion.Graphics.Surface.frosted(deviation: 8, coat: .clear)
+            #expect(Motion.Graphics.Plate(surface: surface, corners: corners).elements(frame) == surface.elements(frame, corners: corners))
+            let coat = Picture.Gradient([.init(offset: 0, color: .white), .init(offset: 1, color: .black)])
+            let plate = Motion.Graphics.Plate(surface: surface, corners: corners, edge: .init(color: .white, pen: 2), coat: coat)
+            let shape = Picture.Shape(
+                corners.path(frame),
+                fill: .init(.linear(.init(from: Picture.Plane.Point<2>([0, 20]), to: Picture.Plane.Point<2>([0, 80]), coat))),
+                stroke: .init(.solid(.white), pen: .init(width: 2, join: .round, cap: .round))
+            )
+            #expect(plate.elements(frame) == surface.elements(frame, corners: corners) + [.shape(shape)])
+            let edged = Motion.Graphics.Plate(surface: .fill(.clear), corners: corners, edge: .init(color: .white, pen: 2))
+            #expect(edged.elements(frame) == [.stroke(corners.path(frame), .solid(.white), width: 2, join: .round, cap: .round)])
+        }
+
+        @Test func `a slot runs from its above sizes over a baseline to its below sizes under it`() {
+            let (top, bottom) = Motion.Graphics.Slot(above: 0.75, below: 0.25).span(baseline: 100, size: 40)
+            #expect(top == 70 && bottom == 110)
+        }
+
+        @Test func `an ink sets its text at its tracking, and a title's run without a colour takes the ink's`() throws {
+            let ink = Motion.Graphics.Ink(font: Fonts.sans, size: 20, color: .white, tracking: 0.5)
+            #expect(try ink.text("AB") == (try Picture.Text("AB", font: Fonts.sans, size: 20, tracking: 0.5)))
+            let title = try Motion.Graphics.Title(
+                ["AB"],
+                at: Picture.Plane.Point<2>([0, 100]),
+                anchor: .left,
+                style: .init(ink: ink, runs: [.init(rise: 0, grow: 0, fade: 1)])
+            )
+            #expect(title.letters(at: .resting(2)).map(\.color) == [.white, .white])
         }
 
         @Test func `a surface is a fill of the outline, or a pane over the region: frosted, a glass without a body`() {
@@ -361,7 +408,11 @@
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
                     transcript: Self.transcript(Fonts.mono),
-                    plate: .init(surface: Self.glassy, corners: .capsule, ascent: 16, descent: 5, horizontal: 16, vertical: 12),
+                    plate: .init(surface: Self.glassy, corners: .capsule),
+                    ascent: 16,
+                    descent: 5,
+                    horizontal: 16,
+                    vertical: 12,
                     rise: 20
                 )
             )
@@ -377,12 +428,10 @@
                 title: "~/film — zsh",
                 style: .init(
                     title: Self.ink(Fonts.sans, 14),
-                    corners: .continuous(14, exponent: 5),
+                    plate: .init(surface: Self.glassy, corners: .continuous(14, exponent: 5), edge: .init(color: .white, pen: 2)),
                     bar: 30,
-                    line: 2,
-                    edge: .white,
                     rule: .white,
-                    surface: Self.glassy,
+                    line: 2,
                     lights: .init(count: 3, radius: 5, inset: 20, step: 16, color: Picture.Color(hex: 0xFF0000))
                 )
             )

@@ -17,7 +17,7 @@
             public var rise: Double?
 
             /// The window a row shows through; nil for its band, a pitch tall from its top.
-            public var slot: Slot?
+            public var slot: Motion.Graphics.Slot?
 
             /// How far along its own travel row i starts, the `i mod n`th of the n starts; with none, every row
             /// starts at the shared travel.
@@ -29,7 +29,7 @@
                 pitch: Double,
                 gap: Double,
                 rise: Double? = nil,
-                slot: Slot? = nil,
+                slot: Motion.Graphics.Slot? = nil,
                 starts: [Double] = []
             ) {
                 self.ink = ink

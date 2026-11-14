@@ -4,7 +4,8 @@
 
     extension Motion.Graphics.Readout {
         /// A readout's look: the ink of its label and total, the accent the count and the bar are lit in, its
-        /// plate, its bar, its glow, how it grows in, and the point it turns about when knocked.
+        /// plate and where the type stands on it, its bar, its glow, how it grows in, and the point it turns about
+        /// when knocked.
         public struct Style: Sendable {
             /// The label's and the total's ink; the count takes its font and size.
             public var ink: Motion.Graphics.Ink
@@ -16,10 +17,27 @@
             /// The accent's colour once the readout is finished.
             public var finish: Picture.Color
 
-            public var plate: Plate
+            /// The plate; its edge, if it has one, is drawn in the accent at the edge's alpha, whatever its own
+            /// colour.
+            public var plate: Motion.Graphics.Plate
+
+            /// The plate's height, the inset of the type from its sides, and the type's baseline below its top.
+            public var height: Double
+
+            public var inset: Double
+
+            public var baseline: Double
+
+            /// The alpha of the plate's edge in the accent at rest, and of a full flash over the plate.
+            public var edge: Double
+
+            public var flash: Double
+
             public var bar: Bar
+
             /// The glow of the count and the bar, brightened by heat and flash; nil for none.
             public var glow: Motion.Graphics.Glow?
+
             /// What full heat adds to the edge's alpha and the glow's strength.
             public var heat: Heat
 
@@ -40,7 +58,12 @@
                 ink: Motion.Graphics.Ink,
                 accent: [Picture.Color],
                 finish: Picture.Color,
-                plate: Plate,
+                plate: Motion.Graphics.Plate,
+                height: Double,
+                inset: Double,
+                baseline: Double,
+                edge: Double,
+                flash: Double,
                 bar: Bar,
                 glow: Motion.Graphics.Glow?,
                 heat: Heat,
@@ -53,6 +76,11 @@
                 self.accent = accent
                 self.finish = finish
                 self.plate = plate
+                self.height = height
+                self.inset = inset
+                self.baseline = baseline
+                self.edge = edge
+                self.flash = flash
                 self.bar = bar
                 self.glow = glow
                 self.heat = heat

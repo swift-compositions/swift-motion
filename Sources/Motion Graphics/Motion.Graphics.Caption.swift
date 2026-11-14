@@ -33,18 +33,17 @@
             return placed
         }
 
-        /// The plate at rest: around the line with all its glyphs, from the plate's ascent above the first
+        /// The plate at rest: around the line with all its glyphs, from the style's ascent above the first
         /// baseline to its descent below the last, padded by its insets.
         public var plate: Picture.Plane.Rectangle {
             let set = transcript
-            let plate = style.plate
             let rows = Double(Int(clamping: set.rows))
             let last = set.origin[1] + Swift.max(rows - 1, 0) * style.transcript.leading
             return Picture.Plane.Rectangle(
-                llx: .init(set.origin[0] - plate.horizontal),
-                lly: .init(set.origin[1] - plate.ascent - plate.vertical),
-                urx: .init(set.origin[0] + set.width + plate.horizontal),
-                ury: .init(last + plate.descent + plate.vertical)
+                llx: .init(set.origin[0] - style.horizontal),
+                lly: .init(set.origin[1] - style.ascent - style.vertical),
+                urx: .init(set.origin[0] + set.width + style.horizontal),
+                ury: .init(last + style.descent + style.vertical)
             )
         }
     }

@@ -18,12 +18,11 @@
             }
             let style = readout.style
             let ink = style.ink
-            let plate = style.plate
             let line = readout.line
             let frame = readout.plate
             let (left, top) = (frame.llx.underlying, frame.lly.underlying)
-            let (start, end) = (left + plate.inset, frame.urx.underlying - plate.inset)
-            let baseline = top + plate.baseline
+            let (start, end) = (left + style.inset, frame.urx.underlying - style.inset)
+            let baseline = top + style.baseline
             let glyphs = line.glyphs
             let counted = Picture.Text.length(of: readout.label) + 1
             let after = counted + readout.origins.count + 1
@@ -31,12 +30,11 @@
             let lit = style.lit(heat: moment.heat, finished: moment.finished)
             let hot = Swift.max(moment.heat, moment.finished)
             let clamp = { (value: Double) in Float(Swift.min(Swift.max(value, 0), 1)) }
+            var plate = style.plate
+            plate.edge?.color = lit.faded(by: clamp(style.edge + style.heat.edge * hot))
             let body = plate.corners.path(frame)
-            var content = Picture(
-                plate.surface.elements(frame, corners: plate.corners)
-                    + [.stroke(body, .solid(lit.faded(by: clamp(plate.edge + style.heat.edge * hot))), width: plate.pen, join: .round, cap: .round)]
-            )
-            if moment.flash > 0 { content.elements.append(.fill(body, .solid(lit.faded(by: clamp(plate.flash * moment.flash))))) }
+            var content = Picture(plate.elements(frame, outline: body))
+            if moment.flash > 0 { content.elements.append(.fill(body, .solid(lit.faded(by: clamp(style.flash * moment.flash))))) }
             content.elements.append(readout.opening.placed(.init(.solid(ink.color)), at: Picture.Plane.Point<2>([start, baseline])))
             content.elements.append(readout.closing.placed(.init(.solid(ink.color)), at: Picture.Plane.Point<2>([x(after), baseline])))
             let bar = style.bar

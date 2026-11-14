@@ -16,26 +16,26 @@
             public var region: Picture.Plane.Path?
             public let style: Style
             /// The size the lines are set at: the size at which the widest is as wide as the measure, and at most
-            /// the style's size.
+            /// the ink's size.
             public let size: Double
             /// The font's cap height at that size.
             let cap: Double
             /// Each line set at that size.
             let texts: [Picture.Text]
 
-            /// A headline, its lines set once: it fails as `Picture.Text` does for its lines in the style's font.
+            /// A headline, its lines set once: it fails as `Picture.Text` does for its lines in the style's ink.
             public init(_ lines: [Line], about centre: Picture.Plane.Point<2>, region: Picture.Plane.Path? = nil, style: Style) throws(Picture.Text.Error) {
                 self.lines = lines
                 self.centre = centre
                 self.region = region
                 self.style = style
-                let block = try Picture.Text(lines.map(\.text).joined(separator: "\n"), font: style.font, size: style.size)
-                let size = block.size(fitting: style.measure, maximum: style.size)
+                let block = try style.ink.text(lines.map(\.text).joined(separator: "\n"))
+                let size = block.size(fitting: style.measure, maximum: style.ink.size)
                 self.size = size
-                self.cap = try Picture.Text.Metrics(font: style.font, size: size).cap
+                self.cap = try Picture.Text.Metrics(font: style.ink.font, size: size).cap
                 var texts: [Picture.Text] = []
                 for line in lines {
-                    texts.append(try Picture.Text(line.text, font: style.font, size: size))
+                    texts.append(try style.ink.text(line.text, size: size))
                 }
                 self.texts = texts
             }
@@ -59,19 +59,18 @@
 
         /// Where the lines stand at a moment: each line that has a moment, has begun to rise and has not wholly
         /// gone, as it was set, its baseline lowered by `(1 − risen) × rise` sizes and raised by `gone × rise`
-        /// sizes, in a slot `slot.height` sizes tall whose top is `slot.above` sizes over the line's resting
-        /// baseline, `span` wide about the centre.
+        /// sizes, in its slot about the line's resting baseline, in sizes, `span` wide about the centre.
         public func placements(at moment: Moment) -> [Placement] {
             let baselines = baselines(opened: moment.opened)
             var placements: [Placement] = []
             for (index, state) in zip(lines.indices, moment.lines) where state.risen > 0 && state.gone < 1 {
                 let lift = ((1 - state.risen) - state.gone) * size * style.rise
-                let top = baselines[index] - size * style.slot.above
+                let (top, bottom) = style.slot.span(baseline: baselines[index], size: size)
                 let slot = Picture.Plane.Rectangle(
                     llx: .init(centre[0] - style.span / 2),
                     lly: .init(top),
                     urx: .init(centre[0] + style.span / 2),
-                    ury: .init(top + size * style.slot.height)
+                    ury: .init(bottom)
                 )
                 let point = Picture.Plane.Point<2>([centre[0] + lines[index].offset, baselines[index] + lift])
                 placements.append(Placement(text: texts[index], point: point, slot: Picture.Plane.Path(slot)))

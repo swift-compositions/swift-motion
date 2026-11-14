@@ -35,7 +35,7 @@
                     x += unit
                 }
                 let window =
-                    style.slot.map { (top: resting - $0.above * style.ink.size, bottom: resting + $0.below * style.ink.size) }
+                    style.slot.map { $0.span(baseline: resting, size: style.ink.size) }
                     ?? (top: band, bottom: band + style.pitch)
                 let slot = Picture.Plane.Rectangle(
                     llx: .init(left),
