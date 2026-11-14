@@ -5,7 +5,7 @@
 
     extension Motion.Pairs {
         /// How a pair's instant is written above it: in a font the caller gives, at a size, in a colour, through
-        /// swift-picture's `Picture.Text`. This package bundles no font.
+        /// swift-picture's `Typesetting.Text`. This package bundles no font.
         public struct Label: Sendable, Hashable {
             /// The bytes of a TrueType or OpenType font file.
             public var font: [Byte]
@@ -42,9 +42,9 @@
         /// The label of an instant: its text set in the font, its first baseline an eighth of the size below the
         /// row's top plus the font's ascent, starting an eighth of the size from the left.
         func picture(of instant: Rational) throws(Motion.Pairs.Error) -> Picture::Picture {
-            let set: Picture::Picture.Text
-            do throws(Picture::Picture.Text.Error) {
-                set = try Picture::Picture.Text(Self.text(instant), bytes: font, size: size)
+            let set: Typesetting.Text
+            do throws(Typesetting.Error) {
+                set = try Typesetting.Text(Self.text(instant), bytes: font, size: size)
             } catch {
                 throw .label(error)
             }

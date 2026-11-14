@@ -12,21 +12,21 @@
             public var frame: Picture.Plane.Rectangle
             public let style: Style
             /// Each line set in the ink.
-            let texts: [Picture.Text]
+            let texts: [Typesetting.Text]
             /// The ink's cap height.
             let cap: Double
 
-            /// A marquee, its lines set once: it fails as `Picture.Text` does for a line in the ink.
-            public init(_ lines: [Swift.String], in frame: Picture.Plane.Rectangle, style: Style) throws(Picture.Text.Error) {
+            /// A marquee, its lines set once: it fails as `Typesetting.Text` does for a line in the ink.
+            public init(_ lines: [Swift.String], in frame: Picture.Plane.Rectangle, style: Style) throws(Typesetting.Error) {
                 self.lines = lines
                 self.frame = frame
                 self.style = style
-                var texts: [Picture.Text] = []
+                var texts: [Typesetting.Text] = []
                 for line in lines {
                     texts.append(try style.ink.text(line))
                 }
                 self.texts = texts
-                self.cap = try Picture.Text.Metrics(font: style.ink.font, size: style.ink.size).cap
+                self.cap = try Typesetting.Metrics(font: style.ink.font, size: style.ink.size).cap
             }
         }
     }
@@ -41,7 +41,7 @@
         }
 
         /// The words of a row as they were set in the ink.
-        func set(row: Ordinal) -> Picture.Text {
+        func set(row: Ordinal) -> Typesetting.Text {
             texts[Int(bitPattern: row) % texts.count]
         }
 

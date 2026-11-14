@@ -7,7 +7,7 @@
         /// have, the cells its mark takes, its rows each set in that ink, and its widest row's cells, its mark's
         /// included.
         struct Setting: Sendable {
-            let mark: Picture.Text?
+            let mark: Typesetting.Text?
             let ink: Motion.Graphics.Ink
             let length: Int
             let lead: Int
@@ -19,7 +19,7 @@
     extension Motion.Graphics.Transcript.Setting {
         /// A line set in a style: its mark in the mark's ink, and its words, row by row, in the typed ink after a
         /// prompt and in the said ink otherwise.
-        init(_ line: Motion.Graphics.Transcript.Line, style: Motion.Graphics.Transcript.Style) throws(Picture.Text.Error) {
+        init(_ line: Motion.Graphics.Transcript.Line, style: Motion.Graphics.Transcript.Style) throws(Typesetting.Error) {
             switch line.mark {
             case .prompt(let word):
                 self.mark = try style.mark.text(word)

@@ -168,7 +168,7 @@
         /// empty. It fails with `.building` of the part's key when the part's drawing could not be built.
         public func picture(at position: Ordinal) throws(Error) -> Picture::Picture {
             guard let place = place(of: position) else { return .empty }
-            do throws(Picture::Picture.Text.Error) {
+            do throws(Typesetting.Error) {
                 return try picture(at: position, in: place)
             } catch {
                 throw .building(place.key, error)
@@ -176,7 +176,7 @@
         }
 
         /// The picture of a frame of the reel at its place.
-        func picture(at position: Ordinal, in place: Place) throws(Picture::Picture.Text.Error) -> Picture::Picture {
+        func picture(at position: Ordinal, in place: Place) throws(Typesetting.Error) -> Picture::Picture {
             let part = parts[Int(bitPattern: place.part)]
             var picture = try part.drawing.drawn()(Frame(position: place.frame, time: rate.centre(of: Integer(Int(bitPattern: place.frame)))))
             let time = rate.centre(of: Integer(Int(bitPattern: position)))
@@ -205,7 +205,7 @@
                 workers: workers,
                 renderer: renderer,
                 store: store
-            ) { position throws(Picture::Picture.Text.Error) in
+            ) { position throws(Typesetting.Error) in
                 guard let shown = reel.position(of: position, among: chosen), let place = reel.place(of: shown) else { return .empty }
                 return try reel.picture(at: shown, in: place)
             }

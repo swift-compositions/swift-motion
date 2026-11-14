@@ -24,7 +24,7 @@
             let (start, end) = (left + style.inset, frame.urx.underlying - style.inset)
             let baseline = top + style.baseline
             let glyphs = line.glyphs
-            let counted = Picture.Text.length(of: readout.label) + 1
+            let counted = Int(bitPattern: Typesetting.Text.length(of: readout.label)) + 1
             let after = counted + readout.origins.count + 1
             let x = { (place: Int) in start + (place < glyphs.count ? glyphs[place].origin[0] : line.width) }
             let lit = style.lit(heat: moment.heat, finished: moment.finished)

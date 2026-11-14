@@ -16,16 +16,16 @@
     }
 
     extension Motion.Graphics.Transcript.Line {
-        /// How many glyphs the words are set as, `Picture.Text.length(of:)`: one for each unicode scalar but a line
+        /// How many glyphs the words are set as, `Typesetting.Text.length(of:)`: one for each unicode scalar but a line
         /// feed. It is what a typed share counts.
         public var length: Cardinal {
-            Cardinal(UInt(Picture.Text.length(of: text)))
+            Typesetting.Text.length(of: text)
         }
 
         /// The cells the mark and the space after it take, before the words: one for each of the mark's glyphs.
         var lead: Int {
             switch mark {
-            case .prompt(let word), .label(let word, _): Picture.Text.length(of: word) + 1
+            case .prompt(let word), .label(let word, _): Int(bitPattern: Typesetting.Text.length(of: word)) + 1
             case .plain: 0
             }
         }

@@ -82,7 +82,7 @@
         }
 
         @Test func `a row rises by the style's rise, through its slot about its resting baseline, from its own start`() throws {
-            let cap = try Picture.Text.Metrics(font: Fonts.sans, size: 120).cap
+            let cap = try Typesetting.Metrics(font: Fonts.sans, size: 120).cap
             let resting = 100 + (110 + cap) / 2
             let plain = Self.rows(Picture(try Self.styled(Fonts.sans), at: .init(travel: 0, rows: [0.5])))
             #expect(Swift.abs((plain[0].first?[1, 2] ?? 0) - (resting + 55)) < 1e-9)

@@ -45,8 +45,8 @@
         /// A cell's width: the typed font's pitch at its size when the font is fixed pitch, and otherwise the
         /// advance of its capital M.
         public var advance: Double {
-            get throws(Picture.Text.Error) {
-                let metrics = try Picture.Text.Metrics(font: typed.font, size: typed.size)
+            get throws(Typesetting.Error) {
+                let metrics = try Typesetting.Metrics(font: typed.font, size: typed.size)
                 if let pitch = metrics.pitch { return pitch }
                 return try typed.text("M").glyphs.first?.advance ?? metrics.figure
             }

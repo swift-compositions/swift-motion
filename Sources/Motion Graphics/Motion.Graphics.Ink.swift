@@ -25,8 +25,8 @@
 
     extension Motion.Graphics.Ink {
         /// A string set in this ink's font at its size and tracking.
-        func text(_ string: Swift.String, size: Double? = nil, figures: Picture.Text.Figures = .proportional) throws(Picture.Text.Error) -> Picture.Text {
-            try Picture.Text(string, font: font, size: size ?? self.size, tracking: tracking, figures: figures)
+        func text(_ string: Swift.String, size: Double? = nil, figures: Typesetting.Figures = .proportional) throws(Typesetting.Error) -> Typesetting.Text {
+            try Typesetting.Text(string, font: font, size: size ?? self.size, tracking: tracking, figures: figures)
         }
     }
 #endif

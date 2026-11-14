@@ -21,8 +21,8 @@
             /// Each line as it is set.
             let settings: [Setting]
 
-            /// A transcript, its lines set once: it fails as `Picture.Text` does for a mark or a row in its ink.
-            public init(_ lines: [Line], at place: Picture.Plane.Point<2>, style: Style) throws(Picture.Text.Error) {
+            /// A transcript, its lines set once: it fails as `Typesetting.Text` does for a mark or a row in its ink.
+            public init(_ lines: [Line], at place: Picture.Plane.Point<2>, style: Style) throws(Typesetting.Error) {
                 self.lines = lines
                 self.place = place
                 self.style = style

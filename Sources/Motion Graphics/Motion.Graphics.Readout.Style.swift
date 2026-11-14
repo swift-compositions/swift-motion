@@ -49,7 +49,7 @@
 
             /// How its numbers are set: tabular by default, so the count's digits stand still as it counts;
             /// `.cells` with a share for punctuation keeps a point or a comma among them from moving them either.
-            public var figures: Picture.Text.Figures
+            public var figures: Typesetting.Figures
 
             public init(
                 ink: Motion.Graphics.Ink,
@@ -66,7 +66,7 @@
                 heat: Heat,
                 grow: Double,
                 fade: Double,
-                figures: Picture.Text.Figures = .tabular
+                figures: Typesetting.Figures = .tabular
             ) {
                 self.ink = ink
                 self.accent = accent

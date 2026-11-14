@@ -21,7 +21,7 @@
     }
 
     extension Motion.Graphics.Typing {
-        /// A hand typing a text in a cadence: one stroke for each glyph the text is set as, `Picture.Text.length(of:)`
+        /// A hand typing a text in a cadence: one stroke for each glyph the text is set as, `Typesetting.Text.length(of:)`
         /// of them, the first at `start` and the last at `end`, the gaps between weighted by the cadence's
         /// `Timeline.Jitter` under a key. The instants are a pure function of the text, the key, the cadence and
         /// the two ends, so two runs with one key type alike, and never go back. A cadence's spread outside 0…1

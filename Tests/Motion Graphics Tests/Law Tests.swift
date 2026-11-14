@@ -111,7 +111,7 @@
             let caption = try Motion.Graphics.Caption(
                 .init(.plain, "declared"),
                 at: Picture.Plane.Point<2>([500, 400]),
-                anchor: .left,
+                anchor: .leading,
                 style: .init(
                     transcript: Tests.transcript(Fonts.mono),
                     plate: .init(surface: .fill(.black), corners: .circular(8)),

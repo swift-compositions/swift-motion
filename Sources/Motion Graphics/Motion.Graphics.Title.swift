@@ -14,11 +14,11 @@
 
             /// A point of the line's baseline: its left end, its middle or its right end, as `anchor` says.
             public var place: Picture.Plane.Point<2>
-            public var anchor: Picture.Text.Alignment
+            public var anchor: Horizontal.Alignment
             public let style: Style
 
             /// The whole line set in the style's font at its size, once, when the title is made.
-            public let text: Picture.Text
+            public let text: Typesetting.Text
 
             /// The font's cap height at the size.
             let cap: Double
@@ -26,23 +26,23 @@
             /// For each glyph of `text`, the style's run it takes its look from.
             let looks: [Int]
 
-            /// A title, its line set once: it fails as `Picture.Text` does for the joined runs in the style's font
+            /// A title, its line set once: it fails as `Typesetting.Text` does for the joined runs in the style's font
             /// at its size.
             public init(
                 _ runs: [Swift.String],
                 at place: Picture.Plane.Point<2>,
-                anchor: Picture.Text.Alignment,
+                anchor: Horizontal.Alignment,
                 style: Style
-            ) throws(Picture.Text.Error) {
+            ) throws(Typesetting.Error) {
                 self.runs = runs
                 self.place = place
                 self.anchor = anchor
                 self.style = style
                 self.text = try style.ink.text(runs.joined())
-                self.cap = try Picture.Text.Metrics(font: style.ink.font, size: style.ink.size).cap
+                self.cap = try Typesetting.Metrics(font: style.ink.font, size: style.ink.size).cap
                 var looks: [Int] = []
                 for (run, words) in runs.enumerated() {
-                    looks += Swift.Array(repeating: style.runs.isEmpty ? 0 : run % style.runs.count, count: Picture.Text.length(of: words))
+                    looks += Swift.Array(repeating: style.runs.isEmpty ? 0 : run % style.runs.count, count: Int(bitPattern: Typesetting.Text.length(of: words)))
                 }
                 self.looks = looks
             }
@@ -59,7 +59,7 @@
         /// is not set again: this reads the text set when the title was made.
         public func letters(at moment: Moment) -> [Letter] {
             guard !style.runs.isEmpty else { return [] }
-            let start = place[0] - anchor.indent(of: 0, in: text.width)
+            let start = place[0] - anchor.indent(of: 0, in: text.width, direction: .leftToRight)
             let baseline = place[1]
             var letters: [Letter] = []
             for (position, (glyph, entered)) in zip(text.glyphs, moment.letters).enumerated() where entered > 0 {

@@ -11,18 +11,18 @@
             let state: Mutex<State>
 
             enum State: Sendable {
-                case waiting(@Sendable () throws(Picture::Picture.Text.Error) -> @Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture)
+                case waiting(@Sendable () throws(Typesetting.Error) -> @Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture)
                 case built(@Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture)
-                case failed(Picture::Picture.Text.Error)
+                case failed(Typesetting.Error)
             }
 
-            init(_ building: @escaping @Sendable () throws(Picture::Picture.Text.Error) -> @Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture) {
+            init(_ building: @escaping @Sendable () throws(Typesetting.Error) -> @Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture) {
                 self.state = Mutex(.waiting(building))
             }
 
             /// The drawing, built now if it was not before, or why it could not be built.
-            func drawn() throws(Picture::Picture.Text.Error) -> @Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture {
-                let result: Result<@Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture, Picture::Picture.Text.Error> = state.withLock { state in
+            func drawn() throws(Typesetting.Error) -> @Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture {
+                let result: Result<@Sendable (Motion.Reel<Key>.Frame) -> Picture::Picture, Typesetting.Error> = state.withLock { state in
                     switch state {
                     case .built(let picture):
                         return .success(picture)
@@ -31,7 +31,7 @@
                         return .failure(error)
 
                     case .waiting(let building):
-                        do throws(Picture::Picture.Text.Error) {
+                        do throws(Typesetting.Error) {
                             let picture = try building()
                             state = .built(picture)
                             return .success(picture)

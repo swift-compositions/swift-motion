@@ -145,7 +145,7 @@
                 of: "/ ",
                 total: 1650,
                 at: Picture.Plane.Point<2>([400, 20]),
-                anchor: .right,
+                anchor: .trailing,
                 style: .init(
                     ink: ink(sans, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],

@@ -291,7 +291,7 @@
 
         @Test func `a part whose building fails fails the reel's drawing with its key and that failure, built once`() async throws {
             let built = Mutex(0)
-            let failing = Reel.Part("broken", frames: 2) { () throws(Picture.Text.Error) in
+            let failing = Reel.Part("broken", frames: 2) { () throws(Typesetting.Error) in
                 built.withLock { $0 += 1 }
                 throw .size
             }

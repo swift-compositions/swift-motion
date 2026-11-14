@@ -22,8 +22,8 @@
                 let face = style.faces.isEmpty ? .filled : style.faces[index % style.faces.count]
                 let shape: Picture.Element =
                     switch face {
-                    case .filled: .fill(text.path, .solid(style.ink.color))
-                    case .outlined(let width): .stroke(text.path, .solid(style.ink.color), width: width, join: .round, cap: .round)
+                    case .filled: .fill(Picture.Plane.Path(text.path), .solid(style.ink.color))
+                    case .outlined(let width): .stroke(Picture.Plane.Path(text.path), .solid(style.ink.color), width: width, join: .round, cap: .round)
                     }
                 let band = top + Double(index) * style.pitch
                 let resting = band + (style.pitch + cap) / 2

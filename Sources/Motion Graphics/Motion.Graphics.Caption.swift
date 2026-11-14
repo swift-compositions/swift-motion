@@ -11,7 +11,7 @@
             /// A point of the last row's baseline: the line's left end, its middle or its right end, as `anchor`
             /// says.
             public var place: Picture.Plane.Point<2>
-            public var anchor: Picture.Text.Alignment
+            public var anchor: Horizontal.Alignment
             public let style: Style
             /// The line set as a transcript of one line, from the origin.
             let set: Transcript
@@ -20,9 +20,9 @@
             public init(
                 _ line: Transcript.Line,
                 at place: Picture.Plane.Point<2>,
-                anchor: Picture.Text.Alignment,
+                anchor: Horizontal.Alignment,
                 style: Style
-            ) throws(Picture.Text.Error) {
+            ) throws(Typesetting.Error) {
                 self.line = line
                 self.place = place
                 self.anchor = anchor
@@ -37,7 +37,7 @@
         public var transcript: Motion.Graphics.Transcript {
             var placed = set
             let rows = Double(Int(clamping: set.rows))
-            placed.place = Picture.Plane.Point<2>([place[0] - anchor.indent(of: 0, in: set.width), place[1] - Swift.max(rows - 1, 0) * style.transcript.leading])
+            placed.place = Picture.Plane.Point<2>([place[0] - anchor.indent(of: 0, in: set.width, direction: .leftToRight), place[1] - Swift.max(rows - 1, 0) * style.transcript.leading])
             return placed
         }
 

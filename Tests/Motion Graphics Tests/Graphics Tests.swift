@@ -49,7 +49,7 @@
                 of: "/ ",
                 total: 1650,
                 at: Picture.Plane.Point<2>([400, 20]),
-                anchor: .right,
+                anchor: .trailing,
                 style: .init(
                     ink: ink(font, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],
@@ -138,7 +138,7 @@
             let bytes = Swift.Array(text.utf8)
             for k in [0, 1, 7, 14, 15, 20, 27, 28, count] {
                 let ends = bytes.indices.filter { bytes[$0] & 0xc0 != 0x80 } + [bytes.count]
-                let prefix = ends.lazy.map { Swift.String(decoding: bytes[..<$0], as: UTF8.self) }.first { Picture.Text.length(of: $0) == k } ?? text
+                let prefix = ends.lazy.map { Swift.String(decoding: bytes[..<$0], as: UTF8.self) }.first { Int(bitPattern: Typesetting.Text.length(of: $0)) == k } ?? text
                 let typed = Picture(set, at: .init([.init(typed: Double(k) / Double(count))]))
                 let alone = Picture(try Motion.Graphics.Transcript([.init(.prompt(">"), prefix)], at: origin, style: style), at: .init([.resting]))
                 #expect(typed == alone, "\(k) glyphs")
@@ -387,11 +387,11 @@
 
         @Test func `an ink sets its text at its tracking, and a title's run without a colour takes the ink's`() throws {
             let ink = Motion.Graphics.Ink(font: Fonts.sans, size: 20, color: .white, tracking: 0.5)
-            #expect(try ink.text("AB") == (try Picture.Text("AB", font: Fonts.sans, size: 20, tracking: 0.5)))
+            #expect(try ink.text("AB") == (try Typesetting.Text("AB", font: Fonts.sans, size: 20, tracking: 0.5)))
             let title = try Motion.Graphics.Title(
                 ["AB"],
                 at: Picture.Plane.Point<2>([0, 100]),
-                anchor: .left,
+                anchor: .leading,
                 style: .init(ink: ink, runs: [.init(rise: 0, grow: 0, fade: 1)])
             )
             #expect(title.letters(at: .resting(2)).map(\.color) == [.white, .white])

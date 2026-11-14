@@ -40,6 +40,7 @@ let package = Package(
         .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main", traits: ["Geometry"]),
         .package(url: "https://github.com/swift-iec/swift-iec-61966.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-picture.git", branch: "main", traits: ["PNG", "Store"]),
+        .package(url: "https://github.com/swift-iso/swift-iso-14496-22.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-witnesses.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-test-apple.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-threads.git", branch: "main"),
@@ -245,6 +246,7 @@ let package = Package(
             dependencies: [
                 .target(name: "Motion"),
                 .target(name: "Motion Graphics"),
+                .product(name: "ISO 14496-22 Test Support", package: "swift-iso-14496-22"),
                 .product(name: "Picture", package: "swift-picture"),
                 .product(name: "Timeline", package: "swift-timeline"),
                 .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),

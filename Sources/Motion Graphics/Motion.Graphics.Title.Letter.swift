@@ -7,12 +7,12 @@
         /// stands, its colour and its opacity. Its outline where it stands is the glyph's `path` under the
         /// transform, which is what a glint over the landed letters lights.
         public struct Letter: Sendable, Hashable {
-            public var glyph: Picture.Text.Glyph
+            public var glyph: Typesetting.Glyph
             public var transform: Picture.Transform
             public var color: Picture.Color
             public var opacity: Double
 
-            public init(glyph: Picture.Text.Glyph, transform: Picture.Transform, color: Picture.Color, opacity: Double) {
+            public init(glyph: Typesetting.Glyph, transform: Picture.Transform, color: Picture.Color, opacity: Double) {
                 self.glyph = glyph
                 self.transform = transform
                 self.color = color
@@ -24,7 +24,7 @@
     extension Motion.Graphics.Title.Letter {
         /// The letter's outline where it stands.
         public var path: Picture.Plane.Path {
-            glyph.path.transformed(by: transform)
+            Picture.Plane.Path(glyph.path).transformed(by: transform)
         }
     }
 #endif

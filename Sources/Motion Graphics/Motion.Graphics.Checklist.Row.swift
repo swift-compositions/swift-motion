@@ -13,13 +13,13 @@
             public var baseline: Double
             public let style: Style
             /// The name and the tag set in their inks.
-            let name: Picture.Text
-            let tag: Picture.Text
+            let name: Typesetting.Text
+            let tag: Typesetting.Text
             /// Each of the tag's glyphs' outline where the tag sets it.
             let typed: [Picture.Plane.Path]
 
-            /// A row, its name and tag set once: it fails as `Picture.Text` does for them in their inks.
-            public init(_ item: Item, left: Double, right: Double, baseline: Double, style: Style) throws(Picture.Text.Error) {
+            /// A row, its name and tag set once: it fails as `Typesetting.Text` does for them in their inks.
+            public init(_ item: Item, left: Double, right: Double, baseline: Double, style: Style) throws(Typesetting.Error) {
                 self.item = item
                 self.left = left
                 self.right = right
@@ -27,7 +27,7 @@
                 self.style = style
                 self.name = try style.name.text(item.name)
                 self.tag = try style.tag.text(item.tag)
-                self.typed = tag.glyphs.map(\.path)
+                self.typed = tag.glyphs.map { Picture.Plane.Path($0.path) }
             }
         }
     }

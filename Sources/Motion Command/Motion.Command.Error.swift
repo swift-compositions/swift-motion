@@ -27,7 +27,7 @@
             case outside(Ordinal)
 
             /// The part of that name could not be built: its words did not set.
-            case building(Swift.String, Picture::Picture.Text.Error)
+            case building(Swift.String, Typesetting.Error)
 
             /// The frames were not drawn.
             case frames(Motion.Hosting.Picture.Frames.Error)

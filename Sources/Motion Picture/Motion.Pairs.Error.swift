@@ -10,7 +10,7 @@
             case sheet(Raster<Picture::Picture.Pixel>.Error)
 
             /// A label could not be set in its font.
-            case label(Picture::Picture.Text.Error)
+            case label(Typesetting.Error)
 
             /// The renderer refused a label.
             case renderer(Picture::Picture.Renderer.Error)

@@ -33,9 +33,9 @@
             #expect(letters.allSatisfy { $0.opacity == 1 })
             let start = 600 - text.width / 2
             for letter in letters {
-                let placed = letter.transform.applied(to: Vector([letter.glyph.origin[0], letter.glyph.origin[1]]))
+                let placed = letter.transform.applied(to: Vector([letter.glyph.origin[0], -letter.glyph.origin[1]]))
                 #expect(Swift.abs(placed[0] - (start + letter.glyph.origin[0])) < 1e-9)
-                #expect(Swift.abs(placed[1] - (400 + letter.glyph.origin[1])) < 1e-9)
+                #expect(Swift.abs(placed[1] - (400 - letter.glyph.origin[1])) < 1e-9)
             }
         }
 
@@ -45,7 +45,7 @@
             #expect(half.map(\.glyph.scalar) == ["A", "C", "D"])
             #expect(half.map(\.opacity) == [0.9, 1, 0.6])
             let rest = title.letters(at: .resting(5))
-            let cap = try Picture.Text.Metrics(font: Fonts.sans, size: 100).cap
+            let cap = try Typesetting.Metrics(font: Fonts.sans, size: 100).cap
             let middle = { (letter: Motion.Graphics.Title.Letter) -> Vector<2, Double> in
                 guard let box = letter.glyph.path.boundingBox else { return Vector([0, 0]) }
                 return letter.transform.applied(to: Vector([(box.llx.underlying + box.urx.underlying) / 2, -cap / 2]))
@@ -73,13 +73,13 @@
 
         @Test func `a title sets its line once, when it is made`() throws {
             let title = try Self.title(Fonts.sans)
-            #expect(title.text == (try Picture.Text("AB CD", font: Fonts.sans, size: 100)))
+            #expect(title.text == (try Typesetting.Text("AB CD", font: Fonts.sans, size: 100)))
             #expect(title.looks == [0, 0, 0, 1, 1])
-            #expect(throws: Picture.Text.Error.size) {
+            #expect(throws: Typesetting.Error.size) {
                 try Motion.Graphics.Title(
                     ["A"],
                     at: Picture.Plane.Point<2>([0, 0]),
-                    anchor: .left,
+                    anchor: .leading,
                     style: .init(
                         ink: .init(font: Fonts.sans, size: 0, color: .white),
                         runs: []

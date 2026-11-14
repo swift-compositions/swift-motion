@@ -21,10 +21,10 @@
             /// The font's cap height at that size.
             let cap: Double
             /// Each line set at that size.
-            let texts: [Picture.Text]
+            let texts: [Typesetting.Text]
 
-            /// A headline, its lines set once: it fails as `Picture.Text` does for its lines in the style's ink.
-            public init(_ lines: [Line], at place: Picture.Plane.Point<2>, region: Picture.Plane.Path? = nil, style: Style) throws(Picture.Text.Error) {
+            /// A headline, its lines set once: it fails as `Typesetting.Text` does for its lines in the style's ink.
+            public init(_ lines: [Line], at place: Picture.Plane.Point<2>, region: Picture.Plane.Path? = nil, style: Style) throws(Typesetting.Error) {
                 self.lines = lines
                 self.place = place
                 self.region = region
@@ -32,8 +32,8 @@
                 let block = try style.ink.text(lines.map(\.text).joined(separator: "\n"))
                 let size = block.size(fitting: style.measure, maximum: style.ink.size)
                 self.size = size
-                self.cap = try Picture.Text.Metrics(font: style.ink.font, size: size).cap
-                var texts: [Picture.Text] = []
+                self.cap = try Typesetting.Metrics(font: style.ink.font, size: size).cap
+                var texts: [Typesetting.Text] = []
                 for line in lines {
                     texts.append(try style.ink.text(line.text, size: size))
                 }

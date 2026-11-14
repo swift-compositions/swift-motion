@@ -18,28 +18,28 @@
             public let total: Cardinal
             /// A point of the plate's top edge: its left end, its middle or its right end, as `anchor` says.
             public var place: Picture.Plane.Point<2>
-            public var anchor: Picture.Text.Alignment
+            public var anchor: Horizontal.Alignment
             public let style: Style
             /// The whole line, the count's place filled with zeros.
-            let line: Picture.Text
+            let line: Typesetting.Text
             /// The label, and the word and the total, each set alone.
-            let opening: Picture.Text
-            let closing: Picture.Text
+            let opening: Typesetting.Text
+            let closing: Typesetting.Text
             /// The outline of each digit, 0 to 9, about its own origin.
             let digits: [Picture.Plane.Path]
             /// The origin of each of the count's digits, from the count's start.
             let origins: [Double]
 
-            /// A readout, its line set once: it fails as `Picture.Text` does for the line in the ink's font at its
+            /// A readout, its line set once: it fails as `Typesetting.Text` does for the line in the ink's font at its
             /// size. Its figures give every digit one advance: proportional figures are set tabular.
             public init(
                 _ label: Swift.String,
                 of word: Swift.String,
                 total: Cardinal,
                 at place: Picture.Plane.Point<2>,
-                anchor: Picture.Text.Alignment,
+                anchor: Horizontal.Alignment,
                 style: Style
-            ) throws(Picture.Text.Error) {
+            ) throws(Typesetting.Error) {
                 self.label = label
                 self.word = word
                 self.total = total
@@ -53,7 +53,7 @@
                 self.line = try ink.text(label + " " + zeros + " " + closing, figures: figures)
                 self.opening = try ink.text(label, figures: figures)
                 self.closing = try ink.text(closing, figures: figures)
-                self.digits = try ink.text("0123456789", figures: figures).glyphs.map(\.outline)
+                self.digits = try ink.text("0123456789", figures: figures).glyphs.map { Picture.Plane.Path($0.outline) }
                 self.origins = try ink.text(zeros, figures: figures).glyphs.map { $0.origin[0] }
             }
         }
@@ -86,7 +86,7 @@
         /// `anchor` says. Since the count's digits share one advance, it is the same whatever the count reads.
         public var plate: Picture.Plane.Rectangle {
             let wide = line.width + 2 * style.inset
-            let left = place[0] - anchor.indent(of: 0, in: wide)
+            let left = place[0] - anchor.indent(of: 0, in: wide, direction: .leftToRight)
             let top = place[1]
             return Picture.Plane.Rectangle(llx: .init(left), lly: .init(top), urx: .init(left + wide), ury: .init(top + style.height))
         }

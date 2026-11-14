@@ -16,11 +16,11 @@
             /// next one a pitch lower.
             public let rows: [Row]
             /// The heading and the statement set in their inks.
-            let headed: Picture.Text
-            let stated: Picture.Text
+            let headed: Typesetting.Text
+            let stated: Typesetting.Text
 
-            /// A checklist, its words set once: it fails as `Picture.Text` does for them in their inks.
-            public init(heading: Swift.String, statement: Swift.String, items: [Item], layout: Layout, style: Style) throws(Picture.Text.Error) {
+            /// A checklist, its words set once: it fails as `Typesetting.Text` does for them in their inks.
+            public init(heading: Swift.String, statement: Swift.String, items: [Item], layout: Layout, style: Style) throws(Typesetting.Error) {
                 self.heading = heading
                 self.statement = statement
                 self.items = items

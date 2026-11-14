@@ -8,7 +8,7 @@
         public init(_ title: Motion.Graphics.Title, at moment: Motion.Graphics.Title.Moment) {
             self.init(
                 title.letters(at: moment).map { letter in
-                    let placed = Picture.Element.group(Picture.Group([.fill(letter.glyph.path, .solid(letter.color))], transform: letter.transform))
+                    let placed = Picture.Element.group(Picture.Group([.fill(Picture.Plane.Path(letter.glyph.path), .solid(letter.color))], transform: letter.transform))
                     return letter.opacity < 1 ? .layer(Picture.Layer([placed], opacity: Float(letter.opacity))) : placed
                 }
             )

@@ -8,13 +8,13 @@
         /// line's ink, and each glyph's outline where the row sets it.
         struct Row: Sendable {
             let start: Int
-            let text: Picture.Text
+            let text: Typesetting.Text
             let paths: [Picture.Plane.Path]
 
-            init(start: Int, text: Picture.Text) {
+            init(start: Int, text: Typesetting.Text) {
                 self.start = start
                 self.text = text
-                self.paths = text.glyphs.map(\.path)
+                self.paths = text.glyphs.map { Picture.Plane.Path($0.path) }
             }
         }
     }
@@ -27,7 +27,7 @@
 
         /// The outline of the row's first glyphs: its text's path when all of them stand.
         func path(standing count: Int) -> Picture.Plane.Path {
-            count >= paths.count ? text.path : Picture.Plane.Path(subpaths: paths.prefix(count).flatMap(\.subpaths))
+            count >= paths.count ? Picture.Plane.Path(text.path) : Picture.Plane.Path(subpaths: paths.prefix(count).flatMap(\.subpaths))
         }
     }
 #endif

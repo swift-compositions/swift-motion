@@ -12,7 +12,7 @@
         /// waits for another.
         ///
         /// `picture` gives the picture at a position, and is called on the thread that draws it; it may fail as
-        /// `Picture.Text` does, and the frame then fails with `.building` at its position. Every frame is
+        /// `Typesetting.Text` does, and the frame then fails with `.building` at its position. Every frame is
         /// drawn through the one `renderer`, so a part of the picture that it keeps (an image that names its
         /// picture) is drawn once for all the frames that show it.
         public struct Frames: Sendable {
@@ -20,7 +20,7 @@
             public var height: Cardinal
             public var background: Picture::Picture.Color
             public var renderer: Picture::Picture.Renderer
-            public var picture: @Sendable (Ordinal) throws(Picture::Picture.Text.Error) -> Picture::Picture
+            public var picture: @Sendable (Ordinal) throws(Typesetting.Error) -> Picture::Picture
 
             /// Where what is made of each frame is kept and read back from, by a form with a name; nil to draw
             /// every frame. Its edition must be that of `renderer`.
@@ -40,7 +40,7 @@
                 workers: Cardinal? = nil,
                 renderer: Picture::Picture.Renderer? = nil,
                 store: Picture::Picture.Store? = nil,
-                picture: @escaping @Sendable (Ordinal) throws(Picture::Picture.Text.Error) -> Picture::Picture
+                picture: @escaping @Sendable (Ordinal) throws(Typesetting.Error) -> Picture::Picture
             ) {
                 let count = Swift.max(workers ?? Cardinal(UInt(Int(CPU.Logical.count))), 1)
                 self.width = width
@@ -83,7 +83,7 @@
                     guard place < positions.count, progress.results.withLock({ $0.failure == nil }) else { return }
                     let position = positions[place]
                     let shown: Picture::Picture
-                    do throws(Picture::Picture.Text.Error) {
+                    do throws(Typesetting.Error) {
                         shown = try picture(position)
                     } catch {
                         progress.results.withLock { if $0.failure == nil { $0.failure = .building(error, at: position) } }

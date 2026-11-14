@@ -13,10 +13,10 @@
             public let title: Swift.String
             public let style: Style
             /// The title set in its ink.
-            let text: Picture.Text
+            let text: Typesetting.Text
 
-            /// A window, its title set once: it fails as `Picture.Text` does for the title in its ink.
-            public init(_ title: Swift.String, in frame: Picture.Plane.Rectangle, style: Style) throws(Picture.Text.Error) {
+            /// A window, its title set once: it fails as `Typesetting.Text` does for the title in its ink.
+            public init(_ title: Swift.String, in frame: Picture.Plane.Rectangle, style: Style) throws(Typesetting.Error) {
                 self.frame = frame
                 self.title = title
                 self.style = style
