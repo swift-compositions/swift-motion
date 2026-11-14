@@ -4,8 +4,7 @@
 
     extension Motion.Graphics.Readout {
         /// A readout's look: the ink of its label and total, the accent the count and the bar are lit in, its
-        /// plate and where the type stands on it, its bar, its glow, how it grows in, and the point it turns about
-        /// when knocked.
+        /// plate and where the type stands on it, its bar, its glow, and how it grows in.
         public struct Style: Sendable {
             /// The label's and the total's ink; the count takes its font and size.
             public var ink: Motion.Graphics.Ink
@@ -47,9 +46,6 @@
             /// How many times faster than it grows it comes in from nothing.
             public var fade: Double
 
-            /// The point it turns about, from the plate's upper left corner.
-            public var pivot: Picture.Plane.Point<2>
-
             /// How its numbers are set: tabular by default, so the count's digits stand still as it counts;
             /// `.cells` with a share for punctuation keeps a point or a comma among them from moving them either.
             public var figures: Picture.Text.Figures
@@ -69,7 +65,6 @@
                 heat: Heat,
                 grow: Double,
                 fade: Double,
-                pivot: Picture.Plane.Point<2>,
                 figures: Picture.Text.Figures = .tabular
             ) {
                 self.ink = ink
@@ -86,7 +81,6 @@
                 self.heat = heat
                 self.grow = grow
                 self.fade = fade
-                self.pivot = pivot
                 self.figures = figures
             }
         }

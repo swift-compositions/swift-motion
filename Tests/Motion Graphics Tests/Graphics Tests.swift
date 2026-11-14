@@ -64,8 +64,7 @@
                     glow: .init(deviation: 5, strength: 0.3, flash: 0.5),
                     heat: .init(edge: 0.5, glow: 0.5),
                     grow: 0.4,
-                    fade: 3,
-                    pivot: Picture.Plane.Point<2>([12, 10])
+                    fade: 3
                 )
             )
         }
@@ -218,6 +217,44 @@
             #expect(bare.elements.allSatisfy { if case .layer = $0 { false } else { true } })
         }
 
+        @Test func `every list's moment has a hidden that draws nothing and a resting that draws it whole`() throws {
+            let headline = try Motion.Graphics.Headline(
+                [.init("A CIRCLE."), .init("FOR NOW")],
+                about: Picture.Plane.Point<2>([500, 300]),
+                style: .init(
+                    ink: .init(font: Fonts.sans, size: 100, color: .white),
+                    second: .black,
+                    measure: 640,
+                    pitch: 0.9,
+                    rise: 0.95,
+                    slot: .init(above: 0.8, below: 0.1),
+                    span: 1000
+                )
+            )
+            #expect(Picture(headline, at: .hidden) == .empty)
+            #expect(Picture(headline, at: .resting(2)) == Picture(headline, at: .init([.resting, .resting], opened: 1)))
+            let transcript = try Motion.Graphics.Transcript(
+                [.init(.prompt(">"), "one"), .init(.plain, "two")],
+                at: Picture.Plane.Point<2>([10, 40]),
+                style: Self.transcript(Fonts.mono)
+            )
+            #expect(Picture(transcript, at: .hidden) == .empty)
+            #expect(Picture(transcript, at: .resting(2)) == Picture(transcript, at: .init([.resting, .resting])))
+            #expect(Picture(transcript, at: .resting(2)) != .empty)
+        }
+
+        @Test func `a readout's light dims it in the same layer its growth fades, without shrinking it`() throws {
+            let readout = try Self.readout(Fonts.sans)
+            let lit = Picture(readout, at: .init(count: 66, shown: 0.2))
+            let dim = Picture(readout, at: .init(count: 66, shown: 0.2, light: 0.5))
+            guard case .layer(let bright) = lit.elements.first, case .layer(let faint) = dim.elements.first else {
+                Issue.record("a readout coming in is a layer")
+                return
+            }
+            #expect(bright.opacity == 0.6 && faint.opacity == 0.3)
+            #expect(bright.content == faint.content)
+        }
+
         @Test func `a box springs, fills and is ticked by its moment, and draws nothing hidden`() {
             let checkbox = Motion.Graphics.Checkbox(at: Picture.Plane.Point<2>([50, 50]), style: Self.box())
             #expect(Picture(checkbox, at: .hidden) == .empty)
@@ -246,7 +283,7 @@
             let plate = readout.plate
             #expect(plate.urx.underlying == 400 && plate.lly.underlying == 20 && plate.ury.underlying == 80)
             let style = readout.style.plate
-            for moment in [Motion.Graphics.Readout.Moment.resting(66), .init(count: 1649, shown: 0.5), .init(count: 66, shown: 1.05, tilt: 0.2, drop: 12)] {
+            for moment in [Motion.Graphics.Readout.Moment.resting(66), .init(count: 1649, shown: 0.5), .init(count: 66, shown: 1.05, light: 0.5)] {
                 let picture = Picture(readout, at: moment)
                 let drawn = if case .layer(let layer) = picture.elements.first { layer.content } else { picture }
                 guard case .group(let placed) = drawn.elements.first else {

@@ -12,4 +12,14 @@
             }
         }
     }
+
+    extension Motion.Graphics.Transcript.Moment {
+        /// No lines.
+        public static let hidden = Self([])
+
+        /// Some lines whole, without a caret.
+        public static func resting(_ lines: Cardinal) -> Self {
+            Self(Swift.Array(repeating: .resting, count: Int(clamping: lines)))
+        }
+    }
 #endif

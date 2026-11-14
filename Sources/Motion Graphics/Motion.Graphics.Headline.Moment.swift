@@ -14,4 +14,14 @@
             }
         }
     }
+
+    extension Motion.Graphics.Headline.Moment {
+        /// No lines.
+        public static let hidden = Self([])
+
+        /// Some lines in place, the block open.
+        public static func resting(_ lines: Cardinal) -> Self {
+            Self(Swift.Array(repeating: .resting, count: Int(clamping: lines)))
+        }
+    }
 #endif

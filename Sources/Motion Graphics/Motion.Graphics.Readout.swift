@@ -81,7 +81,7 @@
             )
         }
 
-        /// The plate at rest, before the readout grows, turns or drops: as wide as the line and two insets,
+        /// The plate at rest, before the readout grows: as wide as the line and two insets,
         /// `height` tall, its top edge through `place` at its left end, its middle or its right end as
         /// `anchor` says. Since the count's digits share one advance, it is the same whatever the count reads.
         public var plate: Picture.Plane.Rectangle {
@@ -92,16 +92,14 @@
         }
 
         /// Where the readout stands at a moment: grown about the plate's middle from `1 − grow` of its size by how
-        /// far it has shown, then turned by the tilt about the pivot and dropped. The plate at a moment is `plate`
-        /// under this transform, and so is everything the readout draws.
+        /// far it has shown. The plate at a moment is `plate` under this transform, and so is everything the
+        /// readout draws, so a caller that moves the readout further (turns it, drops it) wraps its picture in a
+        /// `Picture.Group` of its own transform about `plate`.
         public func transform(at moment: Moment) -> Picture.Transform {
             let plate = plate
             let (left, top) = (plate.llx.underlying, plate.lly.underlying)
             let middle = Picture.Plane.Point<2>([(left + plate.urx.underlying) / 2, (top + plate.ury.underlying) / 2])
-            let grown = Picture.Transform.scale(1 - style.grow + style.grow * moment.shown, about: middle)
-            let pivot = Picture.Plane.Point<2>([left + style.pivot[0], top + style.pivot[1]])
-            let turned = Picture.Transform.translation(x: 0, y: moment.drop).multiplied(by: .rotation(Radian(moment.tilt), about: pivot))
-            return turned.multiplied(by: grown)
+            return Picture.Transform.scale(1 - style.grow + style.grow * moment.shown, about: middle)
         }
 
         /// The share of the total a count has come to, 0 to 1; a total of nothing is full.

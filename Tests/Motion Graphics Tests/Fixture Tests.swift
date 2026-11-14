@@ -159,8 +159,7 @@
                     glow: .init(deviation: 5, strength: 0.3, flash: 0.5),
                     heat: .init(edge: 0.5, glow: 0.5),
                     grow: 0.4,
-                    fade: 3,
-                    pivot: Picture.Plane.Point<2>([12, 10])
+                    fade: 3
                 )
             )
             drawn.append(("readout resting", Picture(readout, at: .resting(66))))

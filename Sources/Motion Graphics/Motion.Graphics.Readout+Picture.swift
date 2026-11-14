@@ -9,8 +9,7 @@
         /// the word and the total stand where the line puts them whatever the count reads. The plate is the
         /// line's width and its insets wide; over its surface go its edge and any flash in the lit accent, the label
         /// and the total in the ink, the bar's track, and the moment's count and the filled bar in the accent,
-        /// glowing. The whole stands where `transform(at:)` puts it, growing in about the plate's middle, turned
-        /// and dropped, and fades in `fade` times faster than it grows, times its light.
+        /// glowing. The whole stands where `transform(at:)` puts it, growing in about the plate's middle, and fades in `fade` times faster than it grows, times its light.
         public init(_ readout: Motion.Graphics.Readout, at moment: Motion.Graphics.Readout.Moment) {
             guard moment.shown > 0, moment.light > 0 else {
                 self = .empty
