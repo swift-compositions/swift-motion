@@ -33,10 +33,15 @@ extension Motion.Pixel {
     public init(linear red: Float, green: Float, blue: Float, alpha: Float) {
         let alpha = Self.unit(alpha)
         let cover = Self.level(alpha)
-        self.blue = Self.scaled(Self.level(Self.encoded(blue, under: alpha)), by: cover)
-        self.green = Self.scaled(Self.level(Self.encoded(green, under: alpha)), by: cover)
-        self.red = Self.scaled(Self.level(Self.encoded(red, under: alpha)), by: cover)
+        self.blue = Self.scaled(Self.encoded(blue, under: alpha), by: cover)
+        self.green = Self.scaled(Self.encoded(green, under: alpha), by: cover)
+        self.red = Self.scaled(Self.encoded(red, under: alpha), by: cover)
         self.alpha = cover
+    }
+
+    /// The linear light of an opaque component's level: the sRGB transfer function of the level over 255.
+    public static func linear(_ level: UInt8) -> Float {
+        IEC_61966.SRGB.Level.linear(level)
     }
 
     /// A level multiplied by another level over 255, rounded to the nearest, halves up.
@@ -54,8 +59,8 @@ extension Motion.Pixel {
         UInt8((unit(value) * 255 + 0.5).rounded(.down))
     }
 
-    /// A colour multiplied by `alpha` as its own sRGB-encoded value; nothing under no alpha.
-    static func encoded(_ component: Float, under alpha: Float) -> Float {
-        alpha > 0 ? IEC_61966.SRGB.TransferFunction.encoded(unit(component / alpha)) : 0
+    /// A colour multiplied by `alpha` as its own sRGB level; nothing under no alpha.
+    static func encoded(_ component: Float, under alpha: Float) -> UInt8 {
+        alpha > 0 ? IEC_61966.SRGB.Level.encoded(component / alpha) : 0
     }
 }

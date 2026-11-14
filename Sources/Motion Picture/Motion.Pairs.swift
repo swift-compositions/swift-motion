@@ -110,7 +110,7 @@
         /// A frame made the tile's size in linear light, or a tile of the fill for no frame.
         func frame(_ raster: Raster<Motion.Pixel>?) -> Raster<Picture::Picture.Pixel> {
             guard let raster else { return Raster(width: width, height: height, repeating: fill.pixel) }
-            let linear = raster.map { pixel in Picture::Picture.Color(pixel).pixel }
+            let linear = raster.map { pixel in Picture::Picture.Pixel(pixel) }
             return Motion.Hosting.Picture.Frames.shrunk(linear, width: width, height: height)
         }
     }
