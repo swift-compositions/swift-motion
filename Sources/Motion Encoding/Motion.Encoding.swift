@@ -41,9 +41,14 @@ extension Motion.Encoding {
         return wide || long ? .max : Cardinal(UInt(bits))
     }
 
+    /// The shortest side a movie may have: one macroblock, 16 pixels. AVFoundation's software H.264 encoder,
+    /// which it takes where there is no hardware encoder or the hardware one is busy, writes a picture with a
+    /// shorter side as a movie that no decoder reads back.
+    public static let side: Cardinal = 16
+
     /// The width, height and bit rate as AVFoundation takes them.
     func sizes() throws(Motion.Encoding.Error) -> (width: Int, height: Int, bits: Int) {
-        guard let wide = Int(exactly: width), let tall = Int(exactly: height), let bits = Int(exactly: bitRate) else {
+        guard width >= Self.side, height >= Self.side, let wide = Int(exactly: width), let tall = Int(exactly: height), let bits = Int(exactly: bitRate) else {
             throw .size(width: width, height: height, bits: bitRate)
         }
         return (wide, tall, bits)

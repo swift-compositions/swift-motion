@@ -8,7 +8,8 @@ extension Motion.Encoding {
         case frame(Ordinal)
         /// The rate's numerator or denominator, in lowest terms, does not fit an MP4 timescale.
         case rate(Rate)
-        /// The width, height or bit rate is more than AVFoundation can be told.
+        /// The width, height or bit rate is more than AVFoundation can be told, or a side is shorter than
+        /// `Motion.Encoding.side`.
         case size(width: Cardinal, height: Cardinal, bits: Cardinal)
         /// This many frames end later than the movie's timescale can say.
         case length(Cardinal)

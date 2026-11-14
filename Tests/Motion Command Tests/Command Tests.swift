@@ -16,9 +16,10 @@
         /// A dot laid over the first two frames of the reel.
         static let dot = Reel.Layer("dot", over: 0..<Rate.thirty.start(of: 2)) { _ in [square(10)] }
 
+        /// The smallest reel whose draft at half size is still a movie `Motion.Encoding` writes.
         static let reel = Reel(
-            width: 20,
-            height: 12,
+            width: 32,
+            height: 32,
             rate: .thirty,
             over: .white,
             parts: [
@@ -59,7 +60,7 @@
             #expect(throws: Command.Error.self) { try Request.parse(["frames", "out", "--scale", "half"]) }
         }
 
-        @Test func `a run through a warm cache writes the bytes a run without one writes`() async throws {
+        @Test(.timeLimit(.minutes(1))) func `a run through a warm cache writes the bytes a run without one writes`() async throws {
             let directory = Self.directory()
             let cache = directory + "/cache"
             let proof = Reel.Proof(sheets: [Reel.Sheet("start", frames: [0, 1, 2], columns: 2)], stills: [3], pictures: ["square": [Self.square(3)]])
@@ -83,7 +84,7 @@
             #expect(try await Self.decoded(warm[0]) == Self.decoded(plain[0]))
         }
 
-        @Test func `compare through a warm cache writes the sheets compare writes without one`() async throws {
+        @Test(.timeLimit(.minutes(1))) func `compare through a warm cache writes the sheets compare writes without one`() async throws {
             let directory = Self.directory()
             let cache = directory + "/cache"
             _ = try await Motion.Command.run(Self.reel, Request(.movie, output: directory))
@@ -117,8 +118,8 @@
             let cache = directory + "/cache"
             _ = try await Motion.Command.run(Self.reel, Request(.frames, output: directory + "/first", cache: cache))
             let changed = Reel(
-                width: 20,
-                height: 12,
+                width: 32,
+                height: 32,
                 rate: .thirty,
                 over: .white,
                 parts: [Reel.Part("opening", frames: 4) { frame in [Self.square(Double(Int(bitPattern: frame.position)) + 0.5)] }],
@@ -140,7 +141,7 @@
             #expect(try Self.contents(warm) == Self.contents(plain))
             let movie = try await Motion.Command.run(Self.reel, Request(.movie, output: directory, scale: 0.5))
             let inspection = try await Motion.Encoding.Inspection(of: URL(filePath: movie[0]))
-            #expect(inspection.width == 10 && inspection.height == 6)
+            #expect(inspection.width == 16 && inspection.height == 16)
         }
 
         @Test func `an action and a directory are all a request needs`() throws {
@@ -205,11 +206,11 @@
             #expect(try await Motion.Command.run(Self.reel, request) == [directory + "/opening+ending.mp4"])
             let movie = try await Motion.Encoding.Inspection(of: URL(filePath: directory + "/opening+ending.mp4"))
             #expect(movie.frames == 7)
-            #expect(movie.width == 20)
-            #expect(movie.height == 12)
+            #expect(movie.width == 32)
+            #expect(movie.height == 32)
         }
 
-        @Test func `compare sets a movie beside the reel drawn directly, every step, pairs to a sheet`() async throws {
+        @Test(.timeLimit(.minutes(1))) func `compare sets a movie beside the reel drawn directly, every step, pairs to a sheet`() async throws {
             let directory = Self.directory()
             _ = try await Motion.Command.run(Self.reel, Request(.movie, output: directory))
             let tenth = try Rational(numerator: 1, denominator: 10)
@@ -235,7 +236,7 @@
             #expect(Movies.help.contains("--fade-in"))
         }
 
-        @Test func `compare over movie files writes sheets until the longer movie ends, and score replaces its output`() async throws {
+        @Test(.timeLimit(.minutes(1))) func `compare over movie files writes sheets until the longer movie ends, and score replaces its output`() async throws {
             let directory = Self.directory()
             _ = try await Motion.Command.run(Self.reel, Request(.movie, output: directory))
             _ = try await Motion.Command.run(Self.reel, Request(.movie, output: directory, parts: ["opening"]))

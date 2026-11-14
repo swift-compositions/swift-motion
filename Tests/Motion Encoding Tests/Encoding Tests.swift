@@ -174,6 +174,24 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: url.path))
     }
 
+    @Test func `a side shorter than a macroblock is refused before a frame is asked for, and one of 16 reads back`() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "motion-\(UUID().uuidString).mp4")
+        var asked = 0
+        for (width, height) in [(20, 12), (15, 180), (320, 15)] as [(Cardinal, Cardinal)] {
+            let encoding = Motion.Encoding(width: width, height: height, rate: .thirty)
+            await #expect(throws: Motion.Encoding.Error.size(width: width, height: height, bits: encoding.bitRate)) {
+                try await encoding.write(frames: 1, to: url) { _ in
+                    asked += 1
+                    return nil
+                }
+            }
+        }
+        #expect(asked == 0)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+        try await Motion.Encoding(width: 16, height: 16, rate: .thirty).write(frames: 2, to: url) { index in Self.gradient(index, width: 16, height: 16) }
+        #expect(try await Motion.Encoding.read(url) { _, _ in } == 2)
+    }
+
     @Test(arguments: [(Rate.ntsc, 30000, 1001), (Rate.thirty, 30, 1)])
     func `muxing a sound keeps the picture's colour tag, timescale and frame durations`(rate: Rate, timescale: Int, ticks: Int) async throws {
         let picture = try await Self.written(rate: rate, frames: 30)
