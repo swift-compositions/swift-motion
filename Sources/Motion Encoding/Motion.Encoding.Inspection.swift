@@ -26,8 +26,10 @@ extension Motion.Encoding {
             // REASON: AVURLAsset's loaders and AVAssetReader throw untyped; their errors become Error.reader.
             do {
                 let asset = AVURLAsset(url: url)
-                self = try await Motion.Encoding.Wait.load("what \(url.lastPathComponent) holds", stop: { asset.cancelLoading() }) {
-                    try await Self(reading: asset, named: url.lastPathComponent)
+                self = try await Motion.Encoding.reading {
+                    try await Motion.Encoding.Wait.load("what \(url.lastPathComponent) holds", stop: { asset.cancelLoading() }) {
+                        try await Self(reading: asset, named: url.lastPathComponent)
+                    }
                 }
             } catch let failure as Motion.Encoding.Error {
                 throw failure

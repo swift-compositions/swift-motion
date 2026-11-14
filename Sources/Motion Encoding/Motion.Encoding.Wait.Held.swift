@@ -1,26 +1,22 @@
 import AVFoundation
-import Dispatch
 import Motion
 
 extension Motion.Encoding.Wait {
-    /// One of AVFoundation's objects that is used a call at a time, held on a serial queue of its own: a
-    /// reader's provider, a writer's receiver, a writer. This is the package's one way to make a blocking call
-    /// into AVFoundation. A provider asked for its next sample blocks the thread that asks; asked on Swift's
-    /// cooperative pool, as many readers as the pool has threads held all of it, and on a three-processor Mac
-    /// three readers waited there for good while a writer's task had no thread to go on. So the calls run on
-    /// the queue's thread, one at a time and never concurrently, as AVFoundation asks; a call left behind past
-    /// its limit keeps that thread, and the object is asked nothing more.
+    /// One of AVFoundation's objects that is used a call at a time, held on a `Reader` of its own: a reader's
+    /// provider, a writer's receiver, a writer. Its calls run on the reader's thread, one at a time and never
+    /// concurrently, as AVFoundation asks; a call left behind past its limit keeps that thread, and the object
+    /// is asked nothing more.
     actor Held<Value> {
         let value: Value
-        let queue: DispatchSerialQueue
+        nonisolated let reader: Motion.Encoding.Reader
 
         init(_ value: sending Value) {
             self.value = value
-            self.queue = DispatchSerialQueue(label: "Motion.Encoding.Wait.Held")
+            self.reader = Motion.Encoding.Reader()
         }
 
         nonisolated var unownedExecutor: UnownedSerialExecutor {
-            unsafe queue.asUnownedSerialExecutor()
+            unsafe reader.asUnownedSerialExecutor()
         }
     }
 }
@@ -67,7 +63,7 @@ extension Motion.Encoding.Wait.Held where Value == AVAssetWriterInput.PixelBuffe
 extension Motion.Encoding.Wait.Held where Value == AVAssetWriter {
     /// The writer finished: nil when it completed, and otherwise why not.
     func finish() async -> String? {
-        await value.finishWriting()
+        await withCheckedContinuation { finished in value.finishWriting { finished.resume() } }
         return value.status == .completed ? nil : value.error?.localizedDescription ?? "not completed"
     }
 }

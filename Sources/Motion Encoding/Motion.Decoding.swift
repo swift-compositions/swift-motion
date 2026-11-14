@@ -32,7 +32,7 @@ extension Motion.Decoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVURLAsset's loaders and AVAssetReader throw untyped; their errors become Error.reader.
         do {
-            let shown = try await decode(wanted, from: first)
+            let shown = try await Motion.Encoding.reading { try await decode(wanted, from: first) }
             return instants.map { shown[$0] }
         } catch let failure as Motion.Encoding.Error {
             throw failure

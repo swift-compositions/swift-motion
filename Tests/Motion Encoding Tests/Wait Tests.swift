@@ -29,7 +29,7 @@ extension `Encoding Tests` {
         @Test func `an answer within the limit is given, and the wait ends with it, not with the limit`() async throws {
             let clock = ContinuousClock()
             let start = clock.now
-            let answer = try await Motion.Encoding.Wait.answer("seven") { 7 }
+            let answer = try await Motion.Encoding.Wait.answer("seven", on: Motion.Encoding.Reader()) { 7 }
             #expect(answer == 7)
             #expect(clock.now - start < .seconds(5))
         }
@@ -41,7 +41,7 @@ extension `Encoding Tests` {
             let start = clock.now
             await #expect(throws: Motion.Encoding.Error.unanswered("a sample did not come within 0.15 seconds")) {
                 try await Motion.Encoding.Wait.$limit.withValue(.milliseconds(150)) {
-                    try await Motion.Encoding.Wait.answer("a sample", stop: { stopped.signal() }) {
+                    try await Motion.Encoding.Wait.answer("a sample", on: Motion.Encoding.Reader(), stop: { stopped.signal() }) {
                         Self.block(held)
                         return 7
                     }
@@ -57,7 +57,7 @@ extension `Encoding Tests` {
             let started = DispatchSemaphore(value: 0)
             await #expect(throws: Motion.Encoding.Error.unanswered("a load did not come within 0.0 seconds")) {
                 try await Motion.Encoding.Wait.$limit.withValue(.zero) {
-                    try await Motion.Encoding.Wait.answer("a load") { started.signal() }
+                    try await Motion.Encoding.Wait.answer("a load", on: nil) { started.signal() }
                 }
             }
             #expect(!Self.signalled(started, within: 0.2))

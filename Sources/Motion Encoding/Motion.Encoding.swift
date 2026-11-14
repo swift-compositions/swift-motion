@@ -91,7 +91,7 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVAssetWriter, its pixel buffer receiver and CVMutablePixelBuffer throw untyped; their errors become Error.writer.
         do {
-            try await encode(frames: count, to: url, properties: properties, raster: raster)
+            try await Self.reading { try await encode(frames: count, to: url, properties: properties, raster: raster) }
         } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
@@ -132,7 +132,7 @@ extension Motion.Encoding {
         while index < Ordinal(count) {
             guard let frame = await raster(index), frame.width == width, frame.height == height else { throw Motion.Encoding.Error.frame(index) }
             let at = try time(of: index)
-            try await Wait.answer("the writer to take frame \(index) of \(name)") {
+            try await Wait.answer("the writer to take frame \(index) of \(name)", on: receiver.reader) {
                 try await receiver.append(frame, at: at, attributes: attributes)
             }
             index += Cardinal.one
@@ -189,7 +189,7 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVMutableComposition and AVAssetExportSession throw untyped; their errors become Error.writer.
         do {
-            try await join(silent, sound, to: url)
+            try await reading { try await join(silent, sound, to: url) }
         } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
@@ -248,7 +248,7 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVURLAsset's loaders and AVAssetReader throw untyped; their errors become Error.reader.
         do {
-            return try await decoded(url, each: each)
+            return try await reading { try await decoded(url, each: each) }
         } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
@@ -335,7 +335,7 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVMutableComposition, AVAssetReader and AVAssetWriter throw untyped; their errors become Error.writer.
         do {
-            try await lay(cues, under: picture, to: url)
+            try await reading { try await lay(cues, under: picture, to: url) }
         } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
@@ -458,7 +458,7 @@ extension Motion.Encoding {
         let (samples, taking) = (Wait.Held(provider), Wait.Held(receiver))
         while true {
             guard let buffer = try await Wait.sample("the next sample of \(what)", of: samples, stop: stop) else { break }
-            try await Wait.answer("the writer to take a sample of \(what)") {
+            try await Wait.answer("the writer to take a sample of \(what)", on: taking.reader) {
                 try await taking.append(buffer)
             }
         }
@@ -469,7 +469,7 @@ extension Motion.Encoding {
     // REASON: it waits through Wait.answer, which throws untyped; write and score type it.
     /// Finishes a writer within the limit, and fails with `.writer` unless it completed.
     static func finish(_ writer: Wait.Held<AVAssetWriter>, _ name: String) async throws {
-        let failure = try await Wait.answer("the writer to finish \(name)") {
+        let failure = try await Wait.answer("the writer to finish \(name)", on: writer.reader) {
             await writer.finish()
         }
         if let failure { throw Motion.Encoding.Error.writer(failure) }
@@ -518,7 +518,7 @@ extension Motion.Encoding {
         // swift-linter:disable:next do throws for typed catch
         // REASON: AVAssetReader and AVAssetWriter throw untyped; their errors become Error.writer.
         do {
-            try await shrink(movie, to: url, width: wide, height: tall, bits: rate)
+            try await reading { try await shrink(movie, to: url, width: wide, height: tall, bits: rate) }
         } catch let failure as Motion.Encoding.Error {
             throw failure
         } catch {
@@ -614,12 +614,14 @@ extension Motion.Encoding {
         // REASON: loadTracks and load throw untyped; their errors become Error.reader.
         do {
             let asset = AVURLAsset(url: url)
-            let total = try await Wait.load("the sound of \(url.lastPathComponent)", stop: { asset.cancelLoading() }) {
-                var total: Int64 = 0
-                for track in try await asset.loadTracks(withMediaType: .audio) {
-                    total += try await track.load(.totalSampleDataLength)
+            let total = try await reading {
+                try await Wait.load("the sound of \(url.lastPathComponent)", stop: { asset.cancelLoading() }) {
+                    var total: Int64 = 0
+                    for track in try await asset.loadTracks(withMediaType: .audio) {
+                        total += try await track.load(.totalSampleDataLength)
+                    }
+                    return total
                 }
-                return total
             }
             return Cardinal(UInt(Swift.max(total, 0)))
         } catch let failure as Motion.Encoding.Error {
