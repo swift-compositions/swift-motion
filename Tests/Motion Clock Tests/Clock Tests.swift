@@ -65,4 +65,33 @@ import Testing
         #expect(found["clock"] == ["unhooked"])
         #expect(found["running"] == ["true"])
     }
+
+    @Test func `a stepped clock wakes its sleeps only when the clock is advanced to them, earliest first, and never by the wall clock`() {
+        let found = Fixture.run(["sleep"], inserting: true)
+        #expect(found["status"] == ["exit 0"] && found["stderr"] == nil, "\(found["status"] ?? []) \(found["stderr"] ?? [])")
+        #expect(found["unfrozen"] == ["true"])
+        #expect(found["unadvanced"] == ["true"])
+        #expect(found["before"] == ["true"])
+        #expect(found["order"] == ["early@100,second@200,tie@200,erased@400"])
+    }
+
+    @Test func `many sleeps at one deadline wake in the order they began, and a deadline already reached returns at once`() {
+        let found = Fixture.run(["sleep"], inserting: true)
+        #expect(found["many"] == ["true"])
+        #expect(found["immediate"] == ["true"])
+    }
+
+    @Test func `a cancelled sleep throws at once, moves nothing and is never woken`() {
+        let found = Fixture.run(["sleep"], inserting: true)
+        #expect(found["cancelled"] == ["cancelled:cancelled@500"])
+        #expect(found["refused"] == ["true"])
+        #expect(found["withdrawn"] == ["none"])
+        #expect(found["elapsed"] == ["true"])
+    }
+
+    @Test func `without the shim library there is no stepped clock`() {
+        let found = Fixture.run(["sleep"], inserting: false)
+        #expect(found["error"] == ["absent"])
+        #expect(found["unfrozen"] == nil)
+    }
 }

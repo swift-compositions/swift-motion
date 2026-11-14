@@ -10,6 +10,13 @@ switch arguments.dropFirst().first {
 case "clock":
     Fixture.clock()
 
+case "sleep":
+    _ = Task { @MainActor in
+        await Fixture.sleeping()
+        exit(0)
+    }
+    dispatchMain()
+
 case "late":
     Fixture.late(library: arguments[2])
 

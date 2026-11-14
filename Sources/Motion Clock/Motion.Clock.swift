@@ -25,9 +25,9 @@ extension Motion.Clock {
     /// How far the clock was moved on since it was frozen, in whole nanoseconds.
     public var elapsed: Duration { .nanoseconds(motion_clock_lookup_elapsed()) }
 
-    /// Moves the clock forward until `elapsed` is `instant`, cut to whole nanoseconds. Fails with
-    /// `.backwards` for an instant before `elapsed` and with `.beyond` for one past what the clock can
-    /// count, and then moves nothing.
+    /// Moves the clock forward until `elapsed` is `instant`, cut to whole nanoseconds, and resumes every
+    /// sleep on `Stepped` that this reaches, earliest deadline first. Fails with `.backwards` for an instant
+    /// before `elapsed` and with `.beyond` for one past what the clock can count, and then moves nothing.
     public func advance(to instant: Duration) throws(Error) {
         let (seconds, attoseconds) = instant.components
         let now = motion_clock_lookup_elapsed()
@@ -36,7 +36,7 @@ extension Motion.Clock {
         let (target, long) = whole.addingReportingOverflow(UInt64(attoseconds / 1_000_000_000))
         guard !wide, !long else { throw .beyond }
         guard target >= now else { throw .backwards }
-        motion_clock_lookup_advance(target - now)
+        Stepped.sleepers.advance(by: target - now)
     }
 
     /// Moves the clock forward to the start of `frame` at `rate`, counted from where it was frozen: the
