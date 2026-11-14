@@ -37,6 +37,16 @@
             public var cache: Swift.String
             /// How large the reel is drawn: 1 at its own size, 0.5 as a draft of half the width and height.
             public var scale: Double
+            /// For movie: a sound file laid under the movie as it is written, or empty for a silent movie.
+            public var sound: Swift.String
+            /// For movie with a sound: where in the sound it starts.
+            public var offset: Rational
+            /// For movie with a sound: the level it plays at, as a multiple of its own.
+            public var gain: Float
+            /// For movie with a sound: how long it takes to rise from silence.
+            public var rise: Rational
+            /// For movie with a sound: how long it takes to fall to silence at its end.
+            public var fall: Rational
 
             public init(
                 _ action: Action = .sheet,
@@ -55,7 +65,12 @@
                 bare: Bool = false,
                 settings: [Swift.String] = [],
                 cache: Swift.String = "",
-                scale: Double = 1
+                scale: Double = 1,
+                sound: Swift.String = "",
+                offset: Rational = .zero,
+                gain: Float = 1,
+                rise: Rational = .zero,
+                fall: Rational = .zero
             ) {
                 self.action = action
                 self.output = output
@@ -74,6 +89,11 @@
                 self.settings = settings
                 self.cache = cache
                 self.scale = scale
+                self.sound = sound
+                self.offset = offset
+                self.gain = gain
+                self.rise = rise
+                self.fall = fall
             }
         }
     }
@@ -181,11 +201,40 @@
                     help: .init(abstract: "Draw the reel this many times its size, such as 0.5 for a draft.", defaults: "1"),
                     transform: Self.factor
                 )
+                Command_Primitive::Command.Option(
+                    \.sound,
+                    name: .long(.literal("sound")),
+                    help: .init(abstract: "For movie: a sound file laid under the movie as it is written, cut where the movie ends.")
+                )
+                Command_Primitive::Command.Option(
+                    \.offset,
+                    name: .long(.literal("offset")),
+                    help: .init(abstract: "For movie with --sound: seconds into the sound where it starts.", defaults: "0"),
+                    transform: Self.seconds
+                )
+                Command_Primitive::Command.Option(
+                    \.gain,
+                    name: .long(.literal("gain")),
+                    help: .init(abstract: "For movie with --sound: the sound's level as a multiple of its own.", defaults: "1"),
+                    transform: Self.gain
+                )
+                Command_Primitive::Command.Option(
+                    \.rise,
+                    name: .long(.literal("fade-in")),
+                    help: .init(abstract: "For movie with --sound: seconds the sound takes to rise from silence.", defaults: "0"),
+                    transform: Self.seconds
+                )
+                Command_Primitive::Command.Option(
+                    \.fall,
+                    name: .long(.literal("fade-out")),
+                    help: .init(abstract: "For movie with --sound: seconds the sound takes to fall to silence at its end.", defaults: "0"),
+                    transform: Self.seconds
+                )
             }
         }
 
-        /// Parts, proofs and layers joined by commas count as given one by one, a setting needs its `=`, and
-        /// compare needs a reference.
+        /// Parts, proofs and layers joined by commas count as given one by one, a setting needs its `=`,
+        /// compare needs a reference, and a sound is for movie alone.
         public mutating func validate() throws(Command_Primitive::Command.Error) {
             parts = parts.flatMap { $0.split(separator: ",").map(Swift.String.init) }
             proofs = proofs.flatMap { $0.split(separator: ",").map(Swift.String.init) }
@@ -195,7 +244,11 @@
             }
             #if canImport(AVFoundation)
                 if action == .compare, reference.isEmpty { throw .validationFailed(reason: "compare needs --reference") }
+                let sounding = action == .movie
+            #else
+                let sounding = false
             #endif
+            if !sound.isEmpty, !sounding { throw .validationFailed(reason: "--sound is for movie") }
         }
 
         /// A request is read and not run: `Motion.Command.run(_:_:proofs:)` acts on it with a reel.
@@ -243,6 +296,12 @@
         @Sendable static func factor(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Double {
             guard let factor = Double(text), factor > 0, factor.isFinite else { throw .validationFailed(reason: "no scale \(text)") }
             return factor
+        }
+
+        /// A level: a decimal number, zero or above, such as `0.32`.
+        @Sendable static func gain(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Float {
+            guard let gain = Float(text), gain.isFinite, gain >= 0 else { throw .validationFailed(reason: "no gain \(text)") }
+            return gain
         }
 
         @Sendable static func count(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Cardinal {

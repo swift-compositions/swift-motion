@@ -131,7 +131,7 @@
                     \.gain,
                     name: .long(.literal("gain")),
                     help: .init(abstract: "For score: the sound's level as a multiple of its own.", defaults: "1"),
-                    transform: Self.gain
+                    transform: Motion.Command.Request.gain
                 )
                 Command_Primitive::Command.Option(
                     \.rise,
@@ -188,11 +188,6 @@
         @Sendable static func action(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Action {
             guard let action = Action(rawValue: text) else { throw .validationFailed(reason: "no action \(text)") }
             return action
-        }
-
-        @Sendable static func gain(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Float {
-            guard let gain = Float(text), gain.isFinite, gain >= 0 else { throw .validationFailed(reason: "no gain \(text)") }
-            return gain
         }
 
         @Sendable static func bytes(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Cardinal? {

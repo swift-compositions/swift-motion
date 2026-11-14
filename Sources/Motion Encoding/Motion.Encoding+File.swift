@@ -60,6 +60,39 @@
             throw .limit(limit, fewest: fewest ?? length)
         }
 
+        /// Encodes `count` frames, as `write(frames:to:raster:)` does, with the cues laid under them, as
+        /// `score(_:with:to:)` lays them, in one call; with no cues it is `write(frames:to:raster:)`.
+        ///
+        /// A file already at `url` fails with `.writer`, and a cue that lays no sound under the frames with
+        /// `.cue` and its position, both before the first frame is asked for. The picture is written to a hidden
+        /// file beside `url` and scored into `url`; the hidden file is removed whether that succeeds or not.
+        public func write(
+            frames count: Cardinal,
+            with cues: [Cue],
+            to url: URL,
+            raster: (Ordinal) async -> Raster<Motion.Pixel>?
+        ) async throws(Motion.Encoding.Error) {
+            guard !cues.isEmpty else { return try await write(frames: count, to: url, raster: raster) }
+            guard !Self.exists(url) else { throw .writer("a file is already at \(url.lastPathComponent)") }
+            guard let film = Self.instant(try end(of: count)) else { throw .length(count) }
+            // swift-linter:disable:next do throws for typed catch
+            // REASON: AVURLAsset's loaders throw untyped; their errors become Error.reader.
+            do {
+                try await Self.reading {
+                    for (index, cue) in cues.enumerated() { _ = try await Self.stretch(of: cue, at: index, under: film) }
+                }
+            } catch let failure as Motion.Encoding.Error {
+                throw failure
+            } catch {
+                throw .reader("\(error)")
+            }
+            let picture = url.deletingLastPathComponent().appending(path: ".\(url.lastPathComponent).\(getpid()).picture.mp4")
+            Self.remove(picture)
+            defer { Self.remove(picture) }
+            try await write(frames: count, to: picture, raster: raster)
+            try await Self.score(picture, with: cues, to: url)
+        }
+
         /// The file system's path of a file URL, or `.writer`.
         static func path(of url: URL) throws(Motion.Encoding.Error) -> File.Path {
             do throws(File.Path.Error) {

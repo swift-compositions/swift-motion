@@ -18,7 +18,7 @@
         ///
         ///     reel sheet <output> [--part <key>...] [--proof <name>...] [--at <frames>] [--stills <frames>] [--columns <count>]
         ///     reel frames <output> [--part <key>...]
-        ///     reel movie <output> [--part <key>...]
+        ///     reel movie <output> [--part <key>...] [--sound <file> [--offset <s>] [--gain <g>] [--fade-in <s>] [--fade-out <s>]]
         ///     reel compare <output> --reference <movie> [--part <key>...] [--step <s>] [--pairs <count>] [--width <pixels>] [--font <file>]
         ///
         /// Every action also takes `--layer <key>...` to draw only those layers, `--bare` to draw none,
@@ -104,7 +104,8 @@
         /// `<name>-<frame>.png` and its pictures `<name>-<picture>.png`. A reel is drawn with only the layers
         /// `layers` names, or none when `bare`; a layer or proof name the film does not have is refused with
         /// `.layer` or `.proof` before anything is written. `frames` writes every frame as `<frame>.png`. `movie` writes
-        /// `<parts>.mp4` through `Motion.Encoding` at the reel's size and rate, replacing one already there.
+        /// `<parts>.mp4` through `Motion.Encoding` at the reel's size and rate, replacing one already there, with
+        /// the request's `sound` laid under it from its `offset` at its `gain`, `rise` and `fall` when it names one.
         /// Frames are numbered with at least five digits.
         public static func run<Key>(_ film: Film<Key>, _ request: Request) async throws(Error) -> [Swift.String] {
             let reel = try layered(film.reel, request).scaled(by: request.scale)
@@ -182,8 +183,13 @@
                     }
                     let (count, feed) = reel.movie(keys, store: store)
                     let encoding = Motion.Encoding(width: reel.width, height: reel.height, rate: reel.rate)
+                    var cues: [Motion.Encoding.Cue] = []
+                    if !request.sound.isEmpty {
+                        let sound = URL(filePath: request.sound)
+                        cues.append(Motion.Encoding.Cue(sound, offset: request.offset, gain: request.gain, rise: request.rise, fall: request.fall))
+                    }
                     do throws(Motion.Encoding.Error) {
-                        try await encoding.write(frames: count, to: URL(filePath: file)) { position in
+                        try await encoding.write(frames: count, with: cues, to: URL(filePath: file)) { position in
                             do throws(Motion.Hosting.Picture.Frames.Error) {
                                 return try await feed.frame(at: position)
                             } catch {

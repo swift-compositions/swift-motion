@@ -1,4 +1,5 @@
 #if Command
+    import AVFoundation
     import Command
     import File_System
     import Motion
@@ -208,6 +209,39 @@
             #expect(movie.frames == 7)
             #expect(movie.width == 32)
             #expect(movie.height == 32)
+        }
+
+        /// A second of silence at 48 kHz, written as AAC into `directory`.
+        static func sound(in directory: Swift.String) throws -> Swift.String {
+            let file = directory + "/sound.m4a"
+            let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2))
+            let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 48_000))
+            buffer.frameLength = 48_000
+            let settings: [Swift.String: Any] = [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 48_000, AVNumberOfChannelsKey: 2]
+            let written = try AVAudioFile(forWriting: URL(filePath: file), settings: settings)
+            try written.write(from: buffer)
+            written.close()
+            return file
+        }
+
+        @Test func `a sound and its level and fades are read for movie, and refused for any other action`() throws {
+            let request = try Request.parse(["movie", "out", "--sound", "s.m4a", "--offset", "2", "--gain", "0.32", "--fade-in", "1", "--fade-out", "3"])
+            #expect(request == Request(.movie, output: "out", sound: "s.m4a", offset: 2, gain: 0.32, rise: 1, fall: 3))
+            #expect(try Request.parse(["movie", "out"]).sound.isEmpty)
+            #expect(throws: Command.Error.self) { try Request.parse(["sheet", "out", "--sound", "s.m4a"]) }
+            #expect(throws: Command.Error.self) { try Request.parse(["movie", "out", "--sound", "s.m4a", "--gain", "-1"]) }
+            #expect(Request.help.contains("--sound"))
+        }
+
+        @Test(.timeLimit(.minutes(1))) func `movie with a sound writes the movie with the sound under it in the same run, replacing one there`() async throws {
+            let directory = Self.directory()
+            try File.Directory(File.Path(validating: directory)).create.recursive()
+            let request = Request(.movie, output: directory, sound: try Self.sound(in: directory), gain: 0.32, fall: .half)
+            #expect(try await Motion.Command.run(Self.reel, request) == [directory + "/reel.mp4"])
+            #expect(try await Motion.Command.run(Self.reel, request) == [directory + "/reel.mp4"])
+            let movie = try await Motion.Encoding.Inspection(of: URL(filePath: directory + "/reel.mp4"))
+            #expect(movie.frames == 7 && movie.width == 32 && movie.height == 32 && movie.sounds == 1)
+            #expect(try FileManager.default.contentsOfDirectory(atPath: directory).sorted() == ["reel.mp4", "sound.m4a"])
         }
 
         @Test(.timeLimit(.minutes(1))) func `compare sets a movie beside the reel drawn directly, every step, pairs to a sheet`() async throws {

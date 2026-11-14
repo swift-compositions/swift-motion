@@ -364,18 +364,11 @@ extension Motion.Encoding {
         var parameters: [AVMutableAudioMixInputParameters] = []
         var sounds: [AVURLAsset] = []
         for (index, cue) in cues.enumerated() {
-            let sound = AVURLAsset(url: cue.sound)
+            let (sound, samples, length) = try await stretch(of: cue, at: index, under: film)
             sounds.append(sound)
-            let loaded = try await Wait.load("the sound of cue \(index), \(cue.sound.lastPathComponent)", stop: { sound.cancelLoading() }) {
-                (samples: try await sound.loadTracks(withMediaType: .audio).first, heard: instant(try await sound.load(.duration)))
-            }
-            guard let samples = loaded.samples, let heard = loaded.heard else {
+            guard let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
                 throw Motion.Encoding.Error.cue(Ordinal(UInt(index)))
             }
-            let length = Swift.min(heard - cue.offset, film - cue.entry)
-            guard cue.offset >= .zero, cue.entry >= .zero, length > .zero,
-                let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-            else { throw Motion.Encoding.Error.cue(Ordinal(UInt(index))) }
             try track.insertTimeRange(CMTimeRange(start: try time(cue.offset), duration: try time(length)), of: samples, at: try time(cue.entry))
             parameters.append(try levels(of: cue, lasting: length, on: track))
         }
@@ -405,6 +398,21 @@ extension Motion.Encoding {
         _ = try await (picturesCopied, soundsEncoded)
         writer.endSession(atSourceTime: range.end)
         try await Self.finish(Wait.Held(writer), url.lastPathComponent)
+    }
+
+    // swift-linter:disable:next untyped throws
+    // REASON: loadTracks and load throw untyped; score(_:with:to:) and write(frames:with:to:raster:) type them.
+    /// The stretch a cue lays under a film of `film` seconds: its sound, the sound's track and how long the
+    /// stretch lasts, until the sound or the film ends. A cue that lays nothing fails with `.cue` and `index`.
+    static func stretch(of cue: Cue, at index: Int, under film: Rational) async throws -> (AVURLAsset, AVAssetTrack, Rational) {
+        let sound = AVURLAsset(url: cue.sound)
+        let loaded = try await Wait.load("the sound of cue \(index), \(cue.sound.lastPathComponent)", stop: { sound.cancelLoading() }) {
+            (samples: try await sound.loadTracks(withMediaType: .audio).first, heard: instant(try await sound.load(.duration)))
+        }
+        guard let samples = loaded.samples, let heard = loaded.heard else { throw Motion.Encoding.Error.cue(Ordinal(UInt(index))) }
+        let length = Swift.min(heard - cue.offset, film - cue.entry)
+        guard cue.offset >= .zero, cue.entry >= .zero, length > .zero else { throw Motion.Encoding.Error.cue(Ordinal(UInt(index))) }
+        return (sound, samples, length)
     }
 
     /// A cue's level over its stretch: its gain, reached from silence over its fade in and left for silence
