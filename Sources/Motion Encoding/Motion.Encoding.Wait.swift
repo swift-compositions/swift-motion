@@ -35,7 +35,7 @@ extension Motion.Encoding.Wait {
     /// starts nothing.
     static func answer<Answer: Sendable>(
         _ what: String,
-        on executor: (any TaskExecutor)?,
+        on executor: Motion.Encoding.Reader,
         stop: (@Sendable () -> Void)? = nil,
         // swift-linter:disable:next untyped throws
         // REASON: the operations are AVFoundation's, which throw untyped.

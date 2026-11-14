@@ -57,7 +57,7 @@ extension `Encoding Tests` {
             let started = DispatchSemaphore(value: 0)
             await #expect(throws: Motion.Encoding.Error.unanswered("a load did not come within 0.0 seconds")) {
                 try await Motion.Encoding.Wait.$limit.withValue(.zero) {
-                    try await Motion.Encoding.Wait.answer("a load", on: nil) { started.signal() }
+                    try await Motion.Encoding.Wait.answer("a load", on: Motion.Encoding.Reader()) { started.signal() }
                 }
             }
             #expect(!Self.signalled(started, within: 0.2))

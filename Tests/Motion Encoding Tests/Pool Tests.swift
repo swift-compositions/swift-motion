@@ -1,8 +1,8 @@
 import AVFoundation
 import Dispatch
 import Foundation
-import Synchronization
 import Motion
+import Synchronization
 import Test_Apple
 import Testing
 
