@@ -45,6 +45,7 @@ let package = Package(
         .package(url: "https://github.com/swift-compositions/swift-arguments.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-file-system.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-process.git", branch: "main"),
+        .package(url: "https://github.com/swift-atoms/swift-standard-library-extensions.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -96,6 +97,7 @@ let package = Package(
                 .product(name: "Numeric", package: "swift-numeric", condition: .when(traits: ["Graphics"])),
                 .product(name: "Picture", package: "swift-picture", condition: .when(traits: ["Graphics"])),
                 .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Graphics"])),
+                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions", condition: .when(traits: ["Graphics"])),
             ]
         ),
         .target(
@@ -207,6 +209,7 @@ let package = Package(
                 .target(name: "Motion Graphics"),
                 .product(name: "Picture", package: "swift-picture"),
                 .product(name: "Timeline", package: "swift-timeline"),
+                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
             ]
         ),
         .testTarget(

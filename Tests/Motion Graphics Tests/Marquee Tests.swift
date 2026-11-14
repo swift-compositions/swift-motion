@@ -17,21 +17,21 @@
         }
 
         @Test func `rows fill the region a pitch apart`() {
-            guard let sans = Tests.sans else { return }
-            #expect(Self.marquee(sans).rows == 5)
+            #expect(Self.marquee(Fonts.sans).rows == 5)
         }
 
         @Test func `a row's offset wraps every unit, even rows sliding left and odd rows right`() throws {
-            guard let sans = Tests.sans else { return }
-            let marquee = Self.marquee(sans)
+            let marquee = Self.marquee(Fonts.sans)
             for row in [0, 1, 2, 3] as [Ordinal] {
                 let unit = try marquee.unit(row: row)
                 #expect(unit > 60)
                 for travel in [0, 13.5, 250, 999.25, 4321] {
                     let offset = try marquee.offset(row: row, travel: travel)
                     #expect(offset >= 0 && offset < unit)
-                    #expect(Swift.abs(try marquee.offset(row: row, travel: travel + unit) - offset) < 1e-6)
-                    #expect(Swift.abs(try marquee.offset(row: row, travel: travel + 3 * unit) - offset) < 1e-6)
+                    for later in [travel + unit, travel + 3 * unit] {
+                        let apart = Swift.abs(try marquee.offset(row: row, travel: later) - offset)
+                        #expect(Swift.min(apart, unit - apart) < 1e-6, "the offset wraps: a whole unit on is the same place")
+                    }
                 }
                 let moved = try marquee.offset(row: row, travel: 10)
                 #expect(Swift.abs(moved - (Int(bitPattern: row) % 2 == 0 ? 10 : unit - 10)) < 1e-9)
@@ -39,8 +39,7 @@
         }
 
         @Test func `a marquee hidden draws nothing, and its rows' copies cover the region, filled and outlined in turn`() throws {
-            guard let sans = Tests.sans else { return }
-            let marquee = Self.marquee(sans)
+            let marquee = Self.marquee(Fonts.sans)
             #expect(try Picture(marquee, at: .hidden) == .empty)
             #expect(try Picture(marquee, at: .init(travel: 40, rows: [0, 0])) == .empty)
             let picture = try Picture(marquee, at: .init(travel: 333, rows: [1, 1, 1, 1, 1]))
@@ -80,20 +79,19 @@
         }
 
         @Test func `a row rises by the style's rise, through its slot about its resting baseline, from its own start`() throws {
-            guard let sans = Tests.sans else { return }
-            let cap = try Picture.Text.Metrics(font: sans, size: 120).cap
+            let cap = try Picture.Text.Metrics(font: Fonts.sans, size: 120).cap
             let resting = 100 + (110 + cap) / 2
-            let plain = Self.rows(try Picture(Self.styled(sans), at: .init(travel: 0, rows: [0.5])))
+            let plain = Self.rows(try Picture(Self.styled(Fonts.sans), at: .init(travel: 0, rows: [0.5])))
             #expect(Swift.abs((plain[0].first?[1, 2] ?? 0) - (resting + 55)) < 1e-9)
             #expect(plain[0].clip.map { $0.lly.underlying == 100 && $0.ury.underlying == 210 } == true)
-            let risen = Self.rows(try Picture(Self.styled(sans, rise: 120, slot: .init(above: 0.8, below: 0.1)), at: .init(travel: 0, rows: [0.5])))
+            let risen = Self.rows(try Picture(Self.styled(Fonts.sans, rise: 120, slot: .init(above: 0.8, below: 0.1)), at: .init(travel: 0, rows: [0.5])))
             #expect(Swift.abs((risen[0].first?[1, 2] ?? 0) - (resting + 60)) < 1e-9)
             let clip = try #require(risen[0].clip)
             #expect(Swift.abs(clip.lly.underlying - Swift.max(resting - 96, 100)) < 1e-9 && Swift.abs(clip.ury.underlying - (resting + 12)) < 1e-9)
-            let started = Self.styled(sans, starts: [0, 37])
+            let started = Self.styled(Fonts.sans, starts: [0, 37])
             let unit = try started.unit(row: 1)
             #expect(Swift.abs(try started.offset(row: 1, travel: 10) - (unit - 47)) < 1e-9)
-            #expect(try started.offset(row: 0, travel: 10) == (try Self.marquee(sans).offset(row: 0, travel: 10)))
+            #expect(try started.offset(row: 0, travel: 10) == (try Self.marquee(Fonts.sans).offset(row: 0, travel: 10)))
             #expect(try started.offset(row: 3, travel: 10) == (try started.offset(row: 1, travel: 10)))
         }
     }

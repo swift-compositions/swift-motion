@@ -1,5 +1,4 @@
 #if Graphics
-    import Foundation
     import Motion
     import Picture
     import Testing
@@ -8,18 +7,6 @@
     @testable import Motion_Graphics
 
     @Suite struct `Graphics Tests` {
-        static let mono = font("/System/Library/Fonts/Supplemental/Andale Mono.ttf")
-        static let sans = font("/System/Library/Fonts/Supplemental/Arial.ttf")
-
-        static func font(_ path: Swift.String) -> ISO_14496_22.FontFile? {
-            guard let data = FileManager.default.contents(atPath: path) else { return nil }
-            do throws(ISO_14496_22.FontFile.ParsingError) {
-                return try ISO_14496_22.FontFile(data: [Byte](bitPatterns: [UInt8](data)))
-            } catch {
-                return nil
-            }
-        }
-
         static func ink(_ font: ISO_14496_22.FontFile, _ size: Double, _ color: Picture.Color = .white) -> Motion.Graphics.Ink {
             Motion.Graphics.Ink(font: font, size: size, color: color)
         }
@@ -139,10 +126,9 @@
         }
 
         @Test func `a typed line shows the characters its share stands, as the line of only those characters would`() throws {
-            guard let mono = Self.mono else { return }
             let text = "swift run film\nproceeding anyway."
             let origin = Picture.Plane.Point<2>([10, 40])
-            let style = Self.transcript(mono)
+            let style = Self.transcript(Fonts.mono)
             for k in [0, 1, 7, 14, 15, 20, text.count] {
                 let share = Double(k) / Double(text.count)
                 let typed = try Picture(
@@ -183,11 +169,10 @@
         }
 
         @Test func `a headline's lines are set at the one size that fits the widest to the measure`() throws {
-            guard let sans = Self.sans else { return }
             let headline = Motion.Graphics.Headline(
                 [.init("A CIRCLE."), .init("FOR NOW, AND LONGER")],
                 about: Picture.Plane.Point<2>([500, 300]),
-                style: .init(font: sans, size: 400, measure: 640, pitch: 0.9, rise: 0.95, slot: .init(above: 0.8, height: 0.9), span: 1000, ink: .white, second: .black)
+                style: .init(font: Fonts.sans, size: 400, measure: 640, pitch: 0.9, rise: 0.95, slot: .init(above: 0.8, height: 0.9), span: 1000, ink: .white, second: .black)
             )
             let placed = try headline.placements(at: .init([.resting, .resting]))
             #expect(placed.count == 2)
@@ -199,8 +184,7 @@
         }
 
         @Test func `a checklist's rows sit on its layout's pitch, each box its rise above its row's baseline`() throws {
-            guard let sans = Self.sans else { return }
-            let checklist = Self.checklist(sans)
+            let checklist = Self.checklist(Fonts.sans)
             let rows = checklist.rows
             #expect(rows.map(\.baseline) == [170, 214, 258])
             #expect(rows.allSatisfy { $0.checkbox.centre == Picture.Plane.Point<2>([40 + 12, $0.baseline - 8]) })
@@ -218,25 +202,23 @@
         }
 
         @Test func `a readout's count has one advance, so its plate and its total stand still whatever it reads`() throws {
-            guard let sans = Self.sans else { return }
-            #expect(Self.readout(sans, value: 66).figures == "0066")
-            #expect(Self.readout(sans, value: 1650).figures == "1650")
-            let plates = try [0, 1, 7, 111, 1111, 1650, 9999].map { value in try Picture(Self.readout(sans, value: Cardinal(UInt(value))), at: .resting) }
+            #expect(Self.readout(Fonts.sans, value: 66).figures == "0066")
+            #expect(Self.readout(Fonts.sans, value: 1650).figures == "1650")
+            let plates = try [0, 1, 7, 111, 1111, 1650, 9999].map { value in try Picture(Self.readout(Fonts.sans, value: Cardinal(UInt(value))), at: .resting) }
                 .map { picture -> Picture.Element? in
                     guard case .group(let placed) = picture.elements.first else { return nil }
                     return placed.content.elements.first
                 }
             #expect(plates.allSatisfy { $0 != nil && $0 == plates[0] })
-            #expect(try Picture(Self.readout(sans, value: 3), at: .hidden) == .empty)
-            #expect(try Picture(Self.readout(sans, value: 3), at: .init(light: 0)) == .empty)
+            #expect(try Picture(Self.readout(Fonts.sans, value: 3), at: .hidden) == .empty)
+            #expect(try Picture(Self.readout(Fonts.sans, value: 3), at: .init(light: 0)) == .empty)
         }
 
         @Test func `a readout's plate is the one its drawing lays, under the transform it is drawn in at a moment`() throws {
-            guard let sans = Self.sans else { return }
-            let readout = Self.readout(sans, value: 66)
+            let readout = Self.readout(Fonts.sans, value: 66)
             let plate = try readout.plate
             #expect(plate.urx.underlying == 400 && plate.lly.underlying == 20 && plate.ury.underlying == 80)
-            #expect(try Self.readout(sans, value: 1649).plate == plate)
+            #expect(try Self.readout(Fonts.sans, value: 1649).plate == plate)
             let style = readout.style.plate
             for moment in [Motion.Graphics.Readout.Moment.resting, .init(shown: 0.5), .init(shown: 1.05, tilt: 0.2, drop: 12)] {
                 let picture = try Picture(readout, at: moment)
@@ -254,8 +236,7 @@
         }
 
         @Test func `a readout's accent mixes its colours by heat, as written, then toward its finish`() throws {
-            guard let sans = Self.sans else { return }
-            let style = Self.readout(sans, value: 0).style
+            let style = Self.readout(Fonts.sans, value: 0).style
             #expect(style.lit(heat: 0, finished: 0) == .white)
             #expect(style.lit(heat: 1, finished: 0) == Picture.Color(hex: 0xFF0000))
             #expect(style.lit(heat: 0.5, finished: 0) == Picture.Color.white.mixed(inSRGBTo: Picture.Color(hex: 0xFF0000), at: 0.5))
@@ -263,12 +244,11 @@
         }
 
         @Test func `a caption's plate centres the whole line on its place, its last baseline through it`() throws {
-            guard let mono = Self.mono else { return }
             let caption = Motion.Graphics.Caption(
                 .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
-                    transcript: Self.transcript(mono),
+                    transcript: Self.transcript(Fonts.mono),
                     plate: .init(surface: .fill(Picture.Color(gray: 0, alpha: 0.9)), corners: .circular(8), ascent: 16, descent: 5, horizontal: 16, vertical: 12),
                     rise: 20
                 )
@@ -284,12 +264,11 @@
         }
 
         @Test func `a window's body stands under its bar, and a window hidden draws nothing`() throws {
-            guard let sans = Self.sans else { return }
             let window = Motion.Graphics.Window(
                 frame: Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310),
                 title: "~/film — zsh",
                 style: .init(
-                    title: Self.ink(sans, 14),
+                    title: Self.ink(Fonts.sans, 14),
                     corners: .circular(12),
                     bar: 30,
                     line: 2,
@@ -335,8 +314,7 @@
         }
 
         @Test func `a checklist's plate of glass is a pane over the grown plate, faded with the coat as it shows`() throws {
-            guard let sans = Self.sans else { return }
-            let checklist = Self.checklist(sans, surface: Self.glassy)
+            let checklist = Self.checklist(Fonts.sans, surface: Self.glassy)
             let rest = try #require(Self.pane(in: try Picture(checklist, at: .resting(3))))
             #expect(rest.glass == Self.glass && rest.thickness == 12 && rest.rim == 14)
             #expect(rest.region == .superellipse(.init(Picture.Plane.Rectangle(llx: 20, lly: 20, urx: 420, ury: 320), radius: 16, exponent: 5)))
@@ -352,8 +330,7 @@
         }
 
         @Test func `a readout's plate of glass is a pane over the plate, inside its turn and growth`() throws {
-            guard let sans = Self.sans else { return }
-            let readout = Self.readout(sans, value: 66, surface: Self.glassy)
+            let readout = Self.readout(Fonts.sans, value: 66, surface: Self.glassy)
             let pane = try #require(Self.pane(in: try Picture(readout, at: .resting)))
             #expect(pane.glass == Self.glass)
             guard case .rectangle(let frame, let radius) = pane.region else {
@@ -364,12 +341,11 @@
         }
 
         @Test func `a caption's plate of glass is a pane over its plate with its corners`() throws {
-            guard let mono = Self.mono else { return }
             let caption = Motion.Graphics.Caption(
                 .init(.label("note:", Picture.Color(hex: 0x00FFFF)), "declared here"),
                 at: Picture.Plane.Point<2>([500, 400]),
                 style: .init(
-                    transcript: Self.transcript(mono),
+                    transcript: Self.transcript(Fonts.mono),
                     plate: .init(surface: Self.glassy, corners: .capsule, ascent: 16, descent: 5, horizontal: 16, vertical: 12),
                     rise: 20
                 )
@@ -380,13 +356,12 @@
         }
 
         @Test func `a window's body of glass is a pane over its frame with its corners`() throws {
-            guard let sans = Self.sans else { return }
             let frame = Picture.Plane.Rectangle(llx: 10, lly: 10, urx: 410, ury: 310)
             let window = Motion.Graphics.Window(
                 frame: frame,
                 title: "~/film — zsh",
                 style: .init(
-                    title: Self.ink(sans, 14),
+                    title: Self.ink(Fonts.sans, 14),
                     corners: .continuous(14, exponent: 5),
                     bar: 30,
                     line: 2,
