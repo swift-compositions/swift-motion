@@ -13,7 +13,8 @@
             public var edge: Picture.Color
             public var fill: Picture.Color
             public var least: Double
-            public var glow: Glow
+            /// The fill's glow, its flash added at the moment's flash; nil for none.
+            public var glow: Motion.Graphics.Glow?
 
             /// The largest share of its size the box springs to.
             public var overshoot: Double
@@ -30,7 +31,7 @@
                 edge: Picture.Color,
                 fill: Picture.Color,
                 least: Double,
-                glow: Glow,
+                glow: Motion.Graphics.Glow?,
                 overshoot: Double,
                 tick: [Picture.Plane.Point<2>],
                 mark: Picture.Color,

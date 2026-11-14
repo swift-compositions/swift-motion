@@ -22,7 +22,7 @@
             )
         )
 
-        static func single(radius: Double = 20, travel: Timeline.Easing<Double> = .linear, glow: Motion.Graphics.Shockwave.Style.Glow? = nil) -> Motion.Graphics.Shockwave {
+        static func single(radius: Double = 20, travel: Timeline.Easing<Double> = .linear, glow: Motion.Graphics.Glow? = nil) -> Motion.Graphics.Shockwave {
             Motion.Graphics.Shockwave(
                 at: Picture.Plane.Point<2>([300, 200]),
                 style: .init(

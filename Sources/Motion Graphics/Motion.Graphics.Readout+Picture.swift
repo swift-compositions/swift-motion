@@ -34,7 +34,7 @@
             let body = plate.corners.path(frame)
             var content = Picture(
                 plate.surface.elements(frame, corners: plate.corners)
-                    + [.stroke(body, .solid(lit.faded(by: clamp(plate.edge + plate.heat * hot))), width: plate.pen, join: .round, cap: .round)]
+                    + [.stroke(body, .solid(lit.faded(by: clamp(plate.edge + style.heat.edge * hot))), width: plate.pen, join: .round, cap: .round)]
             )
             if moment.flash > 0 { content.elements.append(.fill(body, .solid(lit.faded(by: clamp(plate.flash * moment.flash))))) }
             content.elements.append(readout.opening.placed(.init(.solid(ink.color)), at: Picture.Plane.Point<2>([start, baseline])))
@@ -52,8 +52,8 @@
                 .group(Picture.Group([.fill(readout.path(of: moment.count), .solid(lit))], transform: .translation(x: x(counted), y: baseline))),
                 .fill(track(Swift.max((end - start) * share, bar.height)), .solid(lit)),
             ]
-            let strength = style.glow.rest + style.glow.heat * hot + style.glow.flash * moment.flash
-            content.elements.append(contentsOf: glowing.glow(deviation: style.glow.deviation, strength: Float(strength)).elements)
+            let lighted = style.glow.map { $0.applied(to: glowing, strength: $0.strength(flash: moment.flash, adding: style.heat.glow * hot)) } ?? glowing
+            content.elements.append(contentsOf: lighted.elements)
             let placed: Picture = [.group(Picture.Group(content, transform: readout.transform(at: moment)))]
             let opacity = Swift.min(moment.shown * style.fade, 1) * moment.light
             self = opacity < 1 ? [.layer(Picture.Layer(placed, opacity: Float(opacity)))] : placed

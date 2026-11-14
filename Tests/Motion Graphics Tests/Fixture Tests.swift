@@ -26,7 +26,7 @@
             said: ink(mono, 20, Picture.Color(gray: 0.8)),
             mark: ink(mono, 20, Picture.Color(hex: 0xFF0000)),
             leading: 32,
-            caret: .init(color: Picture.Color(hex: 0xFF0000), left: 1, right: 1, top: 17, bottom: 5, radius: 1, deviation: 4, strength: 0.5),
+            caret: .init(color: Picture.Color(hex: 0xFF0000), left: 1, right: 1, top: 17, bottom: 5, radius: 1, glow: .init(deviation: 4, strength: 0.5)),
             columns: 16
         )
 
@@ -86,7 +86,7 @@
                 edge: .white,
                 fill: Picture.Color(hex: 0x00FF00),
                 least: 0.1,
-                glow: .init(deviation: 6, rest: 0.25, flash: 0.75),
+                glow: .init(deviation: 6, strength: 0.25, flash: 0.75),
                 overshoot: 1.2,
                 tick: [Picture.Plane.Point<2>([-6, 0]), Picture.Plane.Point<2>([-2, 5]), Picture.Plane.Point<2>([6, -5])],
                 mark: .black,
@@ -131,9 +131,10 @@
                     ink: ink(sans, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],
                     finish: Picture.Color(hex: 0x0000FF),
-                    plate: .init(surface: .fill(.black), corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, heat: 0.5, flash: 0.5),
+                    plate: .init(surface: .fill(.black), corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, flash: 0.5),
                     bar: .init(top: 44, height: 4, track: Picture.Color(gray: 0.3)),
-                    glow: .init(deviation: 5, rest: 0.3, heat: 0.5, flash: 0.5),
+                    glow: .init(deviation: 5, strength: 0.3, flash: 0.5),
+                    heat: .init(edge: 0.5, glow: 0.5),
                     grow: 0.4,
                     fade: 3,
                     pivot: Picture.Plane.Point<2>([12, 10])
@@ -145,7 +146,7 @@
             let spinner = Motion.Graphics.Spinner(
                 at: Picture.Plane.Point<2>([100, 80]),
                 radius: 40,
-                style: .init(pen: 8, track: Picture.Color(gray: 1, alpha: 0.2), ink: Picture.Color(hex: 0xFF8800), glow: .init(deviation: 6, rest: 0.4, flash: 0.6))
+                style: .init(pen: 8, track: Picture.Color(gray: 1, alpha: 0.2), ink: Picture.Color(hex: 0xFF8800), glow: .init(deviation: 6, strength: 0.4, flash: 0.6))
             )
             drawn.append(("spinner resting", Picture(spinner, at: .resting)))
             drawn.append(("spinner turning", Picture(spinner, at: .init(shown: 0.7, turn: 0.3, filled: 0.4, flash: 0.5))))

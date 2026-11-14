@@ -18,7 +18,10 @@
 
             public var plate: Plate
             public var bar: Bar
-            public var glow: Glow
+            /// The glow of the count and the bar, brightened by heat and flash; nil for none.
+            public var glow: Motion.Graphics.Glow?
+            /// What full heat adds to the edge's alpha and the glow's strength.
+            public var heat: Heat
 
             /// The share of its size the readout lacks before it has grown in.
             public var grow: Double
@@ -39,7 +42,8 @@
                 finish: Picture.Color,
                 plate: Plate,
                 bar: Bar,
-                glow: Glow,
+                glow: Motion.Graphics.Glow?,
+                heat: Heat,
                 grow: Double,
                 fade: Double,
                 pivot: Picture.Plane.Point<2>,
@@ -51,6 +55,7 @@
                 self.plate = plate
                 self.bar = bar
                 self.glow = glow
+                self.heat = heat
                 self.grow = grow
                 self.fade = fade
                 self.pivot = pivot

@@ -10,9 +10,10 @@
             public var strength: Double
             public var width: Double
             public var slant: Double
-            public var glow: Glow
+            /// The lit band's glow; nil for none.
+            public var glow: Motion.Graphics.Glow?
 
-            public init(color: Picture.Color, strength: Double, width: Double, slant: Double, glow: Glow) {
+            public init(color: Picture.Color, strength: Double, width: Double, slant: Double, glow: Motion.Graphics.Glow?) {
                 self.color = color
                 self.strength = strength
                 self.width = width

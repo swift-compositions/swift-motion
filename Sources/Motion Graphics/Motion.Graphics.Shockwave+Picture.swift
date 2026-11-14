@@ -30,7 +30,7 @@
                 self = [.layer(Picture.Layer(strokes, operator: .lighter))]
                 return
             }
-            self = [.layer(Picture.Layer(strokes.glow(deviation: glow.deviation, strength: Float(glow.strength)), operator: .lighter))]
+            self = [.layer(Picture.Layer(glow.applied(to: strokes), operator: .lighter))]
         }
     }
 #endif

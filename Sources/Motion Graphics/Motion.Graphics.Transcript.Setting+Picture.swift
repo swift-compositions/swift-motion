@@ -47,7 +47,7 @@
                     ury: .init(baseline + caret.bottom)
                 )
                 let block: Picture = [.fill(Picture.Plane.Path(body, radius: .init(caret.radius)), .solid(caret.color.faded(by: Float(Swift.min(moment.caret, 1)))))]
-                content.append(contentsOf: block.glow(deviation: caret.deviation, strength: Float(caret.strength)).elements)
+                content.append(contentsOf: (caret.glow.map { $0.applied(to: block) } ?? block).elements)
             }
             let picture = Picture(content)
             self = moment.shown < 1 ? [.layer(Picture.Layer(picture, opacity: Float(moment.shown)))] : picture

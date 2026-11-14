@@ -13,9 +13,8 @@
             public var bottom: Double
             public var radius: Double
 
-            /// The glow's deviation and its strength, as `Picture.glow(deviation:strength:)` takes them.
-            public var deviation: Double
-            public var strength: Double
+            /// The caret's glow; nil for none.
+            public var glow: Motion.Graphics.Glow?
 
             public init(
                 color: Picture.Color,
@@ -24,8 +23,7 @@
                 top: Double,
                 bottom: Double,
                 radius: Double,
-                deviation: Double,
-                strength: Double
+                glow: Motion.Graphics.Glow?
             ) {
                 self.color = color
                 self.left = left
@@ -33,8 +31,7 @@
                 self.top = top
                 self.bottom = bottom
                 self.radius = radius
-                self.deviation = deviation
-                self.strength = strength
+                self.glow = glow
             }
         }
     }

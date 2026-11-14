@@ -14,9 +14,10 @@
             /// The arc's colour.
             public var ink: Picture.Color
 
-            public var glow: Glow
+            /// The arc's glow, its flash added at the moment's flash; nil for none.
+            public var glow: Motion.Graphics.Glow?
 
-            public init(pen: Double, track: Picture.Color, ink: Picture.Color, glow: Glow) {
+            public init(pen: Double, track: Picture.Color, ink: Picture.Color, glow: Motion.Graphics.Glow?) {
                 self.pen = pen
                 self.track = track
                 self.ink = ink

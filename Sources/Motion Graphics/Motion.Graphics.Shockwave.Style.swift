@@ -28,7 +28,7 @@
 
             /// The glow of the rings; nil for none, so a caller that glows a whole picture the rings are part of
             /// does not glow them twice.
-            public var glow: Glow?
+            public var glow: Motion.Graphics.Glow?
 
             public init(
                 radius: Double,
@@ -40,7 +40,7 @@
                 finish: Picture.Color,
                 fall: Cardinal,
                 trail: Trail,
-                glow: Glow?
+                glow: Motion.Graphics.Glow?
             ) {
                 self.radius = radius
                 self.reach = reach

@@ -17,7 +17,7 @@
                 said: ink(font, 20, Picture.Color(gray: 0.8)),
                 mark: ink(font, 20, Picture.Color(hex: 0xFF0000)),
                 leading: 32,
-                caret: .init(color: Picture.Color(hex: 0xFF0000), left: 1, right: 1, top: 17, bottom: 5, radius: 1, deviation: 4, strength: 0.5),
+                caret: .init(color: Picture.Color(hex: 0xFF0000), left: 1, right: 1, top: 17, bottom: 5, radius: 1, glow: .init(deviation: 4, strength: 0.5)),
                 columns: columns
             )
         }
@@ -54,9 +54,10 @@
                     ink: ink(font, 24, Picture.Color(gray: 0.7)),
                     accent: [.white, Picture.Color(hex: 0xFF0000)],
                     finish: Picture.Color(hex: 0x0000FF),
-                    plate: .init(surface: surface, corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, heat: 0.5, flash: 0.5),
+                    plate: .init(surface: surface, corners: .circular(10), height: 60, inset: 16, baseline: 34, pen: 2, edge: 0.2, flash: 0.5),
                     bar: .init(top: 44, height: 4, track: Picture.Color(gray: 0.3)),
-                    glow: .init(deviation: 5, rest: 0.3, heat: 0.5, flash: 0.5),
+                    glow: .init(deviation: 5, strength: 0.3, flash: 0.5),
+                    heat: .init(edge: 0.5, glow: 0.5),
                     grow: 0.4,
                     fade: 3,
                     pivot: Picture.Plane.Point<2>([12, 10])
@@ -72,7 +73,7 @@
                 edge: .white,
                 fill: Picture.Color(hex: 0x00FF00),
                 least: 0.1,
-                glow: .init(deviation: 6, rest: 0.25, flash: 0.75),
+                glow: .init(deviation: 6, strength: 0.25, flash: 0.75),
                 overshoot: 1.2,
                 tick: [Picture.Plane.Point<2>([-6, 0]), Picture.Plane.Point<2>([-2, 5]), Picture.Plane.Point<2>([6, -5])],
                 mark: .black,
@@ -190,6 +191,20 @@
             #expect(Picture(checklist, at: .hidden) == .empty)
             #expect(Picture(checklist, at: .resting(3)).elements.count == 2 + 1 + 1 + 3)
             #expect(Picture(checklist, at: .resting(3)) != Picture(checklist, at: .resting(2)))
+        }
+
+        @Test func `a glow is swift-picture's glow at its strength, its flash added by share, and there is none without one`() {
+            let glow = Motion.Graphics.Glow(deviation: 4, strength: 0.25, flash: 0.5)
+            #expect(glow.strength(flash: 0.5) == 0.5)
+            #expect(glow.strength(flash: 1, adding: 0.25) == 1)
+            let square: Picture = [.fill(Picture.Plane.Path(Picture.Plane.Rectangle(llx: 0, lly: 0, urx: 10, ury: 10)), .solid(.white))]
+            #expect(glow.applied(to: square) == square.glow(deviation: 4, strength: 0.25))
+            #expect(glow.applied(to: square, strength: 0.75, sparing: square) == square.glow(deviation: 4, strength: 0.75, sparing: square))
+            var style = Self.box()
+            style.glow = nil
+            let bare = Picture(Motion.Graphics.Checkbox(at: Picture.Plane.Point<2>([50, 50]), style: style), at: .init(box: 1, filled: 1, flash: 1))
+            #expect(bare.elements.count == 2)
+            #expect(bare.elements.allSatisfy { if case .layer = $0 { false } else { true } })
         }
 
         @Test func `a box springs, fills and is ticked by its moment, and draws nothing hidden`() {

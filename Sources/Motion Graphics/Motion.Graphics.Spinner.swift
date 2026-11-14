@@ -13,10 +13,15 @@
             public var radius: Double
             public var style: Style
 
-            public init(at centre: Picture.Plane.Point<2>, radius: Double, style: Style) {
+            /// What the glow spares, a picture in the spinner's space whose alpha can be soft; nil for the disc
+            /// inside the ring, so the ring glows outward and its middle stays as dark as what is behind.
+            public var mask: Picture?
+
+            public init(at centre: Picture.Plane.Point<2>, radius: Double, style: Style, mask: Picture? = nil) {
                 self.centre = centre
                 self.radius = radius
                 self.style = style
+                self.mask = mask
             }
         }
     }
@@ -33,6 +38,11 @@
             return Picture.Plane.Path(
                 Picture.Plane.Arc(center: centre, radius: .init(radius), startAngle: Radian(start), endAngle: Radian(start + 2 * Double.pi * filled))
             )
+        }
+
+        /// What the glow spares: the mask, or without one the disc inside the ring, white.
+        public var spared: Picture {
+            mask ?? [.fill(Picture.Plane.Path(Picture.Plane.Circle(center: centre, radius: .init(Swift.max(radius - style.pen / 2, 0)))), .solid(.white))]
         }
     }
 #endif
