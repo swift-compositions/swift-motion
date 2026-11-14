@@ -47,6 +47,7 @@ let package = Package(
         .package(url: "https://github.com/swift-compositions/swift-process.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-standard-library-extensions.git", branch: "main"),
         .package(url: "https://github.com/swift-ietf/swift-rfc-1951.git", branch: "main"),
+        .package(url: "https://github.com/swift-standards/swift-fips-180-4.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -60,6 +61,7 @@ let package = Package(
                 .product(name: "Cardinal", package: "swift-cardinal"),
                 .product(name: "Raster", package: "swift-raster"),
                 .product(name: "IEC 61966", package: "swift-iec-61966"),
+                .product(name: "FIPS 180-4", package: "swift-fips-180-4"),
             ]
         ),
         .target(
@@ -74,6 +76,8 @@ let package = Package(
                 .product(name: "Witnesses", package: "swift-witnesses", condition: .when(traits: ["Picture"])),
                 .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Picture"])),
                 .product(name: "RFC 1951", package: "swift-rfc-1951", condition: .when(traits: ["Picture"])),
+                .product(name: "FIPS 180-4", package: "swift-fips-180-4", condition: .when(traits: ["Picture"])),
+                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions", condition: .when(traits: ["Picture"])),
             ]
         ),
         .target(
@@ -162,6 +166,7 @@ let package = Package(
             name: "Motion Tests",
             dependencies: [
                 .target(name: "Motion"),
+                .product(name: "FIPS 180-4", package: "swift-fips-180-4"),
                 .product(name: "Rational", package: "swift-rational"),
                 .product(name: "SMPTE ST 12", package: "swift-smpte-st-12"),
             ]
@@ -191,6 +196,7 @@ let package = Package(
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Test Apple", package: "swift-test-apple"),
                 .product(name: "RFC 1951", package: "swift-rfc-1951"),
+                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
             ]
         ),
         .testTarget(

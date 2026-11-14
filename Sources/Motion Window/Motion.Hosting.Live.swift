@@ -268,3 +268,19 @@ extension Motion.Hosting.Live {
         }
     }
 }
+
+extension Motion.Hosting.Live {
+    /// The next `count` frames, drawn one after another by `frame(_:)` with the same change, as a take at the
+    /// host's rate. A frame that fails fails the take with its error, and the frames drawn before it are lost.
+    public func take(_ count: Cardinal, _ change: (Ordinal) -> Void = { _ in }) async throws(Error) -> Motion.Take {
+        var rasters: [Raster<Motion.Pixel>] = []
+        for _ in 0..<Int(clamping: count) {
+            rasters.append(try await frame(change))
+        }
+        do throws(Motion.Take.Error) {
+            return try Motion.Take(rasters, rate: rate)
+        } catch {
+            preconditionFailure("every frame of a host is captured at its one size")
+        }
+    }
+}
