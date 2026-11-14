@@ -108,7 +108,10 @@
             }
             #expect(layer.content.elements.count == 1)
             let glowing = Picture(Self.single(glow: .init(deviation: 8, strength: 1)), at: .init(spread: 0.4))
-            guard case .layer(let lit) = glowing.elements.first else { return }
+            guard case .layer(let lit) = glowing.elements.first else {
+                Issue.record("glowing rings add their light in a layer")
+                return
+            }
             #expect(lit.content.elements.count == 2)
         }
 

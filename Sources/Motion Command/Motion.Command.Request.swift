@@ -46,7 +46,7 @@
                 stills: [Ordinal] = [],
                 columns: Cardinal = 5,
                 reference: Swift.String = "",
-                step: Rational = Self.half,
+                step: Rational = .half,
                 pairs: Cardinal = 10,
                 width: Cardinal = 480,
                 font: Swift.String = "",
@@ -232,28 +232,11 @@
             }
         }
 
-        /// Seconds written as a whole number, a decimal or a fraction, never below zero: `1`, `0.5`, `1001/30000`.
+        /// Seconds written as a whole number, a decimal or a fraction, never below zero, as `Rational.init?(_:)`
+        /// reads them: `1`, `0.5`, `1001/30000`.
         @Sendable static func seconds(_ text: Swift.String) throws(Command_Primitive::Command.Error) -> Rational {
-            let parts = text.split(separator: ".", omittingEmptySubsequences: false)
-            if parts.count == 1, let exact = Rational(text), exact >= .zero { return exact }
-            guard parts.count == 2, !parts[0].isEmpty || !parts[1].isEmpty, (parts[0] + parts[1]).allSatisfy(\.isASCII),
-                let digits = Integer(Swift.String(parts[0] + parts[1])), !digits.isNegative,
-                (parts[0] + parts[1]).allSatisfy(\.isWholeNumber)
-            else { throw .validationFailed(reason: "no seconds \(text)") }
-            do throws(Rational.Error) {
-                return try Rational(numerator: digits, denominator: parts[1].reduce(Integer.one) { power, _ in power * 10 })
-            } catch {
-                throw .validationFailed(reason: "no seconds \(text)")
-            }
-        }
-
-        /// Half a second.
-        public static var half: Rational {
-            do throws(Rational.Error) {
-                return try Rational(numerator: 1, denominator: 2)
-            } catch {
-                preconditionFailure("two is not zero")
-            }
+            guard let seconds = Rational(text), seconds >= .zero else { throw .validationFailed(reason: "no seconds \(text)") }
+            return seconds
         }
 
         /// A scale: a decimal number above zero, such as `0.5`.

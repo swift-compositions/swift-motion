@@ -56,7 +56,10 @@
                 let unit = marquee.unit(row: Ordinal(UInt(index)))
                 #expect((starts.first ?? 1) <= 0)
                 #expect((starts.last ?? 0) + unit >= 1200)
-                guard case .group(let copy) = row.content.elements.first, case .shape(let shape) = copy.content.elements.first else { continue }
+                guard case .group(let copy) = row.content.elements.first, case .shape(let shape) = copy.content.elements.first else {
+                    Issue.record("a row's first copy is a shape in a group")
+                    continue
+                }
                 #expect((shape.stroke == nil) == (index % 2 == 0))
             }
         }

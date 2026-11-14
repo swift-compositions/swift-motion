@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     public import Picture
 
@@ -26,7 +27,7 @@
                 elements.append(contentsOf: moment.shown < 1 ? [.layer(Picture.Layer(Picture(whole), opacity: Float(moment.shown)))] : whole)
             }
             if moment.headed > 0, !checklist.heading.isEmpty {
-                let color = style.heading.ink.color.mixed(inSRGBTo: style.heading.toned, at: Swift.min(Swift.max(moment.toned, 0), 1))
+                let color = style.heading.ink.color.mixed(inSRGBTo: style.heading.toned, at: moment.toned.clamped(to: 0...1))
                 let point = Picture.Plane.Point<2>([layout.left - (1 - moment.headed) * style.heading.slide, layout.heading])
                 let placed = checklist.headed.placed(.init(.solid(color)), at: point)
                 elements.append(moment.headed < 1 ? .layer(Picture.Layer([placed], opacity: Float(moment.headed))) : placed)

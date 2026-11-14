@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     public import Picture
 
@@ -28,7 +29,7 @@
             let x = { (place: Int) in start + (place < glyphs.count ? glyphs[place].origin[0] : line.width) }
             let lit = style.lit(heat: moment.heat, finished: moment.finished)
             let hot = Swift.max(moment.heat, moment.finished)
-            let clamp = { (value: Double) in Float(Swift.min(Swift.max(value, 0), 1)) }
+            let clamp = { (value: Double) in Float(value.clamped(to: 0...1)) }
             var plate = style.plate
             plate.edge?.color = lit.faded(by: clamp(style.edge + style.heat.edge * hot))
             let body = plate.corners.path(frame)

@@ -150,7 +150,7 @@ extension Motion.Hosting.Live {
         } catch {
             throw .clock(error)
         }
-        window.contentView?.layer?.timeOffset = rate.start(of: Integer(Int(clamping: Cardinal(next)))).approximation(as: Double.self)
+        window.contentView?.layer?.timeOffset = Double(rate.start(of: Integer(Int(clamping: Cardinal(next)))))
         Motion.Hosting.Window.count += 1
         let number = Motion.Hosting.Window.count
         change(frame)

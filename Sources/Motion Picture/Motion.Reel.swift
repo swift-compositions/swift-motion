@@ -147,8 +147,8 @@
         /// The reel's frames whose center falls in a span of its time in seconds, from its start: the frames a
         /// layer of that lifetime is drawn on.
         public func positions(during span: Range<Rational>) -> [Ordinal] {
-            let first = Swift.max(rate.started(before: span.lowerBound - rate.period * Self.half), .zero)
-            let end = Swift.min(rate.started(before: span.upperBound - rate.period * Self.half), Integer(Int(clamping: frames)))
+            let first = Swift.max(rate.started(before: span.lowerBound - rate.period * .half), .zero)
+            let end = Swift.min(rate.started(before: span.upperBound - rate.period * .half), Integer(Int(clamping: frames)))
             guard first < end, let low = first.exactly(UInt.self), let high = end.exactly(UInt.self) else { return [] }
             return (low..<high).map { Ordinal($0) }
         }
@@ -161,15 +161,6 @@
         /// The same reel with only the layers whose keys are given, in the reel's order; with no keys, no layers.
         public func layered(_ keys: [Key]) -> Self {
             Self(self, width: width, height: height, layers: layers.filter { keys.contains($0.key) }, scale: scale)
-        }
-
-        /// One half.
-        static var half: Rational {
-            do throws(Rational.Error) {
-                return try Rational(numerator: 1, denominator: 2)
-            } catch {
-                preconditionFailure("two is not zero")
-            }
         }
 
         /// The picture of a frame of the reel: its part's picture of its own frame, with the picture of every

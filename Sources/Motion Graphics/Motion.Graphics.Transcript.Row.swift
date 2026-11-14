@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     import Motion
     import Picture
 
@@ -21,7 +22,7 @@
     extension Motion.Graphics.Transcript.Row {
         /// How many of the row's glyphs stand when a number of the line's glyphs do.
         func standing(_ count: Int) -> Int {
-            Swift.min(Swift.max(count - start, 0), paths.count)
+            (count - start).clamped(to: 0...paths.count)
         }
 
         /// The outline of the row's first glyphs: its text's path when all of them stand.

@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     public import Picture
 
@@ -90,7 +91,7 @@
         /// The accent at a heat and a finish: the heat's place among the accent's colours, each pair mixed as
         /// written, then mixed toward the finish by how finished it is.
         public func lit(heat: Double, finished: Double) -> Picture.Color {
-            let clamp = { (value: Double) in Swift.min(Swift.max(value, 0), 1) }
+            let clamp = { (value: Double) in value.clamped(to: 0...1) }
             guard let last = accent.indices.last else { return finish }
             let place = clamp(heat) * Double(last)
             let low = Swift.min(Int(place.rounded(.down)), last)

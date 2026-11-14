@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     public import Picture
 
@@ -69,7 +70,7 @@
                 let transform = Picture.Transform.translation(x: start + middle.x, y: baseline + middle.y + due * look.rise * style.ink.size)
                     .multiplied(by: .scale(Swift.max(1 + look.grow * due, 0), about: Picture.Plane.Point<2>([0.0, 0.0])))
                     .multiplied(by: .translation(x: -middle.x, y: -middle.y))
-                let opacity = Swift.min(Swift.max(look.fade * entered, look.floor, 0), 1)
+                let opacity = Swift.max(look.fade * entered, look.floor).clamped(to: 0...1)
                 letters.append(Letter(glyph: glyph, transform: transform, color: look.color ?? style.ink.color, opacity: opacity))
             }
             return letters

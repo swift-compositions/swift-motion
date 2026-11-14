@@ -40,7 +40,7 @@
             public init(
                 _ action: Action = .compare,
                 files: [Swift.String] = [],
-                step: Rational = Motion.Command.Request.half,
+                step: Rational = .half,
                 pairs: Cardinal = 10,
                 width: Cardinal = 480,
                 font: Swift.String = "",

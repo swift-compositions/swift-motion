@@ -224,9 +224,9 @@
             typealias Movies = Motion.Command.Movies
             let compare = try Movies.parse(["compare", "a.mp4", "b.mp4", "out", "--step", "1.5", "--pairs", "4", "--font", "f.ttf"])
             #expect(compare == Movies(.compare, files: ["a.mp4", "b.mp4", "out"], step: try Rational(numerator: 3, denominator: 2), pairs: 4, font: "f.ttf"))
-            let score = try Movies.parse(["score", "a.mp4", "s.mp3", "b.mp4", "--offset", "1001/30000", "--at", "1", "--gain", "0.5", "--fade-out", ".5"])
+            let score = try Movies.parse(["score", "a.mp4", "s.mp3", "b.mp4", "--offset", "1001/30000", "--at", "1", "--gain", "0.5", "--fade-out", "0.5"])
             #expect(score.offset == (try Rational(numerator: 1001, denominator: 30000)) && score.at == 1 && score.gain == 0.5)
-            #expect(score.fall == Request.half)
+            #expect(score.fall == .half)
             #expect(try Movies.parse(["reduce", "a.mp4", "b.mp4", "--height", "540"]).preset == .height540)
             #expect(throws: Command.Error.self) { try Movies.parse(["score", "a.mp4", "b.mp4"]) }
             #expect(throws: Command.Error.self) { try Movies.parse(["reduce", "a.mp4", "b.mp4", "--height", "600"]) }

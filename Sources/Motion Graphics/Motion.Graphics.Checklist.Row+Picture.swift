@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     public import Picture
 
@@ -15,7 +16,7 @@
             var elements = Picture(box, at: moment.box).elements
             if moment.named > 0 {
                 let point = Picture.Plane.Point<2>([box.place[0] + style.gap - (1 - moment.named) * style.slide, row.baseline])
-                elements.append(row.name.placed(.init(.solid(style.name.color.faded(by: Float(Swift.min(Swift.max(moment.named, 0), 1))))), at: point))
+                elements.append(row.name.placed(.init(.solid(style.name.color.faded(by: Float(moment.named.clamped(to: 0...1))))), at: point))
             }
             let typed = Motion.Graphics.standing(moment.tagged, of: row.typed.count)
             if typed > 0 {

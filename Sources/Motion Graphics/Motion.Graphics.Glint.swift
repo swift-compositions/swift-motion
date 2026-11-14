@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     import Numeric
     public import Picture
@@ -47,7 +48,7 @@
             guard moment.swept > 0, moment.swept < 1, moment.light > 0, style.width > 0, let middle = middle(at: moment) else { return nil }
             let way = direction
             let half = style.width / 2
-            let peak = style.color.faded(by: Float(Swift.min(Swift.max(style.strength * moment.light, 0), 1)))
+            let peak = style.color.faded(by: Float((style.strength * moment.light).clamped(to: 0...1)))
             let gradient = Picture.Gradient([
                 .init(offset: 0, color: style.color.faded(by: 0)),
                 .init(offset: 0.5, color: peak),

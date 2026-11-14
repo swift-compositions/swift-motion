@@ -1,4 +1,5 @@
 #if Graphics
+    import Standard_Library_Extensions
     public import Motion
     public import Picture
     import Timeline
@@ -41,7 +42,7 @@
             var light = 1.0
             while spread >= 0, echo <= Int(clamping: trail.count) {
                 if spread < 1 {
-                    let left = Swift.min(Swift.max(light * style.fall.progress(1 - spread, 1), 0), 1)
+                    let left = (light * style.fall.progress(1 - spread, 1)).clamped(to: 0...1)
                     rings.append(
                         Ring(
                             radius: style.radius + style.reach * style.travel.progress(spread, 1),

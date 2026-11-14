@@ -357,12 +357,7 @@ extension Motion.Encoding {
     /// A cue's level over its stretch: its gain, reached from silence over its fade in and left for silence
     /// over its fade out, two fades longer together than the stretch each cut to half of it.
     static func levels(of cue: Cue, lasting length: Rational, on track: AVCompositionTrack) throws(Motion.Encoding.Error) -> AVMutableAudioMixInputParameters {
-        let half: Rational
-        do throws(Rational.Error) {
-            half = try Rational(numerator: length.numerator, denominator: length.denominator * 2)
-        } catch {
-            preconditionFailure("a positive length halves")
-        }
+        let half = length * .half
         let long = cue.rise + cue.fall > length
         let rise = long ? Swift.min(cue.rise, half) : Swift.max(cue.rise, .zero)
         let fall = long ? Swift.min(cue.fall, half) : Swift.max(cue.fall, .zero)
