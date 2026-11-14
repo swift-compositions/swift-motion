@@ -20,14 +20,12 @@ let package = Package(
         .library(name: "Motion Take File", targets: ["Motion Take File"]),
         .library(name: "Motion Picture", targets: ["Motion Picture"]),
         .library(name: "Motion Command", targets: ["Motion Command"]),
-        .library(name: "Motion Graphics", targets: ["Motion Graphics"]),
         .library(name: "Motion Clock Shims", type: .dynamic, targets: ["Motion Clock Shims"]),
     ],
     traits: [
         .trait(name: "Picture", description: "Motion Picture: frames and reels drawn from pictures of swift-picture"),
         .trait(name: "File", description: "Motion Take File: takes kept in files through swift-file-system"),
         .trait(name: "Command", description: "Motion Command: a reel's proofs written from the command line", enabledTraits: ["Picture", "File"]),
-        .trait(name: "Graphics", description: "Motion Graphics: on-screen components drawn as pictures of swift-picture", enabledTraits: ["Picture"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swift-atoms/swift-rate.git", branch: "main"),
@@ -36,11 +34,9 @@ let package = Package(
         .package(url: "https://github.com/swift-standards/swift-itu-t-h-273.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-smpte-st-12.git", branch: "main"),
         .package(url: "https://github.com/swift-atoms/swift-cardinal.git", branch: "main"),
-        .package(url: "https://github.com/swift-atoms/swift-formatter.git", branch: "main", traits: ["Number"]),
         .package(url: "https://github.com/swift-molecules/swift-raster.git", branch: "main", traits: ["Geometry"]),
         .package(url: "https://github.com/swift-iec/swift-iec-61966.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-picture.git", branch: "main", traits: ["PNG", "Store"]),
-        .package(url: "https://github.com/swift-iso/swift-iso-14496-22.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-witnesses.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-test-apple.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-threads.git", branch: "main"),
@@ -112,17 +108,6 @@ let package = Package(
                 .product(name: "Command", package: "swift-arguments", condition: .when(traits: ["Command"])),
                 .product(name: "File System", package: "swift-file-system", condition: .when(traits: ["Command"])),
                 .product(name: "Process", package: "swift-process", condition: .when(traits: ["Command"])),
-            ]
-        ),
-        .target(
-            name: "Motion Graphics",
-            dependencies: [
-                .target(name: "Motion"),
-                .product(name: "Formatter", package: "swift-formatter", condition: .when(traits: ["Graphics"])),
-                .product(name: "Numeric", package: "swift-numeric", condition: .when(traits: ["Graphics"])),
-                .product(name: "Picture", package: "swift-picture", condition: .when(traits: ["Graphics"])),
-                .product(name: "Timeline", package: "swift-timeline", condition: .when(traits: ["Graphics"])),
-                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions", condition: .when(traits: ["Graphics"])),
             ]
         ),
         .target(
@@ -239,17 +224,6 @@ let package = Package(
                 .product(name: "Picture", package: "swift-picture"),
                 .product(name: "Command", package: "swift-arguments"),
                 .product(name: "File System", package: "swift-file-system"),
-            ]
-        ),
-        .testTarget(
-            name: "Motion Graphics Tests",
-            dependencies: [
-                .target(name: "Motion"),
-                .target(name: "Motion Graphics"),
-                .product(name: "ISO 14496-22 Test Support", package: "swift-iso-14496-22"),
-                .product(name: "Picture", package: "swift-picture"),
-                .product(name: "Timeline", package: "swift-timeline"),
-                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
             ]
         ),
         .testTarget(
