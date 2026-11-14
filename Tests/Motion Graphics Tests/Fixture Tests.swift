@@ -146,7 +146,11 @@
             let spinner = Motion.Graphics.Spinner(
                 at: Picture.Plane.Point<2>([100, 80]),
                 radius: 40,
-                style: .init(pen: 8, track: Picture.Color(gray: 1, alpha: 0.2), ink: Picture.Color(hex: 0xFF8800), glow: .init(deviation: 6, strength: 0.4, flash: 0.6))
+                style: .init(
+                pen: 8,
+                track: .init(color: Picture.Color(gray: 1, alpha: 0.2)),
+                arc: .init(color: Picture.Color(hex: 0xFF8800), glow: .init(deviation: 6, strength: 0.4, flash: 0.6))
+            )
             )
             drawn.append(("spinner resting", Picture(spinner, at: .resting)))
             drawn.append(("spinner turning", Picture(spinner, at: .init(shown: 0.7, turn: 0.3, filled: 0.4, flash: 0.5))))
