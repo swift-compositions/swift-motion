@@ -96,8 +96,8 @@
             let place = clamp(heat) * Double(last)
             let low = Swift.min(Int(place.rounded(.down)), last)
             let high = Swift.min(low + 1, last)
-            let warm = accent[low].mixed(inSRGBTo: accent[high], at: place - Double(low))
-            return warm.mixed(inSRGBTo: finish, at: clamp(finished))
+            let warm = accent[low].interpolated(inSRGBTo: accent[high], at: place - Double(low))
+            return warm.interpolated(inSRGBTo: finish, at: clamp(finished))
         }
     }
 #endif

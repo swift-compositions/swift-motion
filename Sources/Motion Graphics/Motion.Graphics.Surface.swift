@@ -14,8 +14,16 @@
             case frosted(deviation: Double, coat: Picture.Color)
 
             /// A pane of a glass, `thickness` thick, its top falling to the plate's outline across a rim `rim`
-            /// wide, as `Picture.Glass.Pane` lays it.
-            case glass(Picture.Glass, thickness: Double, rim: Double)
+            /// wide, the picture behind standing `distance` below it, mirroring its `surroundings` and casting its
+            /// `shadows`, as `Picture.Glass.Pane` lays it.
+            case glass(
+                Picture.Glass,
+                thickness: Double,
+                rim: Double,
+                distance: Double = 1,
+                surroundings: Picture.Glass.Surroundings? = nil,
+                shadows: [Picture.Glass.Shadow] = []
+            )
         }
     }
 
@@ -27,11 +35,26 @@
             switch self {
             case .fill(let color):
                 return color.alpha > 0 ? [.fill(corners.path(rectangle), .solid(color))] : []
+
             case .frosted(let deviation, let coat):
                 let glass = Picture.Glass(tint: coat, frost: deviation)
                 return [.pane(Picture.Glass.Pane(corners.region(rectangle), glass: glass, thickness: 0, rim: 0))]
-            case .glass(let glass, let thickness, let rim):
-                return [.pane(Picture.Glass.Pane(corners.region(rectangle), glass: glass, thickness: thickness, rim: rim))]
+
+            case .glass(let glass, let thickness, let rim, let distance, let surroundings, let shadows):
+                let region = corners.region(rectangle)
+                return [
+                    .pane(
+                        Picture.Glass.Pane(
+                            region,
+                            glass: glass,
+                            thickness: thickness,
+                            rim: rim,
+                            distance: distance,
+                            surroundings: surroundings,
+                            shadows: shadows
+                        )
+                    )
+                ]
             }
         }
     }

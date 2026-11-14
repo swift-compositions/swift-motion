@@ -23,12 +23,12 @@
         }
 
         static let glass = Picture.Glass(
+            .body(.init(index: 1.5)),
             tint: Picture.Color(gray: 1, alpha: 0.1),
-            refraction: .init(index: 1.5, distance: 10),
             frost: 4
         )
 
-        static let glassy = Motion.Graphics.Surface.glass(glass, thickness: 12, rim: 14)
+        static let glassy = Motion.Graphics.Surface.glass(glass, thickness: 12, rim: 14, distance: 10)
 
         /// The first pane anywhere in a picture, inside groups and layers.
         static func pane(in picture: Picture) -> Picture.Glass.Pane? {
@@ -302,7 +302,7 @@
             let style = try Self.readout(Fonts.sans).style
             #expect(style.lit(heat: 0, finished: 0) == .white)
             #expect(style.lit(heat: 1, finished: 0) == Picture.Color(hex: 0xFF0000))
-            #expect(style.lit(heat: 0.5, finished: 0) == Picture.Color.white.mixed(inSRGBTo: Picture.Color(hex: 0xFF0000), at: 0.5))
+            #expect(style.lit(heat: 0.5, finished: 0) == Picture.Color.white.interpolated(inSRGBTo: Picture.Color(hex: 0xFF0000), at: 0.5))
             #expect(style.lit(heat: 0.5, finished: 1) == Picture.Color(hex: 0x0000FF))
         }
 
@@ -409,7 +409,7 @@
             )
             #expect(
                 Self.glassy.elements(frame, corners: corners)
-                    == [.pane(Picture.Glass.Pane(corners.region(frame), glass: Self.glass, thickness: 12, rim: 14))]
+                    == [.pane(Picture.Glass.Pane(corners.region(frame), glass: Self.glass, thickness: 12, rim: 14, distance: 10))]
             )
         }
 

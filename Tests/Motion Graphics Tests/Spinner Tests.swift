@@ -48,7 +48,7 @@
         }
 
         @Test func `its glow spares a mask of the caller's, and at a strength of 0 there is no glow layer`() throws {
-            let soft: Picture = [.glow(.white, center: Self.center, radius: 36)]
+            let soft: Picture = [.falloff(.white, center: Self.center, radius: 36)]
             let style = Self.spinner.style
             let masked = Motion.Graphics.Spinner(at: Self.center, radius: 40, style: style, mask: soft)
             let picture = Picture(masked, at: .init(filled: 0.5))

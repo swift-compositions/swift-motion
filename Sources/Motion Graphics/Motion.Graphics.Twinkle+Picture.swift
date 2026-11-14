@@ -22,11 +22,11 @@
                 let (c, s) = (Double.cos(angle), Double.sin(angle))
                 let (long, thin) = (ray.length * shine, ray.width * shine)
                 let drawn = Picture.Transform(rows: [[long * c, -thin * s, x], [long * s, thin * c, y]])
-                return .group(Picture.Group([.glow(style.color.faded(by: Float(shine)), center: origin, radius: 1)], transform: drawn))
+                return .group(Picture.Group([.falloff(style.color.faded(by: Float(shine)), center: origin, radius: 1)], transform: drawn))
             }
             let core = style.base + style.radius * shine
             if core > 0 {
-                lights.append(.glow(style.core.faded(by: Float(shine)), center: twinkle.place, radius: core))
+                lights.append(.falloff(style.core.faded(by: Float(shine)), center: twinkle.place, radius: core))
             }
             self = [.layer(Picture.Layer(Picture(lights), operator: .lighter))]
         }

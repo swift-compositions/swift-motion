@@ -83,7 +83,7 @@
             }
             #expect(heading.opacity == 0.5)
             #expect(placed.transform.applied(to: Vector([0.0, 0.0]))[0] == 40 - 0.5 * style.heading.slide)
-            #expect(Self.shapes(placed.content).first?.fill == .init(.solid(style.heading.ink.color.mixed(inSRGBTo: style.heading.toned, at: 1))))
+            #expect(Self.shapes(placed.content).first?.fill == .init(.solid(style.heading.ink.color.interpolated(inSRGBTo: style.heading.toned, at: 1))))
             moment = .hidden
             moment.stated = 0.25
             guard case .group(let statement) = Picture(checklist, at: moment).elements.first, case .group(let text) = statement.content.elements.first else {

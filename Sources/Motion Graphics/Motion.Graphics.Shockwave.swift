@@ -49,7 +49,7 @@
                             pen: style.pen + (style.least - style.pen) * spread,
                             softness: style.soft + (style.softened - style.soft) * spread,
                             light: left,
-                            color: style.color.mixed(inSRGBTo: style.finish, at: spread).faded(by: Float(left))
+                            color: style.color.interpolated(inSRGBTo: style.finish, at: spread).faded(by: Float(left))
                         )
                     )
                 }
