@@ -14,7 +14,7 @@
         public struct Part: Sendable {
             public let key: Key
             public let frames: Cardinal
-            let drawing: Drawing
+            let drawing: Motion.Reel<Key>.Drawing
 
             /// A part whose drawing is built the first time one of its frames is drawn.
             public init(

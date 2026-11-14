@@ -3,10 +3,10 @@
     public import Picture
     import Synchronization
 
-    extension Motion.Reel.Part {
-        /// What draws a part's frames, built once, by the first frame drawn, on whichever thread draws it; a
-        /// thread that asks while it is being built waits for it. A building that fails is not tried again: every
-        /// frame of the part fails as it did.
+    extension Motion.Reel {
+        /// What draws a part's or a layer's frames, built once, by the first frame drawn, on whichever thread draws
+        /// it; a thread that asks while it is being built waits for it. A building that fails is not tried again:
+        /// every frame it draws fails as it did.
         final class Drawing: Sendable {
             let state: Mutex<State>
 
@@ -42,6 +42,18 @@
                     }
                 }
                 return try result.get()
+            }
+        }
+    }
+
+    extension Motion.Reel.Drawing {
+        /// Whether the drawing could not be built, building it now if it was not before.
+        func failed() -> Bool {
+            do throws(Typesetting.Error) {
+                _ = try drawn()
+                return false
+            } catch {
+                return true
             }
         }
     }

@@ -99,7 +99,7 @@
             #expect(try reel.picture(at: 3) == plain.picture(at: 3))
             #expect(try reel.picture(at: 7) == plain.picture(at: 7))
             var expected = try plain.picture(at: 5)
-            expected.elements.append(contentsOf: Self.layer(at: .ntsc).timeline.content(Reel.Frame(position: 5, time: Rate.ntsc.centre(of: 5))).elements)
+            expected.elements.append(contentsOf: try Self.layer(at: .ntsc).picture(Reel.Frame(position: 5, time: Rate.ntsc.centre(of: 5))).elements)
             #expect(try reel.picture(at: 5) == expected)
             #expect(try reel.picture(at: 10) == .empty)
         }
@@ -307,6 +307,49 @@
                 try await reel.prints(Reel.Proof(stills: [3]))
             }
             #expect(reel.failure(.building(.size, at: 1), of: ["broken"]) == .building("broken", .size))
+            #expect(built.withLock { $0 } == 1)
+        }
+
+        @Test func `a layer built on demand is built once, by the first frame it is laid over, and draws as one drawn at once`() async throws {
+            let built = Mutex(0)
+            let ready = Self.layer(at: .ntsc)
+            let later = Reel.Layer("bar", over: ready.lifetime) {
+                built.withLock { $0 += 1 }
+                return { frame in
+                    do throws(Reel.Error) {
+                        return try ready.picture(frame)
+                    } catch {
+                        return .empty
+                    }
+                }
+            }
+            let reel = Reel(width: Self.width, height: Self.height, rate: .ntsc, over: Picture.Color(gray: 0.5), parts: Self.parts, layers: [later])
+            #expect(reel.positions(ofLayer: "bar") == [4, 5, 6])
+            _ = try reel.picture(at: 2)
+            #expect(built.withLock { $0 } == 0)
+            let expected = try await Self.reel(layered: true).hosting(workers: 3).rasters(reel.positions())
+            let frames = try await reel.hosting(workers: 3).rasters(reel.positions())
+            #expect(frames == expected)
+            #expect(built.withLock { $0 } == 1)
+        }
+
+        @Test func `a layer whose building fails fails the frames it is laid over with its key, and no other frame`() async throws {
+            let built = Mutex(0)
+            let failing = Reel.Layer("words", over: Rate.ntsc.start(of: 4)..<Rate.ntsc.start(of: 6)) { () throws(Typesetting.Error) in
+                built.withLock { $0 += 1 }
+                throw .size
+            }
+            let reel = Reel(width: Self.width, height: Self.height, rate: .ntsc, parts: Self.parts, layers: [Self.layer(at: .ntsc), failing])
+            #expect(try reel.picture(at: 3) != .empty)
+            #expect(try reel.picture(at: 6) != .empty)
+            #expect(built.withLock { $0 } == 0)
+            #expect(throws: Reel.Error.building("words", .size)) { try reel.picture(at: 4) }
+            #expect(throws: Reel.Error.building("words", .size)) { try reel.picture(at: 5) }
+            await #expect(throws: Motion.Hosting.Picture.Frames.Error.building(.size, at: 1)) {
+                try await reel.hosting(["b"], workers: 1).rasters([1])
+            }
+            #expect(reel.failure(.building(.size, at: 1), of: ["b"]) == .building("words", .size))
+            #expect(reel.failure(.building(.size, at: 4)) == .building("words", .size))
             #expect(built.withLock { $0 } == 1)
         }
     }

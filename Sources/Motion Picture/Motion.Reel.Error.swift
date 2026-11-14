@@ -6,7 +6,7 @@
     extension Motion.Reel {
         /// Why a frame of the reel was not drawn or a proof was not printed.
         public enum Error: Swift.Error, Sendable, Equatable {
-            /// The drawing of the part with this key could not be built: its words did not set.
+            /// The drawing of the part or the layer with this key could not be built: its words did not set.
             case building(Key, Typesetting.Error)
 
             /// A sheet or still asked for a frame beyond the frames printed.

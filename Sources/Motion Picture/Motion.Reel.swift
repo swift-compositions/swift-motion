@@ -155,7 +155,7 @@
 
         /// The reel's frames that the layers with this key are drawn on, in order, each once.
         public func positions(ofLayer key: Key) -> [Ordinal] {
-            Swift.Array(Set(layers.filter { $0.key == key }.flatMap { positions(during: $0.timeline.lifetime) })).sorted()
+            Swift.Array(Set(layers.filter { $0.key == key }.flatMap { positions(during: $0.lifetime) })).sorted()
         }
 
         /// The same reel with only the layers whose keys are given, in the reel's order; with no keys, no layers.
@@ -165,13 +165,14 @@
 
         /// The picture of a frame of the reel: its part's picture of its own frame, with the picture of every
         /// layer alive at the frame's center laid over it in the order of the layers. From `frames` on it is
-        /// empty. It fails with `.building` of the part's key when the part's drawing could not be built.
+        /// empty. It fails with `.building` of the part's key when the part's drawing could not be built, and
+        /// otherwise of the first such layer's key.
         public func picture(at position: Ordinal) throws(Error) -> Picture::Picture {
             guard let place = place(of: position) else { return .empty }
             do throws(Typesetting.Error) {
                 return try picture(at: position, in: place)
             } catch {
-                throw .building(place.key, error)
+                throw .building(key(failing: position, in: place), error)
             }
         }
 
@@ -181,10 +182,20 @@
             var picture = try part.drawing.drawn()(Frame(position: place.frame, time: rate.centre(of: Integer(Int(bitPattern: place.frame)))))
             let time = rate.centre(of: Integer(Int(bitPattern: position)))
             let frame = Frame(position: position, time: time)
-            for layer in layers where layer.timeline.alive(at: time) {
-                picture.elements.append(contentsOf: layer.timeline.content(frame).elements)
+            for layer in layers where layer.alive(at: time) {
+                picture.elements.append(contentsOf: try layer.drawing.drawn()(frame).elements)
             }
             return scaled(picture)
+        }
+
+        /// The key of what failed to build in a frame of the reel at its place: the part's when its drawing
+        /// failed, and otherwise the first layer's alive at the frame's center whose drawing failed. A building
+        /// is tried once, so asking again builds nothing.
+        func key(failing position: Ordinal, in place: Place) -> Key {
+            let part = parts[Int(bitPattern: place.part)]
+            guard !part.drawing.failed() else { return place.key }
+            let time = rate.centre(of: Integer(Int(bitPattern: position)))
+            return layers.first { $0.alive(at: time) && $0.drawing.failed() }?.key ?? place.key
         }
 
         /// The reel's frames to draw several at a time: the frame at position `i` is the `i`th of
@@ -218,15 +229,16 @@
             return place < chosen.count ? chosen[place] : nil
         }
 
-        /// The reel's failure for a failure of its frames drawn as `hosting(keys)` draws them: a part whose
-        /// drawing could not be built is named by its key, and any other failure is `.frames` of it unchanged, a
-        /// renderer's error with its position and, for a drawing's own failure, its reason.
+        /// The reel's failure for a failure of its frames drawn as `hosting(keys)` draws them: a part or a layer
+        /// whose drawing could not be built is named by its key, as `picture(at:)` names it, and any other
+        /// failure is `.frames` of it unchanged, a renderer's error with its position and, for a drawing's own
+        /// failure, its reason.
         public func failure(_ error: Motion.Hosting.Picture.Frames.Error, of keys: [Key]? = nil) -> Motion.Reel<Key>.Error {
             guard case .building(let failure, at: let position) = error,
                 let shown = self.position(of: position, among: keys.map { positions(of: $0) }),
                 let place = place(of: shown)
             else { return .frames(error) }
-            return .building(place.key, failure)
+            return .building(key(failing: shown, in: place), failure)
         }
     }
 
